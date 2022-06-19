@@ -1,8 +1,8 @@
 # antizapret-vpn-docker
-Easy to start docker container with antizapret-vpn for selfhosting.
+Easy-to-start docker container with antizapret-vpn for selfhosting.
 
 ## About
-This is original LXD image converted to docker. 
+Docker image converted from original LXD image.
 
 ## Installation
 0. Install docker
@@ -18,15 +18,15 @@ This is original LXD image converted to docker.
     ./build.sh
     docker-compose up -d
     ```
-2. Download configuration file for your openvpn client from `client_keys` folder.
-    There will be two files: antizapret-client-tcp.ovpn, antizapret-client-udp.ovpn
-    You can the one you preffer most.
+2. Download configuration file for your openvpn client from `client_keys` folder. 
+There will be udp and tcp versions of the config. For better performance use upd.
+Tcp version will be better for unstable conditions.
 
 ## Keys menagment
 Server keys are stored in easyrsa3/pki/ folder and client keys are copied to client_keys/. 
-Keys are persistent betwen container and host restarts.
+Keys are persistent between container and host restarts.
 
-To generate new keys just remove files and start container again:
+To generate new keys remove files and start container again:
 ```shell
 docker-compose down
 rm -rf easyrsa3/pki/
