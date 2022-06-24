@@ -2,6 +2,7 @@ version: '2.4'
 services:
   antizapret-vpn:
     image: xtrime/antizapret-vpn:latest
+    build: ./
     container_name: antizapret-vpn
     restart: unless-stopped
     ports:
@@ -10,7 +11,6 @@ services:
     volumes:
       - ./client_keys/:/root/easy-rsa-ipsec/CLIENT_KEY/
       - ./easyrsa3/:/root/easy-rsa-ipsec/easyrsa3/
-    entrypoint: bash -c '/root/easy-rsa-ipsec/generate.sh && /usr/sbin/init'
     privileged: true
     logging:
       driver: "json-file"
