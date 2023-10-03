@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+echo "nameserver 1.1.1.1" >> /etc/resolv.conf
+
 if [[ ! -f /root/easy-rsa-ipsec/easyrsa3/easyrsa ]]
 # We need to  easyrsa3/pki folder to be persistent.
 # But we cant just symlink it, because easyrsa will try to remove it and crash during key regeneration.
