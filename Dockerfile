@@ -22,7 +22,7 @@ RUN cd /root/antizapret/ \
     && sed -i -E "s/(CHARSET=UTF-8 idn)/\1 --no-tld | grep -Fv 'xn--'/g" /root/antizapret/parse.sh \
     # fix apple.com \
     # https://ntc.party/t/129/372
-    && echo -e "\n\
+    && echo "\n\
 -- Resolve Apple \n\
 policy.add(\n\
     policy.suffix(\n\
