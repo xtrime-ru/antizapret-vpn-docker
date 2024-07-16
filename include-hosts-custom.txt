@@ -5,3 +5,5 @@ cdninstagram.com
 fb.com
 messenger.com
 theins.ru
+youtube.com
+googlevideo.com

@@ -15,6 +15,7 @@ RUN wget https://secure.nic.cz/files/knot-resolver/knot-resolver-release.deb --n
     && apt upgrade -y -o Dpkg::Options::="--force-confold" \
     && apt autoremove -y && apt clean
 
+ADD patches/ /tmp/patches
 RUN cd /root/antizapret/ \
     && git pull \
     # fix invalid domains
@@ -22,17 +23,8 @@ RUN cd /root/antizapret/ \
     && sed -i -E "s/(CHARSET=UTF-8 idn)/\1 --no-tld | grep -Fv 'xn--'/g" /root/antizapret/parse.sh \
     # fix apple.com \
     # https://ntc.party/t/129/372
-    && echo "\n\
--- Resolve Apple \n\
-policy.add(\n\
-    policy.suffix(\n\
-        policy.FORWARD(\n\
-            {'77.88.8.8'}\n\
-        ),\n\
-        policy.todnames({'apple.com.', 'mzstatic.com.', 'akamaiedge.net.', 'edgekey.net.', 'aaplimg.com.'})\n\
-    )\n\
-)\
-    " >> /etc/knot-resolver/kresd.conf
+    && cat /tmp/patches/kresd.conf >> /etc/knot-resolver/kresd.conf \
+    && rm -rf /tmp/patches
 
 COPY ./init.sh /
 ENTRYPOINT ["/init.sh"]

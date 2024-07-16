@@ -1,4 +1,3 @@
-version: '2.4'
 services:
   antizapret-vpn:
     image: xtrime/antizapret-vpn:latest
