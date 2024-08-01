@@ -5,5 +5,7 @@ cdninstagram.com
 fb.com
 messenger.com
 theins.ru
+openai.com
+chatgpt.com
 youtube.com
 googlevideo.com
