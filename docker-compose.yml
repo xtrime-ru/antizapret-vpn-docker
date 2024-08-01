@@ -10,6 +10,8 @@ services:
     volumes:
       - ./client_keys/:/root/easy-rsa-ipsec/CLIENT_KEY/
       - ./easyrsa3/:/root/easy-rsa-ipsec/easyrsa3/
+      - ./result/:/root/antizapret/result/
+      - ./temp/:/root/antizapret/temp/
       # Some domains blocked unofficially: https://ntc.party/t/vpn/129/127
       - ./config/include-hosts-custom.txt:/root/antizapret/config/include-hosts-custom.txt
       - ./config/exclude-hosts-custom.txt:/root/antizapret/config/exclude-hosts-custom.txt

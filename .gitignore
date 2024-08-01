@@ -1,3 +1,5 @@
 .*
 easyrsa3/
 client_keys/
+result/
+temp/
