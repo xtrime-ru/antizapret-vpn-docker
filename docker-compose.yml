@@ -11,10 +11,11 @@ services:
       - ./client_keys/:/root/easy-rsa-ipsec/CLIENT_KEY/
       - ./easyrsa3/:/root/easy-rsa-ipsec/easyrsa3/
       # Some domains blocked unofficially: https://ntc.party/t/vpn/129/127
-      - ./include-hosts-custom.txt:/root/antizapret/config/include-hosts-custom.txt
-      - ./exclude-hosts-custom.txt:/root/antizapret/config/exclude-hosts-custom.txt
-      - ./include-ips-custom.txt:/root/antizapret/config/include-ips-custom.txt
-      - ./exclude-ips-custom.txt:/root/antizapret/config/exclude-ips-custom.txt
+      - ./config/include-hosts-custom.txt:/root/antizapret/config/include-hosts-custom.txt
+      - ./config/exclude-hosts-custom.txt:/root/antizapret/config/exclude-hosts-custom.txt
+      - ./config/exclude-hosts-dist.txt:/root/antizapret/config/exclude-hosts-dist.txt
+      - ./config/include-ips-custom.txt:/root/antizapret/config/include-ips-custom.txt
+      - ./config/exclude-ips-custom.txt:/root/antizapret/config/exclude-ips-custom.txt
     privileged: true
     logging:
       driver: "json-file"
