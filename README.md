@@ -1,8 +1,14 @@
-# antizapret-vpn-docker
-Easy-to-start docker container with antizapret-vpn for selfhosting.
+# Antizapret VPN server
+Easy-to-start docker container with antizapret vpn server for selfhosting.
 
 ## About
-Docker image converted from original LXD image.
+Docker image converted from original Atnizapret LXD image. 
+Additional fixes were made:
+ - [Apple DNS fix](https://github.com/xtrime-ru/antizapret-vpn-docker/blob/master/patches/kresd.conf#L3)
+ - [RU domains excluded from antizapret](https://github.com/xtrime-ru/antizapret-vpn-docker/blob/master/patches/kresd.conf#L13): 
+ - [IDN domains fix](https://github.com/xtrime-ru/antizapret-vpn-docker/blob/master/patches/fix.sh#L5)
+ - [Additional domains list](https://github.com/xtrime-ru/antizapret-vpn-docker/blob/master/config/include-hosts-custom.txt)
+
 
 ## Installation
 0. Install docker
