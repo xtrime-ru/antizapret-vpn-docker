@@ -21,18 +21,34 @@ Docker image converted from original LXD image.
 There will be udp and tcp versions of the config. For better performance use upd.
 Tcp version will be better for unstable conditions.
 
+## Update:
+ 
+```shell
+git pull 
+docker compose build
+docker compose up -d
+```
+
 ## Keys menagment
 Server keys are stored in easyrsa3/pki/ folder and client keys are copied to client_keys/. 
 Keys are persistent between container and host restarts.
 
 To generate new keys remove files and start container again:
 ```shell
-docker-compose down
+docker compose down
 rm -rf easyrsa3/pki/
 rm -rf client_keys/
-docker-compose up -d
+docker compose up -d
 ```
+
+## Additional domains
+Any domain and/or IP can be added or excluded from list with [config files](https://github.com/xtrime-ru/antizapret-vpn-docker/tree/master/config)
+This lists are added/excluded to/from automatically generated lists of domains and IP's. 
+To apply changes you need to reboot container after changing this files.
+
 
 ## Links
 - Link to original project website: https://antizapret.prostovpn.org
-- Repository: https://bitbucket.org/anticensority/antizapret-vpn-container/src/master/
+- Repositories:
+    - https://bitbucket.org/anticensority/antizapret-vpn-container/src/master/
+    - https://bitbucket.org/anticensority/antizapret-pac-generator-light/src/master/
