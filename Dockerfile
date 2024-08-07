@@ -67,7 +67,8 @@ RUN apt install -y openvpn-dco-dkms \
 ADD patches/ /root/antizapret/patches
 RUN cp -rf /root/antizapret/patches/etc/openvpn/server/*.conf /etc/openvpn/server/ \
     && cp -rf /root/antizapret/patches/root/antizapret/process.sh /root/antizapret/process.sh \
-    && cp -rf /root/antizapret/patches/root/dnsmap/*.sh /root/dnsmap/ \
+    && cp -rf /root/antizapret/patches/root/dnsmap/* /root/dnsmap/ \
+    && cp -rf /root/antizapret/patches/etc/knot-resolver/kresd.conf /etc/knot-resolver/kresd.conf \
     && cp -rf /root/antizapret/patches/root/easy-rsa-ipsec/templates/*.conf /root/easy-rsa-ipsec/templates/ \
 	&& cd /root/antizapret/ \
     && chmod +x patches/*.sh \
