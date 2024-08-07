@@ -23,7 +23,8 @@ Additional fixes were made:
     ```shell
     git clone https://github.com/xtrime-ru/antizapret-vpn-docker.git antizapret
     cd antizapret
-    docker compose up -d --build
+    docker compose pull
+    docker compose up -d
     ```
 2. Download configuration file for your openvpn client from `client_keys` folder. 
 There will be udp and tcp versions of the config. For better performance use upd.
@@ -32,8 +33,8 @@ Tcp version will be better for unstable conditions.
 ## Update:
  
 ```shell
-git pull 
-docker compose build
+git pull
+docker compose pull
 docker compose up -d
 ```
 
