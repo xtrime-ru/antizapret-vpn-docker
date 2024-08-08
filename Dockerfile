@@ -75,5 +75,9 @@ RUN cp -rf /root/antizapret/patches/etc/openvpn/server/*.conf /etc/openvpn/serve
     && chmod +x patches/*.sh \
 	&& git pull && ./patches/fix.sh
 
+RUN cd /root/antizapret \
+    && ./update.sh \
+    && ./parse.sh
+
 COPY ./init.sh /
 ENTRYPOINT ["/init.sh"]

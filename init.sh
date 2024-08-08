@@ -12,5 +12,7 @@ then
     rm -rf EasyRSA-3.2.0/
 fi
 
+nohup bash -c "sleep 1; cd /root/antizapret/ && ./process.sh" &
+
 /root/easy-rsa-ipsec/generate.sh \
 && exec /usr/sbin/init
