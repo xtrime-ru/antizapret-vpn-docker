@@ -2,14 +2,17 @@
 Easy-to-start docker container with antizapret vpn server for selfhosting.
 
 ## About
-Docker image converted from original Atnizapret LXD image. 
-Additional fixes were made:
+Easy-to-use docker image based upon original [Atnizapret LXD image](https://bitbucket.org/anticensority/antizapret-vpn-container/src/master/). 
+
+## Improvements
  - [Apple DNS fix](https://github.com/xtrime-ru/antizapret-vpn-docker/blob/master/patches/kresd.conf#L3);
  - [RU domains excluded from antizapret](https://github.com/xtrime-ru/antizapret-vpn-docker/blob/master/patches/kresd.conf#L13);
  - [IDN domains fix](https://github.com/xtrime-ru/antizapret-vpn-docker/blob/master/patches/fix.sh#L5);
  - [Additional domains list](https://github.com/xtrime-ru/antizapret-vpn-docker/blob/master/config/include-hosts-custom.txt);
  - Switch to Ubuntu 24.04 from Debian 10;
  - Upgrade to OpenVPN 2.6+ and install [openvpn-dco](https://openvpn.net/as-docs/tutorials/tutorial--turn-on-openvpn-dco.html) kernel extension for maximum performance;
+ - Rules for Youtube, Google, Microsoft, OpenAI
+ - Start sequence optimization. Container start times reduced from minutes to seconds. 
 
 
 ## Installation
@@ -53,7 +56,7 @@ docker compose up -d
 ## Additional domains
 Any domain and/or IP can be added or excluded from list with [config files](https://github.com/xtrime-ru/antizapret-vpn-docker/tree/master/config)
 This lists are added/excluded to/from automatically generated lists of domains and IP's. 
-To apply changes you need to reboot container after changing this files.
+To apply changes: reboot container and wait few minutes for new rules generation.
 
 
 ## Links
