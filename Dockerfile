@@ -70,6 +70,7 @@ RUN cp -rf /root/antizapret/patches/etc/openvpn/server/*.conf /etc/openvpn/serve
     && cp -rf /root/antizapret/patches/root/dnsmap/* /root/dnsmap/ \
     && cp -rf /root/antizapret/patches/etc/knot-resolver/kresd.conf /etc/knot-resolver/kresd.conf \
     && cp -rf /root/antizapret/patches/root/easy-rsa-ipsec/templates/*.conf /root/easy-rsa-ipsec/templates/ \
+    && cp -rf /root/antizapret/patches/etc/systemd/system/network-online.target.wants/systemd-networkd-wait-online.service /etc/systemd/system/network-online.target.wants/systemd-networkd-wait-online.service \
 	&& cd /root/antizapret/ \
     && chmod +x patches/*.sh \
 	&& git pull && ./patches/fix.sh
