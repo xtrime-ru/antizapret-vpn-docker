@@ -60,10 +60,6 @@ RUN mkdir "/root/antizapret" \
                      dnsmap openvpn-generate-keys \
                      openvpn-server@antizapret openvpn-server@antizapret-tcp
 
-# Build openvpn with dco support
-RUN apt install -y openvpn-dco-dkms \
-	&& apt autoremove -y && apt clean
-
 ADD patches/ /root/antizapret/patches
 RUN cp -rf /root/antizapret/patches/etc/openvpn/server/*.conf /etc/openvpn/server/ \
     && cp -rf /root/antizapret/patches/root/antizapret/process.sh /root/antizapret/process.sh \
@@ -73,7 +69,7 @@ RUN cp -rf /root/antizapret/patches/etc/openvpn/server/*.conf /etc/openvpn/serve
     && cp -rf /root/antizapret/patches/etc/systemd/system/network-online.target.wants/systemd-networkd-wait-online.service /etc/systemd/system/network-online.target.wants/systemd-networkd-wait-online.service \
 	&& cd /root/antizapret/ \
     && chmod +x patches/*.sh \
-	&& git pull && ./patches/fix.sh
+	&& ./patches/fix.sh
 
 RUN cd /root/antizapret \
     && ./update.sh \

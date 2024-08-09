@@ -40,6 +40,33 @@ git pull
 docker compose pull
 docker compose up -d
 ```
+## Enable OpenVPN Data Channel Offload (DCO)
+OpenVPN Data Channel Offload (DCO) provides performance improvements by moving the data channel handling to the kernel space, 
+where it can be handled more efficiently and with multi-threading.
+
+Unfortunately kernel extensions cant be installed in docker.   
+Install it on **host** machine
+
+Ubuntu 24.04+:
+```shell
+apt update && apt upgrade
+
+# Please reboot your system after upgrade!
+
+apt install -y efivar
+apt install -y openvpn-dco-dkms
+```
+
+Ubuntu 20.04+:
+```shell
+apt update && apt upgrade
+
+# Please reboot your system after upgrade!
+
+apt install -y efivar dkms linux-headers-$(uname -r)
+wget http://de.archive.ubuntu.com/ubuntu/pool/universe/o/openvpn-dco-dkms/openvpn-dco-dkms_0.0+git20231103-1_all.deb
+dpkg -i openvpn-dco-dkms_0.0+git20231103-1_all.deb
+```
 
 ## Keys menagment
 Server keys are stored in easyrsa3/pki/ folder and client keys are copied to client_keys/. 
