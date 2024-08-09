@@ -5,8 +5,6 @@ cdninstagram.com
 fb.com
 messenger.com
 theins.ru
-youtube.com
-googlevideo.com
 openai.com
 intercomcdn.com
 oaistatic.com
