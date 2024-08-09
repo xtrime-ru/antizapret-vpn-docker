@@ -29,7 +29,7 @@ Easy-to-use docker image based upon original [Atnizapret LXD image](https://bitb
     docker compose pull
     docker compose up -d
     ```
-2. Download configuration file for your openvpn client from `client_keys` folder. 
+2. Download .ovpn configuration file for your openvpn client from `keys/client` folder. 
 There will be udp and tcp versions of the config. For better performance use upd.
 Tcp version will be better for unstable conditions.
 
@@ -43,6 +43,7 @@ docker compose up -d
 ## Enable OpenVPN Data Channel Offload (DCO)
 OpenVPN Data Channel Offload (DCO) provides performance improvements by moving the data channel handling to the kernel space, 
 where it can be handled more efficiently and with multi-threading.
+TLDR: increase speed and reduce CPU usage for server.
 
 Unfortunately kernel extensions cant be installed in docker.   
 Install it on **host** machine
@@ -68,15 +69,14 @@ wget http://de.archive.ubuntu.com/ubuntu/pool/universe/o/openvpn-dco-dkms/openvp
 dpkg -i openvpn-dco-dkms_0.0+git20231103-1_all.deb
 ```
 
-## Keys menagment
-Server keys are stored in easyrsa3/pki/ folder and client keys are copied to client_keys/. 
+## Keys persistence
+Server keys are stored in `keys/server/` and client keys - in `keys/client/`.
 Keys are persistent between container and host restarts.
 
-To generate new keys remove files and start container again:
+To generate new keys - remove files and container again:
 ```shell
 docker compose down
-rm -rf easyrsa3/pki/
-rm -rf client_keys/
+rm -rf keys/{client,server}/keys/*.{crt,key}
 docker compose up -d
 ```
 

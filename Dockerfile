@@ -34,44 +34,21 @@ RUN apt update -y && apt upgrade -y \
     && chmod 1777 /tmp \
     && apt autoremove -y && apt clean
 
-RUN mkdir "/root/antizapret" \
-    && cd /root \
-	&& git clone https://bitbucket.org/anticensority/antizapret-vpn-container.git \
-    && cd antizapret-vpn-container/ \
-    && mv -f mkosi/mkosi.extra/etc/ferm/* /etc/ferm/ \
-    && mv -f mkosi/mkosi.extra/etc/knot-resolver/* /etc/knot-resolver/ \
-    && mv -f mkosi/mkosi.extra/etc/openvpn/server/*.conf /etc/openvpn/server/ \
-    && mkdir /etc/openvpn/server/keys/ \
-    && mkdir /etc/openvpn/server/ccd/ \
-    && mkdir /etc/openvpn/server/logs/ \
-    && mv -f mkosi/mkosi.extra/etc/openvpn/server/keys/* /etc/openvpn/server/keys/ \
-    && mv -f mkosi/mkosi.extra/etc/sysctl.d/* /etc/sysctl.d/ \
-    && mv -f mkosi/mkosi.extra/etc/systemd/journald.conf /etc/systemd/journald.conf \
-    && mv -f mkosi/mkosi.extra/etc/systemd/network/* /etc/systemd/network/ \
-    && mv -f mkosi/mkosi.extra/etc/systemd/system/* /etc/systemd/system/ \
-    && mv -f mkosi/mkosi.extra/root/* /root/ \
-    && cd /root/ \
-    && rm -rf /root/antizapret-vpn-container \
-    && git clone https://bitbucket.org/anticensority/antizapret-pac-generator-light.git antizapret \
-    && mv -f /root/antizapret-process.sh antizapret/process.sh \
+ADD rootfs /root/rootfs
+RUN git clone https://bitbucket.org/anticensority/antizapret-pac-generator-light.git antizapret \
+    && cp -rf /root/rootfs/* / \
+    \
+	&& curl -L https://github.com/OpenVPN/easy-rsa/releases/download/v3.2.0/EasyRSA-3.2.0.tgz | tar -xz \
+	&& mv EasyRSA-3.2.0/ /root/easyrsa3/ \
+	\
 	&& systemctl enable systemd-networkd \
-                     kresd@1 \
-                     antizapret-update.service antizapret-update.timer \
-                     dnsmap openvpn-generate-keys \
-                     openvpn-server@antizapret openvpn-server@antizapret-tcp
+		 kresd@1 \
+		 antizapret-update.service antizapret-update.timer \
+		 dnsmap \
+		 openvpn-server@antizapret openvpn-server@antizapret-tcp
 
-ADD patches/ /root/antizapret/patches
-RUN cp -rf /root/antizapret/patches/etc/openvpn/server/*.conf /etc/openvpn/server/ \
-    && cp -rf /root/antizapret/patches/root/antizapret/process.sh /root/antizapret/process.sh \
-    && cp -rf /root/antizapret/patches/root/dnsmap/* /root/dnsmap/ \
-    && cp -rf /root/antizapret/patches/etc/knot-resolver/kresd.conf /etc/knot-resolver/kresd.conf \
-    && cp -rf /root/antizapret/patches/root/easy-rsa-ipsec/templates/*.conf /root/easy-rsa-ipsec/templates/ \
-    && cp -rf /root/antizapret/patches/etc/systemd/system/network-online.target.wants/systemd-networkd-wait-online.service /etc/systemd/system/network-online.target.wants/systemd-networkd-wait-online.service \
-	&& cd /root/antizapret/ \
-    && chmod +x patches/*.sh \
-	&& ./patches/fix.sh
-
-RUN cd /root/antizapret \
+RUN /root/fix.sh \
+    && cd /root/antizapret \
     && ./update.sh \
     && ./parse.sh
 
