@@ -90,6 +90,8 @@ You can define this variables in docker-compose file for your needs
  - `DNS=1.1.1.1` - DNS server to resolve domains. By default - system/docker dns
  - `DNS_RU=77.88.8.8` - Russian DNS server. Used to fix issues with geo zones mismatch for domains like apple.com
 
+## Extra information
+[OpenWrt setup guide](https://github.com/xtrime-ru/antizapret-vpn-docker/blob/master/docs/guide_OpenWrt.txt) - how to setup OpenWrt router with this solution to keep LAN clients happy.
 
 ## Links
 - Link to original project website: https://antizapret.prostovpn.org
