@@ -1,4 +1,5 @@
 .*
+**/*.env
 /keys/
 /config/
 /.adguard/
