@@ -37,7 +37,8 @@ ytimg.com
 ggpht.com
 googleusercontent.com
 googlevideo.com
-google.com
 " >> /root/antizapret/config/include-hosts-dist.txt
 
-sort --merge --unique /root/antizapret/config/include-hosts-dist.txt -o /root/antizapret/config/include-hosts-dist.txt
+sed -i '/^[[:space:]]*$/d' /root/antizapret/config/include-hosts-dist.txt
+
+sort --unique /root/antizapret/config/include-hosts-dist.txt -o /root/antizapret/config/include-hosts-dist.txt
