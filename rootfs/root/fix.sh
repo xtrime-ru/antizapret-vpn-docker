@@ -37,6 +37,8 @@ ytimg.com
 ggpht.com
 googleusercontent.com
 googlevideo.com
+ua
+com.ua
 " >> /root/antizapret/config/include-hosts-dist.txt
 
 sed -i '/^[[:space:]]*$/d' /root/antizapret/config/include-hosts-dist.txt
