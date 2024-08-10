@@ -112,6 +112,7 @@ DNS_RU=$(resolve $DNS_RU 77.88.8.8)
 ADGUARD=${ADGUARD:-0}
 LOG_DNS=${LOG_DNS:-0}
 PYTHONUNBUFFERED=1
+SELF_IP=$(hostname -i)
 EOF
 
 source /etc/default/antizapret

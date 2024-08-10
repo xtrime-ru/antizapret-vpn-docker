@@ -1,0 +1,21 @@
+services:
+  antizapret-vpn:
+    extends:
+      file: docker-compose.yml
+      service: antizapret-vpn
+  ipsec:
+    image: hwdsl2/ipsec-vpn-server:debian
+    restart: unless-stopped
+    env_file:
+      - ipsec/ipsec.env
+    ports:
+      - "500:500/udp"
+      - "4500:4500/udp"
+    privileged: true
+    volumes:
+      - ./ipsec/run.sh:/opt/src/run.sh
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100k"
+        max-file: "2"
