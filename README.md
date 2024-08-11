@@ -85,6 +85,11 @@ Any domain and/or IP can be added or excluded from list with [config files](http
 This lists are added/excluded to/from automatically generated lists of domains and IP's. 
 To apply changes: reboot container and wait few minutes for new rules generation.
 
+## Environment Variables
+You can define this variables in docker-compose file for your needs
+ - `DNS=1.1.1.1` - DNS server to resolve domains. By default - system/docker dns
+ - `DNS_RU=77.88.8.8` - Russian DNS server. Used to fix issues with geo zones mismatch for domains like apple.com
+
 
 ## Links
 - Link to original project website: https://antizapret.prostovpn.org

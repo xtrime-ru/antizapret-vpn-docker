@@ -1,0 +1,36 @@
+services:
+  antizapret-vpn:
+    extends:
+      file: docker-compose.base.yml
+      service: antizapret-vpn
+    networks:
+      default:
+      static-network:
+        ipv4_address: 10.5.0.2
+    environment:
+      - DNS=10.5.0.3
+  adguardhome:
+    image: adguard/adguardhome
+    ports:
+#      - 53:53/tcp
+#      - 53:53/udp
+#      - 784:784/udp
+#      - 853:853/tcp
+      - 3000:3000/tcp
+      - 80:80/tcp
+      - 443:443/tcp
+    volumes:
+      - ./.adguard/workdir:/opt/adguardhome/work
+      - ./.adguard/confdir:/opt/adguardhome/conf
+    restart: unless-stopped
+    networks:
+      default:
+      static-network:
+        ipv4_address: 10.5.0.3
+networks:
+  static-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.5.0.0/24
+          gateway: 10.5.0.1

@@ -5,6 +5,7 @@ After=network.target
 [Service]
 WorkingDirectory=/root/dnsmap
 ExecStart=/root/dnsmap/proxy.py -a 127.0.0.4 --iprange 10.224.0.0/15
+PassEnvironment=DNS DNS_RU
 
 [Install]
 WantedBy=multi-user.target

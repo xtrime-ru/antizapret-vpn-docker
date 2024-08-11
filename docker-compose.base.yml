@@ -1,0 +1,23 @@
+services:
+  antizapret-vpn:
+    image: xtrime/antizapret-vpn:latest
+    build: ./
+    container_name: antizapret-vpn
+    restart: unless-stopped
+    ports:
+      - "1194:1194/tcp"
+      - "1194:1194/udp"
+    volumes:
+      - ./keys/:/etc/openvpn/
+      # Some domains blocked unofficially: https://ntc.party/t/vpn/129/127
+      - ./config/include-hosts-custom.txt:/root/antizapret/config/include-hosts-custom.txt
+      - ./config/exclude-hosts-custom.txt:/root/antizapret/config/exclude-hosts-custom.txt
+      - ./config/include-ips-custom.txt:/root/antizapret/config/include-ips-custom.txt
+      - ./config/exclude-ips-custom.txt:/root/antizapret/config/exclude-ips-custom.txt
+    privileged: true
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100k"
+        max-file: "2"
+
