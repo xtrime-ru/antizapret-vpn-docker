@@ -19,6 +19,7 @@ RUN <<-"EOT" bash -ex
         idn \
         inetutils-ping \
         ipcalc \
+        ipcalc-ng \
         iptables \
         iproute2 \
         knot-resolver \
