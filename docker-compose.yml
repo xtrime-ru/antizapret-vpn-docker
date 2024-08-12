@@ -15,7 +15,6 @@ services:
       # - PORT=1194
     volumes:
       - /etc/localtime:/etc/localtime:ro
-      - /etc/timezone:/etc/timezone:ro
       - ./keys:/etc/openvpn
       - antizapret-cache:/root/antizapret/result
       - ./config/include-hosts-custom.txt:/root/antizapret/config/include-hosts-custom.txt
