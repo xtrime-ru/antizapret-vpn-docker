@@ -43,7 +43,7 @@ class ProxyResolver(BaseResolver):
         self.tablename = tablename
 
         # Load existing mappings
-        output = subprocess.check_output(["./get_iptables_mappings.sh"])
+        output = subprocess.check_output(["./iptables_get_mappings.sh"])
         for mapped in output.decode().split("\n"):
             if mapped:
                 fake_addr, real_addr = mapped.split(' ')
@@ -76,7 +76,7 @@ class ProxyResolver(BaseResolver):
             print('Mapping {} to {}'.format(fake_addr, real_addr))
             self.ipmap[real_addr]=fake_addr
             subprocess.call(
-                ["./set_iptables.sh", real_addr, fake_addr]
+                ["./iptables_set_mappings.sh", real_addr, fake_addr]
                 )
             return fake_addr
         return True
@@ -194,7 +194,7 @@ if __name__ == '__main__':
 
     import argparse, time, os, sys
 
-    dns = os.getenv('DNS', '8.8.8.8') + ':53'
+    dns = os.getenv('DNS', '1.1.1.1') + ':53'
 
     p = argparse.ArgumentParser(description="DNS Proxy")
 
