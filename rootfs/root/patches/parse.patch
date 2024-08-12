@@ -1,6 +1,6 @@
---- parse.sh	2024-08-11 17:35:48.825606200 +0500
-+++ parse.sh	2024-08-11 17:36:18.824790200 +0500
-@@ -1,13 +1,13 @@
+--- parse.sh	2024-08-13 02:11:18.483501000 +0500
++++ parse.sh	2024-08-13 02:36:41.701650400 +0500
+@@ -1,22 +1,22 @@
  #!/bin/bash
  set -e
  
@@ -17,3 +17,16 @@
  
  # Generate zones from domains
  # FIXME: nxdomain list parsing is disabled due to its instability on z-i
+ ###cat exclude.txt temp/nxdomain.txt > temp/exclude.txt
+ 
+-sort -u config/exclude-hosts-{dist,custom}.txt > temp/exclude-hosts.txt
+-sort -u config/exclude-ips-{dist,custom}.txt > temp/exclude-ips.txt
+-sort -u config/include-hosts-{dist,custom}.txt > temp/include-hosts.txt
+-sort -u config/include-ips-{dist,custom}.txt > temp/include-ips.txt
++for file in config/persist/*-custom.txt; do
++    basename=$(basename $file | sed 's|-custom.txt||')
++    sort -u $file config/${basename}-dist.txt > temp/${basename}.txt
++done
+ sort -u temp/include-hosts.txt result/hostlist_original.txt > temp/hostlist_original_with_include.txt
+ 
+ awk -F ';' '{split($1, a, /\|/); for (i in a) {print a[i]";"$2}}' temp/list.csv | \
