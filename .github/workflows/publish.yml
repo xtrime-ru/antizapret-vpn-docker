@@ -41,6 +41,7 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
+            xtrime/antizapret-vpn
             ghcr.io/${{ github.repository }}
           tags: |
             type=raw,value=latest,${{ steps.version.outputs.version }}
