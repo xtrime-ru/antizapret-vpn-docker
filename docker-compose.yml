@@ -1,5 +1,31 @@
 services:
   antizapret-vpn:
-    extends:
-      file: docker-compose.base.yml
-      service: antizapret-vpn
+    image: xtrime/antizapret-vpn:latest
+    container_name: antizapret-vpn
+    restart: unless-stopped
+    privileged: true
+    build: .
+    ports:
+      - 1194:1194/tcp
+      - 1194:1194/udp
+    environment:
+      # - DOMAIN=example.com
+      - PORT=1194
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+      - ./keys:/etc/openvpn
+      - antizapret-cache:/root/antizapret/result
+      - ./config/include-hosts-custom.txt:/root/antizapret/config/include-hosts-custom.txt
+      - ./config/exclude-hosts-custom.txt:/root/antizapret/config/exclude-hosts-custom.txt
+      - ./config/include-ips-custom.txt:/root/antizapret/config/include-ips-custom.txt
+      - ./config/exclude-ips-custom.txt:/root/antizapret/config/exclude-ips-custom.txt
+    logging:
+      driver: json-file
+      options:
+        max-size: 100k
+        max-file: 2
+
+volumes:
+  antizapret-cache:
+    name: antizapret-cache

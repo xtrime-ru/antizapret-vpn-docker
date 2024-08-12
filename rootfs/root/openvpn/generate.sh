@@ -1,20 +1,23 @@
-#!/bin/bash
-set -e
+#!/bin/bash -e
+
 HERE="$(dirname "$(readlink -f "${0}")")"
-cd "$HERE/easyrsa3"
+cd "$HERE/../easyrsa"
 
 export EASYRSA_CERT_EXPIRE=3650
 
 set +e
 
-SERVER=""
-for i in 1 2 3 4 5;
-do
-    SERVER="$(curl -s -4 icanhazip.com)"
-    [[ "$?" == "0" ]] && break
-    sleep 2
-done
-[[ ! "$SERVER" ]] && echo "Can't determine global IP address!" && exit 8
+export PORT=${PORT:-1194}
+export SERVER=$DOMAIN
+
+if [[ -z $DOMAIN ]]; then
+    for i in 1 2 3 4 5; do
+        SERVER="$(curl -s -4 icanhazip.com)"
+        [[ "$?" == "0" ]] && break
+        sleep 2
+    done
+    [[ ! "$SERVER" ]] && echo "Can't determine global IP address!" && exit 8
+fi
 
 set -e
 
@@ -72,5 +75,5 @@ then
 fi
 
 load_key
-render "/etc/openvpn/templates/openvpn-udp-unified.conf" > "/etc/openvpn/client/antizapret-client-udp.ovpn"
-render "/etc/openvpn/templates/openvpn-tcp-unified.conf" > "/etc/openvpn/client/antizapret-client-tcp.ovpn"
+render "$HERE/templates/udp.conf" > "/etc/openvpn/client/antizapret-client-udp.ovpn"
+render "$HERE/templates/tcp.conf" > "/etc/openvpn/client/antizapret-client-tcp.ovpn"
