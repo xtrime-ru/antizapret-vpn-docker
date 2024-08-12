@@ -3,15 +3,18 @@
 
 from __future__ import print_function
 
-import binascii,socket,struct
+import subprocess, sys, os
+
+import socket, struct
 from collections import deque
 from ipaddress import IPv4Network
 
-from dnslib import DNSRecord,RCODE,QTYPE,A
-from dnslib.server import DNSServer,DNSHandler,BaseResolver,DNSLogger
-import subprocess
-import shlex
-import sys
+from dnslib import DNSRecord, RCODE, QTYPE, A
+from dnslib.server import DNSServer, DNSHandler, BaseResolver, DNSLogger
+
+
+UPSTREAM_DNS = os.getenv('UPSTREAM_DNS', '1.1.1.1:53')
+
 
 class ProxyResolver(BaseResolver):
     """
@@ -44,7 +47,7 @@ class ProxyResolver(BaseResolver):
         self.tablename = tablename
 
         # Load existing mappings
-        output = subprocess.check_output(["./get_iptables_mappings.sh"])
+        output = subprocess.check_output(["./iptables_get_mappings.sh"])
         for mapped in output.decode().split("\n"):
             if mapped:
                 fake_addr, real_addr = mapped.split(' ')
@@ -77,7 +80,7 @@ class ProxyResolver(BaseResolver):
             print('Mapping {} to {}'.format(fake_addr, real_addr))
             self.ipmap[real_addr]=fake_addr
             subprocess.call(
-                ["./set_iptables.sh", real_addr, fake_addr]
+                ["./iptables_set_mappings.sh", real_addr, fake_addr]
                 )
             return fake_addr
         return True
@@ -202,7 +205,7 @@ if __name__ == '__main__':
                     metavar="<address>",
                     help="Local proxy listen address (default:all)")
     p.add_argument("--upstream","-u",default=dns,
-            metavar="<dns server:port>",
+                    metavar="<dns server:port>",
                     help="Upstream DNS server:port (default:8.8.8.8:53)")
     p.add_argument("--tcp",action='store_true',default=False,
                     help="TCP proxy (default: UDP only)")
@@ -216,7 +219,7 @@ if __name__ == '__main__':
     p.add_argument("--log-prefix",action='store_true',default=False,
                     help="Log prefix (timestamp/handler/resolver) (default: False)")
     p.add_argument("--iprange",default="10.224.0.0/24",
-            metavar="<ip/mask>",
+                    metavar="<ip/mask>",
                     help="Fake IP range (default:10.224.0.0/24)")
     args = p.parse_args()
 

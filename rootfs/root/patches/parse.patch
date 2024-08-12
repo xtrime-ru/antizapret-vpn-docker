@@ -1,8 +1,16 @@
---- parse.sh	2024-08-10 01:40:34
-+++ parse.sh	2024-08-10 01:41:01
-@@ -7,7 +7,7 @@
+--- parse.sh	2024-08-11 17:35:48.825606200 +0500
++++ parse.sh	2024-08-11 17:36:18.824790200 +0500
+@@ -1,13 +1,13 @@
+ #!/bin/bash
+ set -e
+ 
+-source config/config.sh
+-
+ HERE="$(dirname "$(readlink -f "${0}")")"
  cd "$HERE"
  
++source config/config.sh
++
  # Extract domains from list
 -awk -F ';' '{print $2}' temp/list.csv | sort -u | awk '/^$/ {next} /\\/ {next} /^[а-яА-Яa-zA-Z0-9\-\_\.\*]*+$/ {gsub(/\*\./, ""); gsub(/\.$/, ""); print}' | grep -Fv 'bеllonа' | CHARSET=UTF-8 idn > result/hostlist_original.txt
 +awk -F ';' '{print $2}' temp/list.csv | sort -u | awk '/^$/ {next} /\\/ {next} /^[а-яА-Яa-zA-Z0-9\-_\.\*]*+$/ {gsub(/\*\./, ""); gsub(/\.$/, ""); print}' | grep -Fv 'bеllonа' | CHARSET=UTF-8 idn --no-tld | grep -Fv 'xn--' > result/hostlist_original.txt

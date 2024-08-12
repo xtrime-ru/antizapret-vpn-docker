@@ -2,6 +2,7 @@
 Description=Run antizapret-vpn update every 6h
 
 [Timer]
+OnBootSec=6h
 OnUnitActiveSec=6h
 
 [Install]
