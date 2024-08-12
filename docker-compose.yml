@@ -6,14 +6,16 @@ services:
     restart: unless-stopped
     privileged: true
     build: .
+    environment:
+      - DOMAIN
+      - PORT
+      - DNS
+      - DNS_RU
     ports:
       - 1194:1194/tcp
       - 1194:1194/udp
-    # environment:
-      # - DNS=1.1.1.1
-      # - DNS_RU=77.88.8.8
-      # - DOMAIN=example.com
-      # - PORT=1194
+    dns:
+      - 1.1.1.1
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - ./keys:/etc/openvpn

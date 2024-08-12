@@ -2,10 +2,34 @@
 
 
 # run commands after systemd initialization
+
 function postrun () {
     waiter="until ps -p 1 | grep -q systemd; do sleep 0.1; done; sleep 1"
     nohup bash -c "$waiter; $@" &
 }
+
+
+# resolve domain address to ip address
+
+function resolve () {
+    # $1 domain/ip address, $2 fallback domain/ip address
+    ipcalc () { ipcalc-ng --no-decorate -o $1 2> /dev/null; }
+    ipaddr=$(ipcalc $1 || ipcalc $2)
+    echo ${ipaddr:-127.0.0.11} # fallback to docker internal dns
+}
+
+
+# save DNS variables to /etc/default/antizapret
+# in order to systemd services can access them
+
+cat << EOF | tee /etc/default/antizapret
+DNS=$(resolve $DNS)
+DNS_RU=$(resolve $DNS_RU 77.88.8.8)
+EOF
+
+
+# autoload vars when logging in into shell with 'bash -l' 
+ln -sf /etc/default/antizapret /etc/profile.d/antizapret.sh
 
 
 # output systemd logs to docker logs
@@ -16,11 +40,12 @@ postrun journalctl -f --since $(date +%T)
 ln -sf /root/antizapret/doall.sh /usr/bin/doall
 
 
+
 # populating files if path is mounted in Docker
 cp -rv --update=none /rootfs/etc/openvpn/* /etc/openvpn
 
 
-# check for files in /root/antizapret/result
+# check for files in /root/antizapret/result;
 # execute doall.sh if file is missing or older than 6h
 
 CHECKLIST=(
@@ -52,6 +77,8 @@ for FILE in ${CHECKLIST[@]}; do
 done
 
 
+# check for files in /root/antizapret/config/persist
+
 LISTS=(
     exclude-hosts-custom.txt
     exclude-ips-custom.txt
@@ -63,6 +90,7 @@ for FILE in ${LISTS[@]}; do
     path=/root/antizapret/config/persist/$FILE
     if [ ! -f $path ]; then touch $path; fi
 done
+
 
 # generate certs/keys/profiles for OpenVPN
 /root/openvpn/generate.sh
