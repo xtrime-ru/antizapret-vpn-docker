@@ -3,17 +3,13 @@
 
 from __future__ import print_function
 
-import subprocess, sys, os
+import socket, struct, subprocess
 
-import socket, struct
 from collections import deque
 from ipaddress import IPv4Network
 
 from dnslib import DNSRecord, RCODE, QTYPE, A
 from dnslib.server import DNSServer, DNSHandler, BaseResolver, DNSLogger
-
-
-UPSTREAM_DNS = os.getenv('UPSTREAM_DNS', '1.1.1.1:53')
 
 
 class ProxyResolver(BaseResolver):
@@ -47,7 +43,7 @@ class ProxyResolver(BaseResolver):
         self.tablename = tablename
 
         # Load existing mappings
-        output = subprocess.check_output(["./iptables_get_mappings.sh"])
+        output = subprocess.check_output(["./get_iptables_mappings.sh"])
         for mapped in output.decode().split("\n"):
             if mapped:
                 fake_addr, real_addr = mapped.split(' ')
@@ -80,21 +76,19 @@ class ProxyResolver(BaseResolver):
             print('Mapping {} to {}'.format(fake_addr, real_addr))
             self.ipmap[real_addr]=fake_addr
             subprocess.call(
-                ["./iptables_set_mappings.sh", real_addr, fake_addr]
+                ["./set_iptables.sh", real_addr, fake_addr]
                 )
             return fake_addr
         return True
-
-
 
     def resolve(self,request,handler):
         try:
             if handler.protocol == 'udp':
                 proxy_r = request.send(self.address,self.port,
-                                timeout=self.timeout)
+                                       timeout=self.timeout)
             else:
                 proxy_r = request.send(self.address,self.port,
-                                tcp=True,timeout=self.timeout)
+                                       tcp=True,timeout=self.timeout)
             reply = DNSRecord.parse(proxy_r)
 
             if request.q.qtype == QTYPE.AAAA or request.q.qtype == QTYPE.HTTPS:
@@ -116,8 +110,8 @@ class ProxyResolver(BaseResolver):
                     if record.rtype != QTYPE.A:
                         continue
 
-                    #print(dir(record))
-                    #print(type(record.rdata))
+                    # print(dir(record))
+                    # print(type(record.rdata))
 
                     real_addr = str(record.rdata)
                     fake_addr = self.get_mapping(real_addr)
@@ -132,15 +126,16 @@ class ProxyResolver(BaseResolver):
                     record.rdata = A(fake_addr)
                     record.rname = request.q.qname
                     record.ttl = 300
-                    #print(a.rdata)
+                    # print(a.rdata)
                 return reply
 
-            #print(reply)
+            # print(reply)
         except socket.timeout:
             reply = request.reply()
             reply.header.rcode = getattr(RCODE,'NXDOMAIN')
 
         return reply
+
 
 class PassthroughDNSHandler(DNSHandler):
     """
@@ -167,6 +162,7 @@ class PassthroughDNSHandler(DNSHandler):
 
         return response
 
+
 def send_tcp(data,host,port):
     """
         Helper function to send/receive DNS TCP request
@@ -182,6 +178,7 @@ def send_tcp(data,host,port):
     sock.close()
     return response
 
+
 def send_udp(data,host,port):
     """
         Helper function to send/receive DNS UDP request
@@ -192,44 +189,47 @@ def send_udp(data,host,port):
     sock.close()
     return response
 
+
 if __name__ == '__main__':
 
-    import argparse,sys,time,os
+    import argparse, time, os, sys
 
     dns = os.getenv('DNS', '8.8.8.8') + ':53'
+
     p = argparse.ArgumentParser(description="DNS Proxy")
-    p.add_argument("--port","-p",type=int,default=53,
-                    metavar="<port>",
-                    help="Local proxy port (default:53)")
-    p.add_argument("--address","-a",default="",
-                    metavar="<address>",
-                    help="Local proxy listen address (default:all)")
-    p.add_argument("--upstream","-u",default=dns,
-                    metavar="<dns server:port>",
-                    help="Upstream DNS server:port (default:8.8.8.8:53)")
-    p.add_argument("--tcp",action='store_true',default=False,
-                    help="TCP proxy (default: UDP only)")
-    p.add_argument("--timeout","-o",type=float,default=5,
-                    metavar="<timeout>",
-                    help="Upstream timeout (default: 5s)")
-    p.add_argument("--passthrough",action='store_true',default=False,
-                    help="Dont decode/re-encode request/response (default: off)")
-    p.add_argument("--log",default="request,reply,truncated,error",
-                    help="Log hooks to enable (default: +request,+reply,+truncated,+error,-recv,-send,-data)")
-    p.add_argument("--log-prefix",action='store_true',default=False,
-                    help="Log prefix (timestamp/handler/resolver) (default: False)")
-    p.add_argument("--iprange",default="10.224.0.0/24",
-                    metavar="<ip/mask>",
-                    help="Fake IP range (default:10.224.0.0/24)")
+
+    p.add_argument("--port", "-p", type=int, default=53,
+                   metavar="<port>",
+                   help="Local proxy port (default: 53)")
+    p.add_argument("--address","-a", default="",
+                   metavar="<address>",
+                   help="Local proxy listen address (default: all)")
+    p.add_argument("--upstream","-u", default=dns,
+                   metavar="<dns server:port>",
+                   help=f"Upstream DNS server:port (default: {dns})")
+    p.add_argument("--tcp", action='store_true', default=False,
+                   help="TCP proxy (default: UDP only)")
+    p.add_argument("--timeout","-o", type=float, default=5,
+                   metavar="<timeout>",
+                   help="Upstream timeout (default: 5s)")
+    p.add_argument("--passthrough", action='store_true', default=False,
+                   help="Dont decode/re-encode request/response (default: off)")
+    p.add_argument("--log", default="request,reply,truncated,error",
+                   help="Log hooks to enable (default: +request,+reply,+truncated,+error,-recv,-send,-data)")
+    p.add_argument("--log-prefix", action='store_true', default=False,
+                   help="Log prefix (timestamp/handler/resolver) (default: False)")
+    p.add_argument("--iprange", default="10.224.0.0/24",
+                   metavar="<ip/mask>",
+                   help="Fake IP range (default: 10.224.0.0/24)")
     args = p.parse_args()
 
     args.dns,_,args.dns_port = args.upstream.partition(':')
     args.dns_port = int(args.dns_port or 53)
 
     print("Starting Proxy Resolver (%s:%d -> %s:%d) [%s]" % (
-                        args.address or "*",args.port,
-                        args.dns,args.dns_port,
-                        "UDP/TCP" if args.tcp else "UDP"))
+          args.address or "*",args.port,
+          args.dns,args.dns_port,
+          "UDP/TCP" if args.tcp else "UDP"))
 
     resolver = ProxyResolver(args.dns,args.dns_port,args.timeout,args.iprange)
     handler = PassthroughDNSHandler if args.passthrough else DNSHandler
