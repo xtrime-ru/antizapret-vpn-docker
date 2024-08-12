@@ -36,9 +36,11 @@ ln -sf /etc/default/antizapret /etc/profile.d/antizapret.sh
 postrun journalctl -f --since $(date +%T)
 
 
-# add symlinks for calling via docker exec -it antizapret [command]
-ln -sf /root/antizapret/doall.sh /usr/bin/doall
-
+# add symlinks for quick access
+ln -sf /root/antizapret/doall.sh /usr/bin/az_doall
+ln -sf /root/antizapret/update.sh /usr/bin/az_update
+ln -sf /root/antizapret/parse.sh /usr/bin/az_parse
+ln -sf /root/antizapret/process.sh /usr/bin/az_process
 
 
 # populating files if path is mounted in Docker
