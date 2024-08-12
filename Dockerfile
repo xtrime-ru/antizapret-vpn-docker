@@ -21,7 +21,6 @@ RUN <<-"EOT" bash -ex
         ipcalc \
         iptables \
         iproute2 \
-        lua-cqueues \
         knot-resolver \
         moreutils \
         nano \
