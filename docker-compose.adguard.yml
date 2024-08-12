@@ -5,6 +5,7 @@ services:
       service: antizapret-vpn
     environment:
       - DNS=adguardhome
+      # - DNS_RU=77.88.8.8
   adguardhome: # creds: admin:password
     image: adguard/adguardhome
     container_name: adguardhome

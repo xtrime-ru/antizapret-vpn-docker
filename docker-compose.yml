@@ -8,9 +8,11 @@ services:
     ports:
       - 1194:1194/tcp
       - 1194:1194/udp
-    environment:
+    # environment:
+      # - DNS=1.1.1.1
+      # - DNS_RU=77.88.8.8
       # - DOMAIN=example.com
-      - PORT=1194
+      # - PORT=1194
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - /etc/timezone:/etc/timezone:ro
