@@ -52,6 +52,18 @@ for FILE in ${CHECKLIST[@]}; do
 done
 
 
+LISTS=(
+    exclude-hosts-custom.txt
+    exclude-ips-custom.txt
+    include-hosts-custom.txt
+    include-ips-custom.txt
+)
+
+for FILE in ${LISTS[@]}; do
+    path=/root/antizapret/config/persist/$FILE
+    if [ ! -f $path ]; then touch $path; fi
+done
+
 # generate certs/keys/profiles for OpenVPN
 /root/openvpn/generate.sh
 

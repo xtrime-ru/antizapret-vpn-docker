@@ -18,10 +18,7 @@ services:
       - /etc/localtime:/etc/localtime:ro
       - ./keys:/etc/openvpn
       - ./result:/root/antizapret/result
-      - ./config/include-hosts-custom.txt:/root/antizapret/config/include-hosts-custom.txt
-      - ./config/exclude-hosts-custom.txt:/root/antizapret/config/exclude-hosts-custom.txt
-      - ./config/include-ips-custom.txt:/root/antizapret/config/include-ips-custom.txt
-      - ./config/exclude-ips-custom.txt:/root/antizapret/config/exclude-ips-custom.txt
+      - ./config:/root/antizapret/config/persist
     logging:
       driver: json-file
       options:
