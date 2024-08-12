@@ -35,6 +35,13 @@ There will be UDP and TCP configurations.
 Use UDP for better performance.
 Use TCP in unstable conditions.
 
+## Update:
+
+```shell
+git pull
+docker compose pull
+docker compose up -d
+```
 
 # Documentation
 
