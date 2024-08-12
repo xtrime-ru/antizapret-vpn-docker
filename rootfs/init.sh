@@ -2,12 +2,10 @@
 
 
 # variables
-
 HOSTNAME=antizapret
 
 
 # fill hosts, hostname and resolv.conf
-
 hostname -b $HOSTNAME
 
 echo $HOSTNAME > /etc/hostname
@@ -15,26 +13,26 @@ echo 127.0.1.1 $HOSTNAME >> /etc/hosts
 
 
 # run commands after systemd initialization
-
 function postrun () {
     waiter="until ps -p 1 | grep -q systemd; do sleep 0.1; done; sleep 1"
     nohup bash -c "$waiter; $@" &
 }
 
 
-# add symlinks for calling via docker exec -it antizapret [command]
+# output systemd logs to docker logs
+postrun journalctl -f --since $(date +%T)
 
+
+# add symlinks for calling via docker exec -it antizapret [command]
 ln -sf /root/antizapret/doall.sh /usr/bin/doall
 
 
 # populating files if path is mounted in Docker
-
 cp -rv --update=none /rootfs/etc/openvpn/* /etc/openvpn
 
 
 # check for files in /root/antizapret/result
 # execute doall.sh if file is missing or older than 6h
-# else
 
 CHECKLIST=(
     blocked-ranges.txt
@@ -66,15 +64,8 @@ done
 
 
 # generate certs/keys/profiles for OpenVPN
-
 /root/openvpn/generate.sh
 
 
-# output systemd logs to docker logs
-
-postrun journalctl -f
-
-
 # systemd init
-
 exec /usr/sbin/init
