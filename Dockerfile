@@ -41,7 +41,7 @@ RUN <<-"EOT" bash -ex
 EOT
 
 RUN <<-"EOT" bash -ex
-    ANTIZAPRET_VER=master
+    ANTIZAPRET_VER=6eae76b095ef4d719043a109c05d94900aaa3791
     ANTIZAPRET_URL=https://bitbucket.org/anticensority/antizapret-pac-generator-light/get/$ANTIZAPRET_VER.tar.gz
 
     EASYRSA_VER=3.2.0
