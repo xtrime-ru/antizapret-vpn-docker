@@ -16,7 +16,7 @@ services:
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - ./keys:/etc/openvpn
-      - antizapret-cache:/root/antizapret/result
+      - ./result:/root/antizapret/result
       - ./config/include-hosts-custom.txt:/root/antizapret/config/include-hosts-custom.txt
       - ./config/exclude-hosts-custom.txt:/root/antizapret/config/exclude-hosts-custom.txt
       - ./config/include-ips-custom.txt:/root/antizapret/config/include-ips-custom.txt
@@ -26,7 +26,3 @@ services:
       options:
         max-size: 100k
         max-file: 2
-
-volumes:
-  antizapret-cache:
-    name: antizapret-cache
