@@ -2,6 +2,7 @@ services:
   antizapret-vpn:
     image: xtrime/antizapret-vpn:latest
     container_name: antizapret-vpn
+    hostname: antizapret
     restart: unless-stopped
     privileged: true
     build: .

@@ -1,17 +1,6 @@
 #!/bin/bash -e
 
 
-# variables
-HOSTNAME=antizapret
-
-
-# fill hosts, hostname and resolv.conf
-hostname -b $HOSTNAME
-
-echo $HOSTNAME > /etc/hostname
-echo 127.0.1.1 $HOSTNAME >> /etc/hosts
-
-
 # run commands after systemd initialization
 function postrun () {
     waiter="until ps -p 1 | grep -q systemd; do sleep 0.1; done; sleep 1"
