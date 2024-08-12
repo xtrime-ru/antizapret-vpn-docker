@@ -5,15 +5,13 @@ services:
       service: antizapret-vpn
     environment:
       - DNS=adguardhome
-      # - DNS_RU=77.88.8.8
-  adguardhome: # creds: admin:password
+  adguardhome:
     image: adguard/adguardhome
     container_name: adguardhome
     ports:
       - 8080:80
     volumes:
       - /etc/localtime:/etc/localtime:ro
-      - /etc/timezone:/etc/timezone:ro
       - adguardhome-cache:/opt/adguardhome/conf
       - ./config/adguard:/opt/adguardhome/conf
     restart: unless-stopped
