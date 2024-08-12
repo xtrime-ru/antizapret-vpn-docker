@@ -5,13 +5,21 @@ services:
       service: antizapret-vpn
     environment:
       - DNS=adguardhome
+    depends_on:
+      - adguardhome
   adguardhome:
     image: adguard/adguardhome
     container_name: adguardhome
     ports:
-      - 8080:80
+      # - 53:53/tcp
+      # - 53:53/udp
+      - 80:80/tcp
+      - 443:443/tcp
+      # - 784:784/udp
+      # - 853:853/tcp
+      - 3000:3000/tcp
     volumes:
       - /etc/localtime:/etc/localtime:ro
-      - ./config/adguard/conf:/opt/adguardhome/conf
-      - ./config/adguard/work:/opt/adguardhome/work
+      - ./adguard/conf:/opt/adguardhome/conf
+      - ./adguard/work:/opt/adguardhome/work
     restart: unless-stopped
