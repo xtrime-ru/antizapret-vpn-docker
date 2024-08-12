@@ -12,12 +12,6 @@ services:
       - 8080:80
     volumes:
       - /etc/localtime:/etc/localtime:ro
-      - adguardhome-cache:/opt/adguardhome/conf
-      - ./config/adguard:/opt/adguardhome/conf
+      - ./config/adguard/conf:/opt/adguardhome/conf
+      - ./config/adguard/work:/opt/adguardhome/work
     restart: unless-stopped
-
-volumes:
-  adguardhome-cache:
-    name: adguardhome-cache
-  antizapret-cache:
-    external: true
