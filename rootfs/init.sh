@@ -28,10 +28,6 @@ DNS_RU=$(resolve $DNS_RU 77.88.8.8)
 EOF
 
 
-# backup docker iptables rules
-iptables-legacy-save > /etc/iptables.rules
-
-
 # add a symlink for quick access
 ln -sf /root/antizapret/doall.sh /usr/bin/doall
 
@@ -55,10 +51,6 @@ done
 
 # output systemd logs to docker logs
 postrun journalctl -f --no-hostname --since '2000-01-01 00:00:00'
-
-
-# restore docker iptables rules
-postrun 'iptables-legacy-restore < /etc/iptables.rules'
 
 
 # systemd init
