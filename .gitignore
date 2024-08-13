@@ -1,5 +1,2 @@
 .vs*
-/.adguard/
-/keys/
-/config/
-/result/
+/data/

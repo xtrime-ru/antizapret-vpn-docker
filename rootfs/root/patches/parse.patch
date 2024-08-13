@@ -1,5 +1,5 @@
---- parse.sh	2024-08-13 02:11:18.483501000 +0500
-+++ parse.sh	2024-08-13 02:36:41.701650400 +0500
+--- parse.sh	2024-08-13 13:07:47.354618400 +0500
++++ parse.sh	2024-08-13 13:07:47.354618400 +0500
 @@ -1,22 +1,22 @@
  #!/bin/bash
  set -e
@@ -23,7 +23,7 @@
 -sort -u config/exclude-ips-{dist,custom}.txt > temp/exclude-ips.txt
 -sort -u config/include-hosts-{dist,custom}.txt > temp/include-hosts.txt
 -sort -u config/include-ips-{dist,custom}.txt > temp/include-ips.txt
-+for file in config/persist/*-custom.txt; do
++for file in config/custom/*-custom.txt; do
 +    basename=$(basename $file | sed 's|-custom.txt||')
 +    sort -u $file config/${basename}-dist.txt > temp/${basename}.txt
 +done

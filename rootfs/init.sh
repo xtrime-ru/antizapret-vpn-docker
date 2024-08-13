@@ -28,74 +28,28 @@ DNS_RU=$(resolve $DNS_RU 77.88.8.8)
 EOF
 
 
+# add a symlink for quick access
+ln -sf /root/antizapret/doall.sh /usr/bin/doall
+
 # autoload vars when logging in into shell with 'bash -l' 
 ln -sf /etc/default/antizapret /etc/profile.d/antizapret.sh
 
 
-# output systemd logs to docker logs
-postrun journalctl -f --since $(date +%T)
-
-
-# add symlinks for quick access
-ln -sf /root/antizapret/doall.sh /usr/bin/az_doall
-ln -sf /root/antizapret/update.sh /usr/bin/az_update
-ln -sf /root/antizapret/parse.sh /usr/bin/az_parse
-ln -sf /root/antizapret/process.sh /usr/bin/az_process
-
-
-# populating files if path is mounted in Docker
+# populating directories with files
 cp -rv --update=none /rootfs/etc/openvpn/* /etc/openvpn
 
-
-# check for files in /root/antizapret/result;
-# execute doall.sh if file is missing or older than 6h
-
-CHECKLIST=(
-    blocked-ranges.txt
-    dnsmasq-aliases-alt.conf
-    hostlist_original.txt
-    hostlist_zones.txt
-    iplist_all.txt
-    iplist_blockedbyip.txt
-    iplist_blockedbyip_noid2971.txt
-    iplist_special_range.txt
-    knot-aliases-alt.conf
-    openvpn-blocked-ranges.txt
-    squid-whitelist-zones.conf
-)
-
-for FILE in ${CHECKLIST[@]}; do
-    if [ ! -f /root/antizapret/result/$FILE ]; then
-        /root/antizapret/doall.sh
-        break
-    else
-        if test $(find /root/antizapret/result/$FILE -mmin +360); then
-            /root/antizapret/doall.sh
-            break
-        else
-            postrun /root/antizapret/process.sh
-        fi
-    fi
-done
-
-
-# check for files in /root/antizapret/config/persist
-
-LISTS=(
-    exclude-hosts-custom.txt
-    exclude-ips-custom.txt
-    include-hosts-custom.txt
-    include-ips-custom.txt
-)
-
-for FILE in ${LISTS[@]}; do
-    path=/root/antizapret/config/persist/$FILE
-    if [ ! -f $path ]; then touch $path; fi
+for file in $(echo {exclude,include}-{ips,hosts}-custom.txt); do
+    path=/root/antizapret/config/custom/$file
+    [ ! -f $path ] && touch $path
 done
 
 
 # generate certs/keys/profiles for OpenVPN
 /root/openvpn/generate.sh
+
+
+# output systemd logs to docker logs
+postrun journalctl -f --no-hostname --since '2000-01-01 00:00:00'
 
 
 # systemd init
