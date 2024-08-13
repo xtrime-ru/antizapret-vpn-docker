@@ -24,5 +24,5 @@ services:
       - 1.1.1.1
     volumes:
       - /etc/localtime:/etc/localtime:ro
-      - ./.adguard/confdir:/opt/adguardhome/conf
-      - ./.adguard/workdir:/opt/adguardhome/work
+      - ./data/adguard/confdir:/opt/adguardhome/conf
+      - ./data/adguard/workdir:/opt/adguardhome/work

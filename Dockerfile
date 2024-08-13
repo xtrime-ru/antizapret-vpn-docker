@@ -55,19 +55,20 @@ COPY rootfs /
 
 RUN <<-"EOF" bash -ex
     systemctl enable \
+        antizapret-update.service \
         antizapret-update.timer \
         dnsmap \
         kresd@1 \
         openvpn-server@antizapret \
         openvpn-server@antizapret-tcp \
         systemd-networkd
-        # antizapret-update.service
 
     patch antizapret/parse.sh patches/parse.patch
     sed -i "/\b\(googleusercontent\|cloudfront\|deviantart\)\b/d" /root/antizapret/config/exclude-regexp-dist.awk
     for list in antizapret/config/*-dist.txt; do
         sed -E '/^(#.*)?[[:space:]]*$/d' $list | sort | uniq | sponge $list
     done
+    for list in antizapret/config/*-custom.txt; do rm -f $list; done
 
     rm -frv /tmp/*
 EOF

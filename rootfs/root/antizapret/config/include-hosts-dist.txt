@@ -13,6 +13,7 @@ cdninstagram.com
 chatgpt.com
 cloudflare.com
 deezer.com
+digitalocean.com
 fanatical.com
 game-debate.com
 getoutline.com
