@@ -50,7 +50,7 @@ done
 
 
 # output systemd logs to docker logs
-postrun journalctl -f --no-hostname --since '2000-01-01 00:00:00'
+postrun journalctl -f --no-hostname --since "$(date '+%Y-%m-%d %T')"
 
 
 # systemd init
