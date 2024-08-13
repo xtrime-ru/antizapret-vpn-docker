@@ -18,10 +18,10 @@ services:
       - 1.1.1.1
     volumes:
       - /etc/localtime:/etc/localtime:ro
-      - ./data/keys:/etc/openvpn
-      - ./data/temp:/root/antizapret/temp
-      - ./data/result:/root/antizapret/result
-      - ./data/config:/root/antizapret/config/custom
+      - ./keys:/etc/openvpn
+      - ./temp:/root/antizapret/temp
+      - ./result:/root/antizapret/result
+      - ./config:/root/antizapret/config/custom
     logging:
       driver: json-file
       options:
