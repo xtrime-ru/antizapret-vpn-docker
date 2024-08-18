@@ -50,8 +50,6 @@ RUN <<-"EOT" bash -ex
     mkdir easyrsa && curl -s -L $EASYRSA_URL | tar -zxv --strip-components=1 -C $_
 EOT
 
-COPY rootfs /
-
 RUN <<-"EOT" bash -ex
     OPENVPN_VER=2.6.12
     LIBS="libnl-genl-3-dev libssl-dev libcap-ng-dev liblz4-dev libsystemd-dev"
@@ -86,6 +84,8 @@ RUN <<-"EOT" bash -ex
 
 EOT
 
+COPY rootfs /
+
 RUN <<-"EOF" bash -ex
     systemctl enable \
         antizapret-update.service \
@@ -102,6 +102,10 @@ RUN <<-"EOF" bash -ex
         sed -E '/^(#.*)?[[:space:]]*$/d' $list | sort | uniq | sponge $list
     done
     for list in antizapret/config/*-custom.txt; do rm -f $list; done
+
+    ln -sf /root/antizapret/doall.sh /usr/bin/doall
+
+    /root/antizapret/doall.sh
 
     rm -frv /tmp/*
 EOF
