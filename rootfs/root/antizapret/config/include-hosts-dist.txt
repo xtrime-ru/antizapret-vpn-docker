@@ -1,0 +1,105 @@
+# root domains
+com.ua
+ua
+
+
+# global
+acf.international
+adguard.com
+amazfitwatchfaces.com
+bbci.co.uk
+buymeacoffee.com
+cdninstagram.com
+chatgpt.com
+cloudflare.com
+deezer.com
+digitalocean.com
+fanatical.com
+game-debate.com
+getoutline.com
+intercomcdn.com
+lib.ru
+licdn.com
+lostfilm.tv
+pravdabeslana.ru
+radiojar.com
+readybot.io
+rebrand.ly
+redgifs.com
+seekvectorlogo.net
+simsync.io
+spotify.com
+strava.com
+swagger.io
+theins.ru
+wixmp.com
+
+
+# youtube
+youtube.com
+youtu.be
+ytimg.com
+ggpht.com
+googleusercontent.com
+googlevideo.com
+
+
+# google
+play.google.com
+news.google.com
+
+
+# microsoft 
+bing.com
+bing.net
+microsoft.com
+msn.com
+live.com
+microsoftonline.com
+bingapis.com
+cloud.microsoft
+office.com
+
+
+# facebook
+fbcdn.net
+messenger.com
+fb.com
+
+
+# twitter
+t.co
+twimg.com
+x.com
+
+
+# signal
+chat.signal.org
+cdn2.signal.org
+storage.signal.org
+sfu.voip.signal.org
+updates2.signal.org
+uptime.signal.org
+
+
+# smartbear
+smartbear.co
+smartbear.com
+
+
+# openai
+chatgpt.com
+oaistatic.com
+oaiusercontent.com
+openai.com
+
+
+# rutracker
+t-ru.org
+rutracker.cc
+rutrk.org
+
+
+# nnmclub
+nnm-club.ws
+nnmclub.ch

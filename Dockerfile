@@ -1,56 +1,78 @@
 FROM ubuntu:24.04
 
-ENV DEBIAN_FRONTEND=noninteractive
 WORKDIR /root
-RUN apt update -y && apt upgrade -y \
-    && apt install -y python3-dnslib \
-		ipcalc \
-		sipcalc \
-		gawk \
-		idn \
-		iptables \
-		ferm \
-		openvpn \
-		inetutils-ping \
-		curl \
-		wget \
-		ca-certificates \
-		openssl \
-		host \
-		dnsutils \
-		bsdmainutils \
-		procps \
-		unattended-upgrades \
-		nano \
-		vim-tiny \
-		git \
-    	gpg \
-    # install knot-resolver \
-    && echo 'deb http://download.opensuse.org/repositories/home:/CZ-NIC:/knot-resolver-latest/xUbuntu_22.04/ /' | tee /etc/apt/sources.list.d/home:CZ-NIC:knot-resolver-latest.list \
-    && curl -fsSL https://download.opensuse.org/repositories/home:CZ-NIC:knot-resolver-latest/xUbuntu_22.04/Release.key | gpg --dearmor | tee /etc/apt/trusted.gpg.d/home_CZ-NIC_knot-resolver-latest.gpg > /dev/null \
-    && apt update -y \
-    && apt install -y knot-resolver \
-    && apt -o Dpkg::Options::="--force-confold" -y full-upgrade \
-    && chmod 1777 /tmp \
-    && apt autoremove -y && apt clean
 
-ADD rootfs /root/rootfs
-RUN git clone https://bitbucket.org/anticensority/antizapret-pac-generator-light.git antizapret \
-    && cp -rf /root/rootfs/* / \
-    \
-	&& curl -L https://github.com/OpenVPN/easy-rsa/releases/download/v3.2.0/EasyRSA-3.2.0.tgz | tar -xz \
-	&& mv EasyRSA-3.2.0/ /root/easyrsa3/ \
-	\
-	&& systemctl enable systemd-networkd \
-		 kresd@1 \
-		 antizapret-update.service antizapret-update.timer \
-		 dnsmap \
-		 openvpn-server@antizapret openvpn-server@antizapret-tcp
+RUN <<-"EOT" bash -ex
+    APT_LISTCHANGES_FRONTEND=none
+    DEBIAN_FRONTEND=noninteractive
 
-RUN /root/fix.sh \
-    && cd /root/antizapret \
-    && ./update.sh \
-    && ./parse.sh
+    apt-get update -q
+    apt-get dist-upgrade -qy
+    apt-get install -qqy --no-install-suggests --no-install-recommends \
+        bsdmainutils \
+        ca-certificates \
+        curl \
+        dnsutils \
+        ferm \
+        gawk \
+        host \
+        idn \
+        inetutils-ping \
+        ipcalc \
+        ipcalc-ng \
+        iptables \
+        iproute2 \
+        knot-resolver \
+        moreutils \
+        nano \
+        openssl \
+        openvpn \
+        patch \
+        procps \
+        python3-dnslib \
+        sipcalc \
+        systemd-sysv \
+        vim-tiny \
+        wget
+        # git
+        # unattended-upgrades
+    apt-get clean
+    rm -frv /var/lib/apt/lists/*
+EOT
 
-COPY ./init.sh /
+RUN <<-"EOT" bash -ex
+    ANTIZAPRET_VER=6eae76b095ef4d719043a109c05d94900aaa3791
+    ANTIZAPRET_URL=https://bitbucket.org/anticensority/antizapret-pac-generator-light/get/$ANTIZAPRET_VER.tar.gz
+
+    EASYRSA_VER=3.2.0
+    EASYRSA_URL=https://github.com/OpenVPN/easy-rsa/releases/download/v$EASYRSA_VER/EasyRSA-$EASYRSA_VER.tgz
+
+    mkdir antizapret && curl -s -L $ANTIZAPRET_URL | tar -zxv --strip-components=1 -C $_
+    mkdir easyrsa && curl -s -L $EASYRSA_URL | tar -zxv --strip-components=1 -C $_
+EOT
+
+COPY rootfs /
+
+RUN <<-"EOF" bash -ex
+    systemctl enable \
+        antizapret-update.service \
+        antizapret-update.timer \
+        dnsmap \
+        kresd@1 \
+        openvpn-server@antizapret \
+        openvpn-server@antizapret-tcp \
+        systemd-networkd
+
+    patch antizapret/parse.sh patches/parse.patch
+    sed -i "/\b\(googleusercontent\|cloudfront\|deviantart\)\b/d" /root/antizapret/config/exclude-regexp-dist.awk
+    for list in antizapret/config/*-dist.txt; do
+        sed -E '/^(#.*)?[[:space:]]*$/d' $list | sort | uniq | sponge $list
+    done
+    for list in antizapret/config/*-custom.txt; do rm -f $list; done
+
+    rm -frv /tmp/*
+EOF
+
+COPY rootfs /rootfs
+
 ENTRYPOINT ["/init.sh"]

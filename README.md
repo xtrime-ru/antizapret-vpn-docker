@@ -1,98 +1,106 @@
-# Antizapret VPN server
-Easy-to-start docker container with antizapret vpn server for selfhosting.
+# AntiZapret VPN in Docker
 
-## About
-Easy-to-use docker image based upon original [Atnizapret LXD image](https://bitbucket.org/anticensority/antizapret-vpn-container/src/master/). 
-
-## Improvements
- - [Apple DNS fix](https://github.com/xtrime-ru/antizapret-vpn-docker/blob/master/patches/kresd.conf#L3);
- - [RU domains excluded from antizapret](https://github.com/xtrime-ru/antizapret-vpn-docker/blob/master/patches/kresd.conf#L13);
- - [IDN domains fix](https://github.com/xtrime-ru/antizapret-vpn-docker/blob/master/patches/fix.sh#L5);
- - [Additional domains list](https://github.com/xtrime-ru/antizapret-vpn-docker/blob/master/config/include-hosts-custom.txt);
- - Switch to Ubuntu 24.04 from Debian 10;
- - Upgrade to OpenVPN 2.6+ and install [openvpn-dco](https://openvpn.net/as-docs/tutorials/tutorial--turn-on-openvpn-dco.html) kernel extension for maximum performance;
- - Rules for Youtube, Google, Microsoft, OpenAI
- - Start sequence optimization. Container start times reduced from minutes to seconds. 
+Easy-to-use Docker image based upon original [AntiZapret LXD image](https://bitbucket.org/anticensority/antizapret-vpn-container/src/master/) for self-hosting.
 
 
-## Installation
-0. Install docker
-    ```shell
-    curl -fsSL https://get.docker.com -o get-docker.sh
-    sudo sh get-docker.sh
-    ```
+# Improvements
 
-1. Copy this repository, build container, and run it.
-    ```shell
-    git clone https://github.com/xtrime-ru/antizapret-vpn-docker.git antizapret
-    cd antizapret
-    docker compose pull
-    docker compose up -d
-    ```
-2. Download .ovpn configuration file for your openvpn client from `keys/client` folder. 
-There will be udp and tcp versions of the config. For better performance use upd.
-Tcp version will be better for unstable conditions.
+- Patches: [Apple](./rootfs/etc/knot-resolver/kresd.conf#L53-L61), [IDN](./rootfs/root/patches/parse.patch#L16), [RU](./rootfs/etc/knot-resolver/kresd.conf#L63-L73)
+- [Community-driven list](./rootfs/root/antizapret/config/include-hosts-dist.txt) with geoblocked and unlisted domains
+- Option to use [openvpn-dco](https://openvpn.net/as-docs/tutorials/tutorial--turn-on-openvpn-dco.html), a kernel extension for improving performance
+- Option to [forwarding queries](./rootfs/init.sh#L21-L35) to an external resolver
+
+
+# Installation
+
+> Quick start: use the example from [docker-compose.yml](./docker-compose.yml) to run the container; it will be pulled from Docker Hub
+
+To run this container you need to install [Docker Engine](https://docs.docker.com/engine/install/):
+
+```bash
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+```
+
+If you wanna run the container from source code, run the following commands:
+
+```bash
+git clone https://github.com/xtrime-ru/antizapret-vpn-docker.git antizapret
+cd antizapret
+docker compose up -d --build
+```
+
+After initialization of the container, you can pull `.ovpn` configs from [keys/client](./keys/client) directory.
+There will be UDP and TCP configurations.
+Use UDP for better performance.
+Use TCP in unstable conditions.
 
 ## Update:
- 
+
 ```shell
 git pull
 docker compose pull
 docker compose up -d
 ```
-## Enable OpenVPN Data Channel Offload (DCO)
-OpenVPN Data Channel Offload (DCO) provides performance improvements by moving the data channel handling to the kernel space, 
-where it can be handled more efficiently and with multi-threading.
-TLDR: increase speed and reduce CPU usage for server.
 
-Unfortunately kernel extensions cant be installed in docker.   
-Install it on **host** machine
+# Documentation
 
-Ubuntu 24.04+:
-```shell
-apt update && apt upgrade
+## Adding Domains/IPs
+Any domains or IPs can be added or excluded from routing with [config files](./config).
+These lists are added/excluded to/from automatically generated lists of domains and IP's.
+Reboot container and wait few minutes for applying changes.
 
-# Please reboot your system after upgrade!
 
-apt install -y efivar
-apt install -y openvpn-dco-dkms
-```
+## Keys Persistence
 
-Ubuntu 20.04+:
-```shell
-apt update && apt upgrade
+Client and server keys are stored in [keys](./keys).
+They are persistent between container and host restarts.
 
-# Please reboot your system after upgrade!
-
-apt install -y efivar dkms linux-headers-$(uname -r)
-wget http://de.archive.ubuntu.com/ubuntu/pool/universe/o/openvpn-dco-dkms/openvpn-dco-dkms_0.0+git20231103-1_all.deb
-dpkg -i openvpn-dco-dkms_0.0+git20231103-1_all.deb
-```
-
-## Keys persistence
-Server keys are stored in `keys/server/` and client keys - in `keys/client/`.
-Keys are persistent between container and host restarts.
-
-To generate new keys - remove files and container again:
+To regenerating the keys use the following commands:
 ```shell
 docker compose down
 rm -rf keys/{client,server}/keys/*.{crt,key}
 docker compose up -d
 ```
 
-## Additional domains
-Any domain and/or IP can be added or excluded from list with [config files](https://github.com/xtrime-ru/antizapret-vpn-docker/tree/master/config)
-This lists are added/excluded to/from automatically generated lists of domains and IP's. 
-To apply changes: reboot container and wait few minutes for new rules generation.
 
 ## Environment Variables
-You can define this variables in docker-compose file for your needs
- - `DNS=1.1.1.1` - DNS server to resolve domains. By default - system/docker dns
- - `DNS_RU=77.88.8.8` - Russian DNS server. Used to fix issues with geo zones mismatch for domains like apple.com
+
+You can define these variables in docker-compose.yml file for your needs:
+
+- `DOMAIN=example.com` — will be used as a server address in .ovpn profiles upon keys generation (default: your server's IP)
+- `PORT=1194` — will be used as a server port in .ovpn profiles upon keys generation (default: 1194)
+- `DNS=1.1.1.1` — DNS server to resolve domains (default: host DNS server)
+- `DNS_RU=77.88.8.8` — russian DNS server; used to fix issues with geo zones mismatch for domains like [apple.com](apple.com)
 
 
-## Links
-- Link to original project website: https://antizapret.prostovpn.org
-- Repositories:
-    - https://bitbucket.org/anticensority/antizapret-vpn-container/src/master/
-    - https://bitbucket.org/anticensority/antizapret-pac-generator-light/src/master/
+## Enable OpenVPN Data Channel Offload (DCO)
+[OpenVPN Data Channel Offload (DCO)](https://openvpn.net/as-docs/openvpn-dco.html) provides performance improvements by moving the data channel handling to the kernel space, where it can be handled more efficiently and with multi-threading.
+**tl;dr** it increases speed and reduces CPU usage on a server.
+
+Kernel extensions can be installed only on <u>a host machine</u>, not in a container.
+
+### Ubuntu 24.04
+```bash
+sudo apt update
+sudo apt upgrade # reboot your system after upgrade
+sudo apt install -y efivar
+sudo apt install -y openvpn-dco-dkms
+```
+
+### Ubuntu 20.04
+```bash
+deb=openvpn-dco-dkms_0.0+git20231103-1_all.deb
+sudo apt update
+sudo apt upgrade # reboot your system after upgrade
+sudo apt install -y efivar dkms linux-headers-$(uname -r)
+wget http://archive.ubuntu.com/ubuntu/pool/universe/o/openvpn-dco-dkms/$deb
+sudo dpkg -i $deb
+```
+
+
+# Credits
+- [ProstoVPN](https://antizapret.prostovpn.org) — the original project
+- [AntiZapret VPN Container](https://bitbucket.org/anticensority/antizapret-vpn-container/src/master/) — source code of the LXD-based container
+- [AntiZapret PAC Generator](https://bitbucket.org/anticensority/antizapret-pac-generator-light/src/master/) — proxy auto-configuration generator to bypass censorship of Russian Federation
+- [No Thought Is a Crime](https://ntc.party) — a forum about technical, political and economical aspects of internet censorship in different countries

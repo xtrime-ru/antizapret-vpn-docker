@@ -1,5 +1,29 @@
 services:
   antizapret-vpn:
-    extends:
-      file: docker-compose.base.yml
-      service: antizapret-vpn
+    image: xtrime/antizapret-vpn:latest
+    container_name: antizapret-vpn
+    hostname: antizapret
+    restart: unless-stopped
+    privileged: true
+    build: .
+    environment:
+      - DOMAIN
+      - PORT
+      - DNS
+      - DNS_RU
+    ports:
+      - 1194:1194/tcp
+      - 1194:1194/udp
+    dns:
+      - 1.1.1.1
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./keys:/etc/openvpn
+      - ./temp:/root/antizapret/temp
+      - ./result:/root/antizapret/result
+      - ./config:/root/antizapret/config/custom
+    logging:
+      driver: json-file
+      options:
+        max-size: 100k
+        max-file: 2

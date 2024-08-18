@@ -1,5 +1,7 @@
-.*
-easyrsa3/
-client_keys/
-result/
-temp/
+.vs*
+/data/
+/keys/
+/temp/
+/result/
+/config/
+/.adguard/
