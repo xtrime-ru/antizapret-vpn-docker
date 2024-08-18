@@ -26,7 +26,6 @@ RUN <<-"EOT" bash -ex
         moreutils \
         nano \
         openssl \
-        openvpn \
         patch \
         procps \
         python3-dnslib \
@@ -52,6 +51,40 @@ RUN <<-"EOT" bash -ex
 EOT
 
 COPY rootfs /
+
+RUN <<-"EOT" bash -ex
+    OPENVPN_VER=2.6.12
+    LIBS="libnl-genl-3-dev libssl-dev libcap-ng-dev liblz4-dev libsystemd-dev"
+    LIBS_TEMP="git build-essential pkg-config gcc cmake make"
+    apt-get install -y $LIBS $LIBS_TEMP
+    mkdir -p /opt/openvpn_install && cd /opt/openvpn_install
+    wget "https://raw.githubusercontent.com/Tunnelblick/Tunnelblick/master/third_party/sources/openvpn/openvpn-$OPENVPN_VER/openvpn-$OPENVPN_VER.tar.gz"
+    tar xvf "openvpn-$OPENVPN_VER.tar.gz"
+    cd "openvpn-$OPENVPN_VER"
+    #
+    patches=(
+        "02-tunnelblick-openvpn_xorpatch-a.diff"
+        "03-tunnelblick-openvpn_xorpatch-b.diff"
+        "04-tunnelblick-openvpn_xorpatch-c.diff"
+        "05-tunnelblick-openvpn_xorpatch-d.diff"
+        "06-tunnelblick-openvpn_xorpatch-e.diff"
+    )
+
+    for patch in "${patches[@]}"; do
+        wget "https://raw.githubusercontent.com/Tunnelblick/Tunnelblick/master/third_party/sources/openvpn/openvpn-$OPENVPN_VER/patches/$patch"
+        git apply "$patch"
+    done
+
+    ./configure --enable-static=yes --enable-shared  --enable-systemd=yes --disable-lzo --disable-debug --disable-plugin-auth-pam --disable-dependency-tracking
+    make -j$(nproc)
+    make install
+
+    cd /root
+    rm -rf /opt/openvpn_install/
+    apt-get purge -y $LIBS_TEMP
+    apt-get autoremove && apt-get clean
+
+EOT
 
 RUN <<-"EOF" bash -ex
     systemctl enable \
