@@ -43,10 +43,15 @@ create_hash () {
 
 diff_hashes () {
     path=./config/custom
-    [[ ! -f $path/.hash ]] && create_hash > $path/.hash
-    hash_1=$(cat $path/.hash)
+    if [[ ! -f /root/.hash ]]; then
+        create_hash > /root/.hash
+        hash_1=
+    else
+        hash_1=$(cat /root/.hash)
+    fi
     hash_2=$(create_hash)
-    if [[ $hash_1 != $hash_2 ]]; then
+
+    if [[ "$hash_1" != "$hash_2" ]]; then
         echo "Hashes are different: $hash_1 != $hash_2"
         return 1
     else
@@ -67,9 +72,9 @@ if [[ $FORCE == true ]]; then
 fi
 
 
-for file in ${FILES[@]}; do
+for file in "${FILES[@]}"; do
     if [ -f $file ]; then
-        if test $(find $file -mmin +300); then
+        if test "$(find $file -mmin +300)"; then
             echo "$file is outdated!"
             STAGE_1=true; STAGE_2=true; break
         fi
@@ -81,7 +86,7 @@ for file in ${FILES[@]}; do
 done
 
 
-if ! diff_hashes; then create_hash > $path/.hash; STAGE_2=true; fi
+if ! diff_hashes; then create_hash > /root/.hash; STAGE_2=true; fi
 
 
 [[ $STAGE_1 == true ]] && ./update.sh
