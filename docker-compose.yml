@@ -9,6 +9,7 @@ services:
     environment:
       - DOMAIN
       - PORT
+      - CBC_CIPHERS
       - DNS
       - DNS_RU
     ports:
