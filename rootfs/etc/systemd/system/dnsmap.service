@@ -3,8 +3,7 @@ Description=dnsmap
 After=network.target
 
 [Service]
-WorkingDirectory=/root/dnsmap
-ExecStart=/root/dnsmap/proxy.py -a 127.0.0.4 --iprange 10.224.0.0/15
+ExecStart=/root/antizapret/dnsmap.py -a 127.0.0.4 --iprange 10.224.0.0/15
 EnvironmentFile=/etc/default/antizapret
 
 [Install]
