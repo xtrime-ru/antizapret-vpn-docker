@@ -4,7 +4,7 @@
 # run commands after systemd initialization
 
 function postrun () {
-    waiter="until ps -p 1 | grep -q systemd; do sleep 0.1; done; sleep 1"
+    local waiter="until ps -p 1 | grep -q systemd; do sleep 0.1; done; sleep 1"
     nohup bash -c "$waiter; $@" &
 }
 
@@ -14,8 +14,18 @@ function postrun () {
 function resolve () {
     # $1 domain/ip address, $2 fallback domain/ip address
     ipcalc () { ipcalc-ng --no-decorate -o $1 2> /dev/null; }
-    ipaddr=$(ipcalc $1 || ipcalc $2)
+    local ipaddr=$(ipcalc $1 || ipcalc $2)
     echo ${ipaddr:-127.0.0.11} # fallback to docker internal dns
+}
+
+
+# set ciphers
+
+function set_ciphers () {
+    # $1 AES-128-CBC:AES-256-CBC[:...]
+    local CIPHERS=AES-128-GCM:AES-256-GCM
+    local ARGS=$([ -n "$1" ] && echo "$CIPHERS:$1" || echo "$CIPHERS")
+    sed -i "s|data-ciphers .*|data-ciphers \"$ARGS\"|g" /etc/openvpn/server/*.conf
 }
 
 
@@ -23,12 +33,14 @@ function resolve () {
 # in order to systemd services can access them
 
 cat << EOF | tee /etc/default/antizapret
+CBC_CIPHERS=${CBC_CIPHERS:-0}
 DNS=$(resolve $DNS)
 DNS_RU=$(resolve $DNS_RU 77.88.8.8)
+PYTHONUNBUFFERED=1
 EOF
 
 
-# autoload vars when logging in into shell with 'bash -l' 
+# autoload vars when logging in into shell with 'bash -l'
 ln -sf /etc/default/antizapret /etc/profile.d/antizapret.sh
 
 
@@ -43,6 +55,11 @@ done
 
 # generate certs/keys/profiles for OpenVPN
 /root/openvpn/generate.sh
+
+
+# swap between legacy ciphers and DCO-required ciphers
+
+[[ "$CBC_CIPHERS" == 1 ]] && set_ciphers AES-128-CBC:AES-256-CBC || set_ciphers
 
 
 # output systemd logs to docker logs
