@@ -33,7 +33,7 @@ cd antizapret
 docker compose up -d --build
 ```
 
-After initialization of the container, you can pull `.ovpn` configs from [keys/client](./keys/client) directory.
+After initialization of the container, you can pull `.ovpn` configs from `./keys/client` directory.
 There will be UDP and TCP configurations.
 Use UDP for better performance.
 Use TCP in unstable conditions.
@@ -49,7 +49,7 @@ docker compose up -d
 # Documentation
 
 ## Adding Domains/IPs
-Any domains or IPs can be added or excluded from routing with [config files](./config).
+Any domains or IPs can be added or excluded from routing with config files from `./config` directory.
 These lists are added/excluded to/from automatically generated lists of domains and IP's.
 Reboot container and wait few minutes for applying changes.
 
