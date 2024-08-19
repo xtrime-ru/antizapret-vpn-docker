@@ -1,7 +1,4 @@
 .vs*
-/data/
 /keys/
-/temp/
-/result/
 /config/
 /.adguard/
