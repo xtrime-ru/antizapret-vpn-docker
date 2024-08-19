@@ -5,7 +5,7 @@ Wants=network-online.target
 
 [Service]
 WorkingDirectory=/root/antizapret
-ExecStart=/root/antizapret/doall.sh
+ExecStart=/usr/bin/doall
 EnvironmentFile=/etc/default/antizapret
 
 [Install]

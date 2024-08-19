@@ -32,10 +32,11 @@ function set_ciphers () {
 # save DNS variables to /etc/default/antizapret
 # in order to systemd services can access them
 
-cat << EOF | tee /etc/default/antizapret
+cat << EOF | sponge /etc/default/antizapret
 DCO=${DCO:-1}
 DNS=$(resolve $DNS)
 DNS_RU=$(resolve $DNS_RU 77.88.8.8)
+PYTHONUNBUFFERED=1
 EOF
 
 
@@ -57,12 +58,11 @@ done
 
 
 # swap between legacy ciphers and DCO-required ciphers
-
 [[ $DCO == 0 ]] && set_ciphers AES-128-CBC:AES-256-CBC || set_ciphers
 
 
-# output systemd logs to docker logs
-postrun journalctl -f --no-hostname --since "$(date '+%Y-%m-%d %T')"
+# output systemd logs to docker logs since container boot
+postrun 'journalctl --boot --follow --lines=all --no-hostname'
 
 
 # systemd init

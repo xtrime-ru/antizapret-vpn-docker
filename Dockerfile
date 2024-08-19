@@ -104,6 +104,7 @@ RUN <<-"EOF" bash -ex
     for list in antizapret/config/*-custom.txt; do rm -f $list; done
 
     ln -sf /root/antizapret/doall.sh /usr/bin/doall
+    ln -sf /root/antizapret/dnsmap.py /usr/bin/dnsmap
 
     rm -frv /tmp/*
 EOF
