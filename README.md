@@ -5,12 +5,13 @@ Easy-to-use Docker image based upon original [AntiZapret LXD image](https://bitb
 
 # Improvements
 
-- Patches: [Apple](./rootfs/etc/knot-resolver/kresd.conf#L53-L61), [IDN](./rootfs/root/patches/parse.patch#L16), [RU](./rootfs/etc/knot-resolver/kresd.conf#L63-L73)
-- [Community-driven list](./rootfs/root/antizapret/config/include-hosts-dist.txt) with geoblocked and unlisted domains
-- Option to use [openvpn-dco](https://openvpn.net/as-docs/tutorials/tutorial--turn-on-openvpn-dco.html), a kernel extension for improving performance
+- Patches: [Apple](https://github.com/xtrime-ru/antizapret-vpn-docker/blob/master/rootfs/etc/knot-resolver/kresd.conf), [IDN](https://github.com/xtrime-ru/antizapret-vpn-docker/blob/master/rootfs/root/patches/parse.patch)
+- [Community-driven list](https://github.com/xtrime-ru/antizapret-vpn-docker/blob/master/rootfs/root/antizapret/config/include-hosts-dist.txt) with geoblocked and unlisted domains: youtube, microsoft, openai and more
+- [openvpn-dco](https://openvpn.net/as-docs/tutorials/tutorial--turn-on-openvpn-dco.html) - a kernel extension for improving performance
 - Option to [forwarding queries](./rootfs/init.sh#L21-L35) to an external resolver
 - [XOR Tunneblick patch](https://tunnelblick.net/cOpenvpn_xorpatch.html)
-- Support regex in custom rules
+- [Support regex in custom rules](#adding-domainsips)
+- [XOR Tunneblick patch](https://tunnelblick.net/cOpenvpn_xorpatch.html)
 
 
 # Installation
@@ -91,6 +92,7 @@ You can define these variables in docker-compose.yml file for your needs:
 - `DNS=1.1.1.1` — DNS server to resolve domains (default: host DNS server)
 - `DNS_RU=77.88.8.8` — russian DNS server; used to fix issues with geo zones mismatch for domains like [apple.com](apple.com)
 - `CBC_CIPHERS=1` - Enable support of [legacy clients](#legacy-clients). WIll disable [DCO](#enable-openvpn-data-channel-offload-dco) 
+- `SCRAMBLE=1` - Enable additional obfuscation [XOR Tunneblick patch](https://tunnelblick.net/cOpenvpn_xorpatch.html) 
 
 
 ## Enable OpenVPN Data Channel Offload (DCO)
@@ -102,7 +104,8 @@ Kernel extensions can be installed only on <u>a host machine</u>, not in a conta
 ### Ubuntu 24.04
 ```bash
 sudo apt update
-sudo apt upgrade # reboot your system after upgrade
+sudo apt upgrade
+echo "#### Please reboot your system after upgrade ###" && sleep 100
 sudo apt install -y efivar
 sudo apt install -y openvpn-dco-dkms
 ```
@@ -111,13 +114,14 @@ sudo apt install -y openvpn-dco-dkms
 ```bash
 deb=openvpn-dco-dkms_0.0+git20231103-1_all.deb
 sudo apt update
-sudo apt upgrade # reboot your system after upgrade
+sudo apt upgrade 
+echo "#### Please reboot your system after upgrade ###" && sleep 100
 sudo apt install -y efivar dkms linux-headers-$(uname -r)
 wget http://archive.ubuntu.com/ubuntu/pool/universe/o/openvpn-dco-dkms/$deb
 sudo dpkg -i $deb
 ```
 
-## Legacy clients
+## Legacy clients support
 
 If your clients do not have GCM chiphers support you can use legacy CBC ciphers.
 DCO is incompatable with legacy ciphers and will be disabled. This is also increase CPU load.

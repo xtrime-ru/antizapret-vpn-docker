@@ -28,12 +28,25 @@ function set_ciphers () {
     sed -i "s|data-ciphers .*|data-ciphers \"$ARGS\"|g" /etc/openvpn/server/*.conf
 }
 
+function set_scramble () {
+    local ENABLE=$1
+    if [[ "$ENABLE" == 1 ]]; then
+        sed -i "s/^#scramble/scramble/g" /root/openvpn/templates/*.conf
+        sed -i "s/^#scramble/scramble/g" /etc/openvpn/server/*.conf
+    else
+        sed -i "s/^scramble/#scramble/g" /root/openvpn/templates/*.conf
+        sed -i "s/^scramble/#scramble/g" /etc/openvpn/server/*.conf
+    fi
+
+}
+
 
 # save DNS variables to /etc/default/antizapret
 # in order to systemd services can access them
 
 cat << EOF | sponge /etc/default/antizapret
 CBC_CIPHERS=${CBC_CIPHERS:-0}
+SCRAMBLE=${SCRAMBLE:-0}
 DNS=$(resolve $DNS)
 DNS_RU=$(resolve $DNS_RU 77.88.8.8)
 PYTHONUNBUFFERED=1
@@ -59,6 +72,9 @@ done
 
 # swap between legacy ciphers and DCO-required ciphers
 [[ "$CBC_CIPHERS" == 1 ]] && set_ciphers AES-128-CBC:AES-256-CBC || set_ciphers
+
+# enable tunneblick xor scramble patch
+set_scramble "$SCRAMBLE"
 
 
 # output systemd logs to docker logs since container boot

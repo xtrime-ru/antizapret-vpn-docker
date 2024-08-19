@@ -10,6 +10,7 @@ services:
       - DOMAIN
       - PORT
       - CBC_CIPHERS
+      - SCRAMBLE
       - DNS
       - DNS_RU
     ports:
