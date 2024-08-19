@@ -9,6 +9,7 @@ services:
     environment:
       - DOMAIN
       - PORT
+      - DCO
       - DNS
       - DNS_RU
     ports:

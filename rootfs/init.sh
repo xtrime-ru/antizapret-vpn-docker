@@ -19,16 +19,27 @@ function resolve () {
 }
 
 
+# set ciphers
+
+function set_ciphers () {
+    # $1 AES-128-CBC:AES-256-CBC[:...]
+    CIPHERS=AES-128-GCM:AES-256-GCM
+    ARGS=$([ -n $1 ] && echo "$CIPHERS:$1" || echo "$CIPHERS")
+    sed -i "s|data-ciphers .*|data-ciphers \"$ARGS\"|g" /etc/openvpn/server/*.conf
+}
+
+
 # save DNS variables to /etc/default/antizapret
 # in order to systemd services can access them
 
 cat << EOF | tee /etc/default/antizapret
+DCO=${DCO:-1}
 DNS=$(resolve $DNS)
 DNS_RU=$(resolve $DNS_RU 77.88.8.8)
 EOF
 
 
-# autoload vars when logging in into shell with 'bash -l' 
+# autoload vars when logging in into shell with 'bash -l'
 ln -sf /etc/default/antizapret /etc/profile.d/antizapret.sh
 
 
@@ -43,6 +54,11 @@ done
 
 # generate certs/keys/profiles for OpenVPN
 /root/openvpn/generate.sh
+
+
+# swap between legacy ciphers and DCO-required ciphers
+
+[[ $DCO == 0 ]] && set_ciphers AES-128-CBC:AES-256-CBC || set_ciphers
 
 
 # output systemd logs to docker logs
