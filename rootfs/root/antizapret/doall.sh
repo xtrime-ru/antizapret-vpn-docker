@@ -67,6 +67,7 @@ if [[ $FORCE == true ]]; then
     echo 'Force update detected!'
     ./update.sh
     ./parse.sh
+    ./build_regex.sh
     ./process.sh
     exit
 fi
@@ -89,8 +90,11 @@ done
 if ! diff_hashes; then create_hash > /root/.hash; STAGE_2=true; fi
 
 
-[[ $STAGE_1 == true ]] && ./update.sh
+[[ $STAGE_1 == true ]] && (echo "run update.sh" && ./update.sh || exit 1)
 
-[[ $STAGE_2 == true ]] && ./parse.sh || echo 'Nothing to do.'
+[[ $STAGE_2 == true ]] && (echo "run parse.sh" && ./parse.sh && echo "run build_regex.sh" && ./build_regex.sh || exit 2)
 
-[[ $STAGE_3 == true ]] && ./process.sh 2> /dev/null
+[[ $STAGE_3 == true ]] && (echo "run process.sh" && ./process.sh 2> /dev/null || exit 3)
+
+echo "Kresd rules updated"
+exit 0
