@@ -105,11 +105,13 @@ RUN <<-"EOF" bash -ex
 
     ln -sf /root/antizapret/doall.sh /usr/bin/doall
 
-    /root/antizapret/doall.sh
-
     rm -frv /tmp/*
 EOF
 
-COPY rootfs /rootfs
+COPY rootfs/etc/openvpn /etc/openvpn-default
+
+RUN <<-"EOF" bash -ex
+    (STAGE_1=true STAGE_2=true STAGE_3=false /root/antizapret/doall.sh)
+EOF
 
 ENTRYPOINT ["/init.sh"]
