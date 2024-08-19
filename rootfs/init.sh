@@ -33,9 +33,9 @@ ln -sf /etc/default/antizapret /etc/profile.d/antizapret.sh
 
 
 # populating directories with files
-cp -rv --update=none /rootfs/etc/openvpn/* /etc/openvpn
+cp -rv --update=none /etc/openvpn-default/* /etc/openvpn
 
-for file in $(echo {exclude,include}-{ips,hosts}-custom.txt); do
+for file in $(echo {exclude,include}-{ips,hosts,regex}-custom.txt); do
     path=/root/antizapret/config/custom/$file
     [ ! -f $path ] && touch $path
 done

@@ -64,10 +64,10 @@ Here is few regex example:
 	\.microsoft\.com$
 	```
     Will match any subdomain from microsoft.com. Both regular works same way.
-1. Any 1st level domain:
+1. List of first level domains:
 	```regexp
 	microsoft\.[^.]*$
-	microsoft\.(ru|com|com.de)
+	microsoft\.(ru|com|com\.de)
 	```
 
 ## Keys/Configs Persistence
