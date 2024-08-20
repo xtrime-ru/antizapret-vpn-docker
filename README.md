@@ -95,6 +95,8 @@ You can define these variables in docker-compose.yml file for your needs:
 - `SCRAMBLE=1` - Enable additional obfuscation [XOR Tunneblick patch](https://tunnelblick.net/cOpenvpn_xorpatch.html) 
 - `TLS_CRYPT=1` - Enable additional TLS encryption in OpenVPN. May help with connection obfuscation.
 
+## Extra information
+[OpenWrt setup guide](./docs/guide_OpenWrt.md) - how to setup OpenWrt router with this solution to keep LAN clients happy.
 
 ## Enable OpenVPN Data Channel Offload (DCO)
 [OpenVPN Data Channel Offload (DCO)](https://openvpn.net/as-docs/openvpn-dco.html) provides performance improvements by moving the data channel handling to the kernel space, where it can be handled more efficiently and with multi-threading.
