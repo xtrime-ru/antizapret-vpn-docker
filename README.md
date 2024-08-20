@@ -91,6 +91,7 @@ You can define these variables in docker-compose.yml file for your needs:
 - `PORT=1194` — will be used as a server port in .ovpn profiles upon keys generation (default: 1194)
 - `DNS=1.1.1.1` — DNS server to resolve domains (default: host DNS server)
 - `DNS_RU=77.88.8.8` — russian DNS server; used to fix issues with geo zones mismatch for domains like [apple.com](apple.com)
+- `ADGUARD=1` - Resolve .ru, .рф and .su via DNS. By default, this zones resolved through DNS_RU.
 - `CBC_CIPHERS=1` - Enable support of [legacy clients](#legacy-clients). WIll disable [DCO](#enable-openvpn-data-channel-offload-dco) 
 - `SCRAMBLE=1` - Enable additional obfuscation [XOR Tunneblick patch](https://tunnelblick.net/cOpenvpn_xorpatch.html) 
 

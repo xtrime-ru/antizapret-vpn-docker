@@ -13,11 +13,12 @@ services:
       - SCRAMBLE
       - DNS
       - DNS_RU
+      - ADGUARD
     ports:
       - 1194:1194/tcp
       - 1194:1194/udp
-    dns:
-      - 1.1.1.1
+#    dns:
+#      - 1.1.1.1
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - ./keys:/etc/openvpn

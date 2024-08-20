@@ -5,6 +5,7 @@ services:
       service: antizapret-vpn
     environment:
       - DNS=adguardhome
+      - ADGUARD=1
     depends_on:
       - adguardhome
   adguardhome:
@@ -20,8 +21,8 @@ services:
       # - 784:784/udp
       # - 853:853/tcp
       - 3000:3000/tcp
-    dns:
-      - 1.1.1.1
+#    dns:
+#      - 1.1.1.1
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - ./.adguard/confdir:/opt/adguardhome/conf
