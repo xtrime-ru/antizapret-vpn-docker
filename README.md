@@ -6,10 +6,9 @@ Easy-to-use Docker image based upon original [AntiZapret LXD image](https://bitb
 # Improvements
 
 - Patches: [Apple](./rootfs/etc/knot-resolver/kresd.conf#L53-L61), [IDN](./rootfs/root/patches/parse.patch#L16), [RU](./rootfs/etc/knot-resolver/kresd.conf#L117)
-- [Community-driven list](https://github.com/xtrime-ru/antizapret-vpn-docker/blob/master/rootfs/root/antizapret/config/include-hosts-dist.txt) with geoblocked and unlisted domains: youtube, microsoft, openai and more
+- [Community-driven list](https://github.com/xtrime-ru/antizapret-vpn-docker/blob/master/rootfs/root/antizapret/config/include-hosts-dist.txt) with geoblocked and unlisted domains: YouTube, Microsoft, OpenAI and more
 - [openvpn-dco](https://openvpn.net/as-docs/tutorials/tutorial--turn-on-openvpn-dco.html) - a kernel extension for improving performance
 - Option to [forwarding queries](./rootfs/init.sh#L21-L35) to an external resolver
-- [XOR Tunneblick patch](https://tunnelblick.net/cOpenvpn_xorpatch.html)
 - [Support regex in custom rules](#adding-domainsips)
 - [XOR Tunneblick patch](https://tunnelblick.net/cOpenvpn_xorpatch.html)
 
@@ -53,7 +52,7 @@ Any domains or IPs can be added or excluded from routing with config files from 
 These lists are added/excluded to/from automatically generated lists of domains and IP's.
 Reboot container and wait few minutes for applying changes.
 
-Its recomended to use `*-regex-custom.txt` files.
+Its recommended to use `*-regex-custom.txt` files.
 You can debug your regular expressions online: https://regex101.com
 Here is few regex example:
 1. Exact match:
@@ -90,11 +89,11 @@ You can define these variables in docker-compose.yml file for your needs:
 - `DOMAIN=example.com` — will be used as a server address in .ovpn profiles upon keys generation (default: your server's IP)
 - `PORT=1194` — will be used as a server port in .ovpn profiles upon keys generation (default: 1194)
 - `DNS=1.1.1.1` — DNS server to resolve domains (default: host DNS server)
-- `DNS_RU=77.88.8.8` — russian DNS server; used to fix issues with geo zones mismatch for domains like `apple.com`
+- `DNS_RU=77.88.8.8` — Russian DNS server; used to fix issues with geo zones mismatch for domains like `apple.com`
 - `ADGUARD=1` - Resolve .ru, .рф and .su via DNS. By default, this zones resolved through DNS_RU.
 - `CBC_CIPHERS=1` - Enable support of [legacy clients](#legacy-clients). WIll disable [DCO](#enable-openvpn-data-channel-offload-dco) 
 - `SCRAMBLE=1` - Enable additional obfuscation [XOR Tunneblick patch](https://tunnelblick.net/cOpenvpn_xorpatch.html) 
-- `TLS_CRYPT=1` - Enable additional tls encryption in openvpn. May help with connection obfuscation.
+- `TLS_CRYPT=1` - Enable additional TLS encryption in OpenVPN. May help with connection obfuscation.
 
 
 ## Enable OpenVPN Data Channel Offload (DCO)
@@ -125,8 +124,8 @@ sudo dpkg -i $deb
 
 ## Legacy clients support
 
-If your clients do not have GCM chiphers support you can use legacy CBC ciphers.
-DCO is incompatable with legacy ciphers and will be disabled. This is also increase CPU load.
+If your clients do not have GCM ciphers support you can use legacy CBC ciphers.
+DCO is incompatible with legacy ciphers and will be disabled. This is also increase CPU load.
 1. Set ENV variable `CBC_CIPHERS=1` in docker-compose.yml.
 2. Restart container.
 3. Download and apply updated .ovpn files from `keys/client/` folder.
