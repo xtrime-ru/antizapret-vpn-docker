@@ -5,7 +5,7 @@ Easy-to-use Docker image based upon original [AntiZapret LXD image](https://bitb
 
 # Improvements
 
-- Patches: [Apple](https://github.com/xtrime-ru/antizapret-vpn-docker/blob/master/rootfs/etc/knot-resolver/kresd.conf), [IDN](https://github.com/xtrime-ru/antizapret-vpn-docker/blob/master/rootfs/root/patches/parse.patch)
+- Patches: [Apple](./rootfs/etc/knot-resolver/kresd.conf#L53-L61), [IDN](./rootfs/root/patches/parse.patch#L16), [RU](./rootfs/etc/knot-resolver/kresd.conf#L117)
 - [Community-driven list](https://github.com/xtrime-ru/antizapret-vpn-docker/blob/master/rootfs/root/antizapret/config/include-hosts-dist.txt) with geoblocked and unlisted domains: youtube, microsoft, openai and more
 - [openvpn-dco](https://openvpn.net/as-docs/tutorials/tutorial--turn-on-openvpn-dco.html) - a kernel extension for improving performance
 - Option to [forwarding queries](./rootfs/init.sh#L21-L35) to an external resolver
@@ -73,7 +73,7 @@ Here is few regex example:
 
 ## Keys/Configs Persistence
 
-Client and server keys are stored in [keys](./keys).
+Client and server keys are stored in `./keys`.
 They are persistent between container and host restarts.
 
 To regenerating the keys use the following commands:
@@ -90,10 +90,11 @@ You can define these variables in docker-compose.yml file for your needs:
 - `DOMAIN=example.com` — will be used as a server address in .ovpn profiles upon keys generation (default: your server's IP)
 - `PORT=1194` — will be used as a server port in .ovpn profiles upon keys generation (default: 1194)
 - `DNS=1.1.1.1` — DNS server to resolve domains (default: host DNS server)
-- `DNS_RU=77.88.8.8` — russian DNS server; used to fix issues with geo zones mismatch for domains like [apple.com](apple.com)
+- `DNS_RU=77.88.8.8` — russian DNS server; used to fix issues with geo zones mismatch for domains like `apple.com`
 - `ADGUARD=1` - Resolve .ru, .рф and .su via DNS. By default, this zones resolved through DNS_RU.
 - `CBC_CIPHERS=1` - Enable support of [legacy clients](#legacy-clients). WIll disable [DCO](#enable-openvpn-data-channel-offload-dco) 
 - `SCRAMBLE=1` - Enable additional obfuscation [XOR Tunneblick patch](https://tunnelblick.net/cOpenvpn_xorpatch.html) 
+- `TLS_CRYPT=1` - Enable additional tls encryption in openvpn. May help with connection obfuscation.
 
 
 ## Enable OpenVPN Data Channel Offload (DCO)

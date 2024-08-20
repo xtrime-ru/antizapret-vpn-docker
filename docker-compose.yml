@@ -14,6 +14,7 @@ services:
       - DNS
       - DNS_RU
       - ADGUARD
+      - TLS_CRYPT
     ports:
       - 1194:1194/tcp
       - 1194:1194/udp
@@ -23,6 +24,7 @@ services:
       - /etc/localtime:/etc/localtime:ro
       - ./keys:/etc/openvpn
       - ./config:/root/antizapret/config/custom
+      - ./rootfs/init.sh:/init.sh
     logging:
       driver: json-file
       options:

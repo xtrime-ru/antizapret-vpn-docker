@@ -26,7 +26,7 @@ render() {
     local IFS=''
     local File="$1"
     while read -r line ; do
-        while [[ "$line" =~ (\$\{[a-zA-Z_][a-zA-Z_0-9]*\}) ]] ; do
+        while [[ "$line" =~ ^[^#] ]] && [[ "$line" =~ (\$\{[a-zA-Z_][a-zA-Z_0-9]*\}) ]] ; do
         local LHS=${BASH_REMATCH[1]}
         local RHS="$(eval echo "\"$LHS\"")"
         line=${line//$LHS/$RHS}
@@ -39,7 +39,8 @@ load_key() {
     CA_CERT=$(grep -A 999 'BEGIN CERTIFICATE' -- "/etc/openvpn/server/keys/ca.crt")
     CLIENT_CERT=$(grep -A 999 'BEGIN CERTIFICATE' -- "/etc/openvpn/client/keys/antizapret-client.crt")
     CLIENT_KEY=$(cat -- "/etc/openvpn/client/keys/antizapret-client.key")
-    if [ ! "$CA_CERT" ] || [ ! "$CLIENT_CERT" ] || [ ! "$CLIENT_KEY" ]
+    CLIENT_TLS_CRYPT=$(grep -v '^#' -- "/etc/openvpn/server/keys/antizapret-tls-crypt.key")
+    if [ ! "$CA_CERT" ] || [ ! "$CLIENT_CERT" ] || [ ! "$CLIENT_KEY" ] || [ ! "$CLIENT_TLS_CRYPT" ]
     then
             echo "Can't load client keys!"
             exit 7
@@ -63,6 +64,10 @@ copy_keys() {
     cp ./pki/private/antizapret-client.key /etc/openvpn/client/keys/antizapret-client.key
 }
 
+if [[ ! -f  /etc/openvpn/server/keys/antizapret-tls-crypt.key ]]
+then
+	openvpn --genkey secret /etc/openvpn/server/keys/antizapret-tls-crypt.key
+fi
 
 if [[ ! -f /etc/openvpn/server/keys/ca.crt ]] || \
    [[ ! -f /etc/openvpn/server/keys/antizapret-server.crt ]] || \

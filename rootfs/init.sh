@@ -37,7 +37,25 @@ function set_scramble () {
         sed -i "s/^scramble/#scramble/g" /root/openvpn/templates/*.conf
         sed -i "s/^scramble/#scramble/g" /etc/openvpn/server/*.conf
     fi
+}
 
+function set_tls_crypt () {
+    local ENABLE=$1
+    if [[ "$ENABLE" == 1 ]]; then
+        sed -i "s/^#key-direction/key-direction/g" /root/openvpn/templates/*.conf
+        sed -i "s/^#<tls-crypt>/<tls-crypt>/g" /root/openvpn/templates/*.conf
+        sed -i "s/^#\${CLIENT_TLS_CRYPT}/\${CLIENT_TLS_CRYPT}/g" /root/openvpn/templates/*.conf
+        sed -i "s/^#<\/tls-crypt>/<\/tls-crypt>/g" /root/openvpn/templates/*.conf
+
+        sed -i "s/^#tls-crypt/tls-crypt/g" /etc/openvpn/server/*.conf
+    else
+        sed -i "s/^key-direction/#key-direction/g" /root/openvpn/templates/*.conf
+        sed -i "s/^<tls-crypt>/#<tls-crypt>/g" /root/openvpn/templates/*.conf
+        sed -i "s/^\${CLIENT_TLS_CRYPT}/#\${CLIENT_TLS_CRYPT}/g" /root/openvpn/templates/*.conf
+        sed -i "s/^<\/tls-crypt>/#<\/tls-crypt>/g" /root/openvpn/templates/*.conf
+
+        sed -i "s/^tls-crypt/#tls-crypt/g" /etc/openvpn/server/*.conf
+    fi
 }
 
 
@@ -50,6 +68,7 @@ SCRAMBLE=${SCRAMBLE:-0}
 DNS=$(resolve $DNS)
 DNS_RU=$(resolve $DNS_RU 77.88.8.8)
 ADGUARD=${ADGUARD:-0}
+TLS_CRYPT=${TLS_CRYPT:-0}
 PYTHONUNBUFFERED=1
 EOF
 
@@ -77,6 +96,7 @@ done
 # enable tunneblick xor scramble patch
 set_scramble "$SCRAMBLE"
 
+set_tls_crypt "$TLS_CRYPT"
 
 # output systemd logs to docker logs since container boot
 postrun 'journalctl --boot --follow --lines=all --no-hostname'
