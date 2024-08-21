@@ -14,10 +14,11 @@ for file in config/custom/{include,exclude}-regex-custom.txt; do
 
     #regex_allowed
     #regex_blocked
-    if [ "$(cat "$file" | wc -l)" -gt 0 ]; then
-        echo "regex_$type = '($(sed -E '/^(#.*)?[[:space:]]*$/d' "$file" | tr '\n' '|' | xargs | sed "s/|$//g"))'" >> result/knot-aliases-alt.conf
+    REGEX=$(sed -E '/^(#.*)?[[:space:]]*$/d' "$file" | tr '\n' '|' | xargs | sed "s/|$//g");
+    if [[ -n "$REGEX" ]]; then
+        echo "regex_$type = '($REGEX)'" >> result/knot-aliases-alt.conf
     else
-        echo "regex_$type = '^$'" >> result/knot-aliases-alt.conf
+        echo "regex_$type = ''" >> result/knot-aliases-alt.conf
     fi
 done
 
