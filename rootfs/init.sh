@@ -40,7 +40,7 @@ function set_scramble () {
 }
 
 function set_tls_crypt () {
-    local ENABLE=$1
+    local ENABLE="$1"
     if [[ "$ENABLE" == 1 ]]; then
         sed -i "s/^#key-direction/key-direction/g" /root/openvpn/templates/*.conf
         sed -i "s/^#<tls-crypt>/<tls-crypt>/g" /root/openvpn/templates/*.conf
@@ -85,11 +85,6 @@ for file in $(echo {exclude,include}-{ips,hosts,regex}-custom.txt); do
     [ ! -f $path ] && touch $path
 done
 
-
-# generate certs/keys/profiles for OpenVPN
-/root/openvpn/generate.sh
-
-
 # swap between legacy ciphers and DCO-required ciphers
 [[ "$CBC_CIPHERS" == 1 ]] && set_ciphers AES-128-CBC:AES-256-CBC || set_ciphers
 
@@ -97,6 +92,9 @@ done
 set_scramble "$SCRAMBLE"
 
 set_tls_crypt "$TLS_CRYPT"
+
+# generate certs/keys/profiles for OpenVPN
+/root/openvpn/generate.sh
 
 # output systemd logs to docker logs since container boot
 postrun 'journalctl --boot --follow --lines=all --no-hostname'
