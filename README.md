@@ -15,24 +15,21 @@ Easy-to-use Docker image based upon original [AntiZapret LXD image](https://bitb
 
 # Installation
 
-> Quick start: use the example from [docker-compose.yml](./docker-compose.yml) to run the container; it will be pulled from Docker Hub
-
-To run this container you need to install [Docker Engine](https://docs.docker.com/engine/install/):
-
-```bash
-curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
-```
-
-If you wanna run the container from source code, run the following commands:
-
-```bash
-git clone https://github.com/xtrime-ru/antizapret-vpn-docker.git antizapret
-cd antizapret
-docker compose up -d --build
-```
-
-After initialization of the container, you can pull `.ovpn` configs from `./keys/client` directory.
+0. Install [Docker Engine](https://docs.docker.com/engine/install/):
+   ```bash
+   curl -fsSL https://get.docker.com -o get-docker.sh
+   sudo sh get-docker.sh
+   ```
+1. Clone repository and start container:
+   ```bash
+   git clone https://github.com/xtrime-ru/antizapret-vpn-docker.git antizapret
+   cd antizapret
+   docker compose pull
+   docker compose up -d
+   ```
+2. Download keys  
+After start of the container folders `./keys/client` and `./configs` will be created. 
+Download `.ovpn` configs from `./keys/client` directory and use to setup your clients.
 There will be UDP and TCP configurations.
 Use UDP for better performance.
 Use TCP in unstable conditions.
@@ -42,7 +39,7 @@ Use TCP in unstable conditions.
 ```shell
 git pull
 docker compose pull
-docker compose up -d
+docker compose down && docker compose up -d
 ```
 
 # Documentation
