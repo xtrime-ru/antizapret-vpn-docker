@@ -110,12 +110,12 @@ sudo apt install -y efivar
 sudo apt install -y openvpn-dco-dkms
 ```
 
-### Ubuntu 20.04
+### Ubuntu 20.04, 22.04
 ```bash
-deb=openvpn-dco-dkms_0.0+git20231103-1_all.deb
 sudo apt update
 sudo apt upgrade 
 echo "#### Please reboot your system after upgrade ###" && sleep 100
+deb=openvpn-dco-dkms_0.0+git20231103-1_all.deb
 sudo apt install -y efivar dkms linux-headers-$(uname -r)
 wget http://archive.ubuntu.com/ubuntu/pool/universe/o/openvpn-dco-dkms/$deb
 sudo dpkg -i $deb
