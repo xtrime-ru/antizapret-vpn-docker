@@ -5,16 +5,20 @@ services:
     hostname: antizapret
     restart: unless-stopped
     privileged: true
+    stop_signal: SIGRTMIN+4
     build: .
     environment:
-      - DOMAIN
-      - PORT
-      - CBC_CIPHERS
-      - SCRAMBLE
+      - OPENVPN_HOST
+      - OPENVPN_PORT
+      - OPENVPN_CBC_CIPHERS
+      - OPENVPN_MTU
+      - OPENVPN_OPTIMIZATIONS
+      - OPENVPN_TLS_CRYPT
+      - OPENVPN_SCRAMBLE
       - DNS
       - DNS_RU
       - ADGUARD
-      - TLS_CRYPT
+      - LOG_DNS_REQUESTS
     ports:
       - 1194:1194/tcp
       - 1194:1194/udp
@@ -24,6 +28,7 @@ services:
       - /etc/localtime:/etc/localtime:ro
       - ./keys:/etc/openvpn
       - ./config:/root/antizapret/config/custom
+      - ./rootfs/init.sh:/init.sh
     logging:
       driver: json-file
       options:
