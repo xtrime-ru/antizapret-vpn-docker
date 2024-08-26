@@ -31,9 +31,11 @@ function set_ciphers () {
 function set_scramble () {
     local ENABLE=$1
     if [[ "$ENABLE" == 1 ]]; then
+        echo "Enable scramble"
         sed -i "s/^#scramble/scramble/g" /root/openvpn/templates/*.conf
         sed -i "s/^#scramble/scramble/g" /etc/openvpn/server/*.conf
     else
+        echo "Disable scramble"
         sed -i "s/^scramble/#scramble/g" /root/openvpn/templates/*.conf
         sed -i "s/^scramble/#scramble/g" /etc/openvpn/server/*.conf
     fi
@@ -42,6 +44,7 @@ function set_scramble () {
 function set_tls_crypt () {
     local ENABLE="$1"
     if [[ "$ENABLE" == 1 ]]; then
+        echo "Enable TLS_CRYPT"
         sed -i "s/^#key-direction/key-direction/g" /root/openvpn/templates/*.conf
         sed -i "s/^#<tls-crypt>/<tls-crypt>/g" /root/openvpn/templates/*.conf
         sed -i "s/^#\${CLIENT_TLS_CRYPT}/\${CLIENT_TLS_CRYPT}/g" /root/openvpn/templates/*.conf
@@ -49,6 +52,7 @@ function set_tls_crypt () {
 
         sed -i "s/^#tls-crypt/tls-crypt/g" /etc/openvpn/server/*.conf
     else
+        echo "Disable TLS_CRYPT"
         sed -i "s/^key-direction/#key-direction/g" /root/openvpn/templates/*.conf
         sed -i "s/^<tls-crypt>/#<tls-crypt>/g" /root/openvpn/templates/*.conf
         sed -i "s/^\${CLIENT_TLS_CRYPT}/#\${CLIENT_TLS_CRYPT}/g" /root/openvpn/templates/*.conf
@@ -58,20 +62,59 @@ function set_tls_crypt () {
     fi
 }
 
+function set_mtu () {
+    local MTU=$1
+    if [[ "$MTU" == 0 ]]; then
+        echo "Disable MTU setting"
+        sed -i "s/^tun-mtu/#tun-mtu/g" /root/openvpn/templates/*.conf
+        sed -i "s/^tun-mtu/#tun-mtu/g" /etc/openvpn/server/*.conf
+    else
+        echo "Enable MTU setting"
+        sed -E -i "s/^#?tun-mtu.*$/tun-mtu $MTU/g" /root/openvpn/templates/*.conf
+        sed -E -i "s/^#?tun-mtu.*$/tun-mtu $MTU/g" /etc/openvpn/server/*.conf
+    fi
+}
+
+function set_optimizations () {
+    local ENABLE=$1
+    if [[ "$ENABLE" == 0 ]]; then
+        echo "Disable optimizations"
+        sed -i "s/^sndbuf/#sndbuf/g" /root/openvpn/templates/*.conf
+        sed -i "s/^rcvbuf/#rcvbuf/g" /root/openvpn/templates/*.conf
+        sed -i "s/^tcp-nodelay/#tcp-nodelay/g" /root/openvpn/templates/*.conf
+        sed -i "s/^fast-io/#fast-io/g" /root/openvpn/templates/*.conf
+
+        sed -i "s/^fast-io/#fast-io/g" /etc/openvpn/server/*.conf
+        sed -i "s/^tcp-nodelay/#tcp-nodelay/g" /etc/openvpn/server/*.conf
+    else
+        echo "Enable optimizations"
+        sed -i "s/^#sndbuf/sndbuf/g" /root/openvpn/templates/*.conf
+        sed -i "s/^#rcvbuf/rcvbuf/g" /root/openvpn/templates/*.conf
+        sed -i "s/^#tcp-nodelay/tcp-nodelay/g" /root/openvpn/templates/*.conf
+        sed -i "s/^#fast-io/fast-io/g" /root/openvpn/templates/*.conf
+
+        sed -i "s/^#fast-io/fast-io/g" /etc/openvpn/server/*.conf
+        sed -i "s/^#tcp-nodelay/tcp-nodelay/g" /etc/openvpn/server/*.conf
+    fi
+}
 
 # save DNS variables to /etc/default/antizapret
 # in order to systemd services can access them
 
 cat << EOF | sponge /etc/default/antizapret
-CBC_CIPHERS=${CBC_CIPHERS:-0}
-SCRAMBLE=${SCRAMBLE:-0}
+OPENVPN_CBC_CIPHERS=${OPENVPN_CBC_CIPHERS:-0}
+OPENVPN_SCRAMBLE=${OPENVPN_SCRAMBLE:-0}
+OPENVPN_TLS_CRYPT=${OPENVPN_TLS_CRYPT:-0}
+OPENVPN_OPTIMIZATIONS=${OPENVPN_OPTIMIZATIONS:-0}
+OPENVPN_MTU=${OPENVPN_MTU:-0}
 DNS=$(resolve $DNS)
 DNS_RU=$(resolve $DNS_RU 77.88.8.8)
 ADGUARD=${ADGUARD:-0}
-TLS_CRYPT=${TLS_CRYPT:-0}
+LOG_DNS=${LOG_DNS:-0}
 PYTHONUNBUFFERED=1
 EOF
 
+source /etc/default/antizapret
 
 # autoload vars when logging in into shell with 'bash -l'
 ln -sf /etc/default/antizapret /etc/profile.d/antizapret.sh
@@ -86,19 +129,22 @@ for file in $(echo {exclude,include}-{ips,hosts,regex}-custom.txt); do
 done
 
 # swap between legacy ciphers and DCO-required ciphers
-[[ "$CBC_CIPHERS" == 1 ]] && set_ciphers AES-128-CBC:AES-256-CBC || set_ciphers
+[[ "$OPENVPN_CBC_CIPHERS" == 1 ]] && set_ciphers AES-128-CBC:AES-256-CBC || set_ciphers
 
 # enable tunneblick xor scramble patch
-set_scramble "$SCRAMBLE"
+set_scramble "$OPENVPN_SCRAMBLE"
 
-set_tls_crypt "$TLS_CRYPT"
+set_tls_crypt "$OPENVPN_TLS_CRYPT"
+
+set_mtu "$OPENVPN_MTU"
+
+set_optimizations "$OPENVPN_OPTIMIZATIONS"
 
 # generate certs/keys/profiles for OpenVPN
 /root/openvpn/generate.sh
 
 # output systemd logs to docker logs since container boot
 postrun 'journalctl --boot --follow --lines=all --no-hostname'
-
 
 # systemd init
 exec /usr/sbin/init

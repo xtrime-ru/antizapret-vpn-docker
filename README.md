@@ -83,14 +83,24 @@ docker compose up -d
 
 You can define these variables in docker-compose.yml file for your needs:
 
-- `DOMAIN=example.com` — will be used as a server address in .ovpn profiles upon keys generation (default: your server's IP)
-- `PORT=1194` — will be used as a server port in .ovpn profiles upon keys generation (default: 1194)
+- `OPENVPN_HOST=example.com` — will be used as a server address in .ovpn profiles upon keys generation (default: your server's IP)
+- `OPENVPN_PORT=1194` — will be used as a server port in .ovpn profiles upon keys generation. (default: 1194)
+  Also port need to be changed manually in [docker-compose.yml](./docker-compose.yml#L21-L22).
+  Replace `%EXTERNAL_PORT%` with port number:
+  ```yml
+  ports:
+      - %EXTERNAL_PORT%:1194/tcp
+      - %EXTERNAL_PORT%:1194/udp
+  ```
+- `OPENVPN_MTU=1420` - Set tun-mtu option with fixed value. (default: auto)
+- `OPENVPN_OPTIMIZATIONS=1` - Enable tcp-nodelay, fast-io options and invrease sndbuf and rcvbuf. (default: 0)
+- `OPENVPN_CBC_CIPHERS=1` - Enable support of [legacy clients](#legacy-clients). WIll disable [DCO](#enable-openvpn-data-channel-offload-dco)
+- `OPENVPN_SCRAMBLE=1` - Enable additional obfuscation [XOR Tunneblick patch](https://tunnelblick.net/cOpenvpn_xorpatch.html)
+- `OPENVPN_TLS_CRYPT=1` - Enable additional TLS encryption in OpenVPN. May help with connection obfuscation.
 - `DNS=1.1.1.1` — DNS server to resolve domains (default: host DNS server)
-- `DNS_RU=77.88.8.8` — Russian DNS server; used to fix issues with geo zones mismatch for domains like `apple.com`
-- `ADGUARD=1` - Resolve .ru, .рф and .su via DNS. By default, this zones resolved through DNS_RU.
-- `CBC_CIPHERS=1` - Enable support of [legacy clients](#legacy-clients). WIll disable [DCO](#enable-openvpn-data-channel-offload-dco) 
-- `SCRAMBLE=1` - Enable additional obfuscation [XOR Tunneblick patch](https://tunnelblick.net/cOpenvpn_xorpatch.html) 
-- `TLS_CRYPT=1` - Enable additional TLS encryption in OpenVPN. May help with connection obfuscation.
+- `DNS_RU=77.88.8.8` — Russian DNS server; used to fix issues with geo zones mismatch for domains like `apple.com` (default: 77.88.8.8)
+- `LOG_DNS=1` - Log all DNS requests and responses (default: 0)
+- `ADGUARD=1` - Resolve .ru, .рф and .su via DNS. By default, this zones resolved through DNS_RU. (default: 0)
 
 ## Extra information
 [OpenWrt setup guide](./docs/guide_OpenWrt.md) - how to setup OpenWrt router with this solution to keep LAN clients happy.

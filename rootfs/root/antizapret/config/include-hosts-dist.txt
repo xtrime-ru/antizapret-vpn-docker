@@ -103,3 +103,8 @@ rutrk.org
 # nnmclub
 nnm-club.ws
 nnmclub.ch
+
+# developer tools
+docker.com
+mongodb.com
+mongodb.net
