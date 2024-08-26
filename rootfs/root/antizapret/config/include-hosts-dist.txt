@@ -108,3 +108,4 @@ nnmclub.ch
 docker.com
 mongodb.com
 mongodb.net
+jetbrains.com
