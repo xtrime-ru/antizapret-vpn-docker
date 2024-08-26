@@ -4,7 +4,7 @@
 # run commands after systemd initialization
 
 function postrun () {
-    local waiter="until ps -p 1 | grep -q systemd; do sleep 0.1; done; sleep 1"
+    local waiter="until ps -p 1 | grep -q systemd; do sleep 0.1; done"
     nohup bash -c "$waiter; $@" &
 }
 
@@ -144,7 +144,7 @@ set_optimizations "$OPENVPN_OPTIMIZATIONS"
 /root/openvpn/generate.sh
 
 # output systemd logs to docker logs since container boot
-postrun 'journalctl --boot --follow --lines=all --no-hostname'
+postrun 'until [[ "$(systemctl is-active systemd-journald)" == "active" ]]; do sleep 0.1; done; journalctl --boot --follow --lines=all --no-hostname'
 
 # systemd init
 exec /usr/sbin/init
