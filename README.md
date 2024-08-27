@@ -139,6 +139,19 @@ DCO is incompatible with legacy ciphers and will be disabled. This is also incre
 2. Restart container.
 3. Download and apply updated .ovpn files from `keys/client/` folder.
 
+## Wireguard server
+
+1. Generate password for wireguard admin panel
+```shell
+docker run --rm ghcr.io/wg-easy/wg-easy wgpw YOUR_PASSWORD | sed "s/'//g" | sed -r 's/\$/\$\$/g' | tee ./wireguard/wireguard.env
+```
+2. start container
+```shell
+docker compose -f docker-compose.wireguard.yml up -d
+```
+3. Open `http://YOUR_SERVER_IP:51821` and create new client
+
+
 # Credits
 - [ProstoVPN](https://antizapret.prostovpn.org) — the original project
 - [AntiZapret VPN Container](https://bitbucket.org/anticensority/antizapret-vpn-container/src/master/) — source code of the LXD-based container

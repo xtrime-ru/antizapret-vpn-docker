@@ -1,0 +1,35 @@
+services:
+  antizapret-vpn:
+    extends:
+      file: docker-compose.yml
+      service: antizapret-vpn
+  wg-easy:
+    environment:
+      - WG_ALLOWED_IPS=10.0.0.0/8
+      - WG_DEFAULT_DNS=10.0.0.1
+      - WG_PERSISTENT_KEEPALIVE=5
+    image: ghcr.io/wg-easy/wg-easy
+    container_name: wg-easy
+    volumes:
+      - ./.etc_wireguard:/etc/wireguard
+      - ./wireguard/entrypoint.sh:/entrypoint.sh
+    env_file:
+      - ./wireguard/wireguard.env
+    command: /entrypoint.sh
+    ports:
+      - "51820:51820/udp"
+      - "51821:51821/tcp"
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    depends_on:
+      - antizapret-vpn
+    sysctls:
+      - net.ipv4.ip_forward=1
+      - net.ipv4.conf.all.src_valid_mark=1
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100k"
+        max-file: "2"
