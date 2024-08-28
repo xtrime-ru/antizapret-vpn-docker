@@ -7,10 +7,10 @@ export EASYRSA_CERT_EXPIRE=3650
 
 set +e
 
-export PORT=${PORT:-1194}
-export SERVER=$HOST
+export PORT=${OPENVPN_PORT:-1194}
+export SERVER="$OPENVPN_HOST"
 
-if [[ -z $HOST ]]; then
+if [[ -z $OPENVPN_HOST ]]; then
     for i in 1 2 3 4 5; do
         SERVER="$(curl -s -4 icanhazip.com)"
         [[ "$?" == "0" ]] && break
