@@ -48,6 +48,24 @@ docker compose -f docker-compose.wireguard.yml up -d
 ```
 3. Open `http://YOUR_SERVER_IP:51821` and create new client
 
+## IPsec/XAuth (Cisco IPsec) server
+**Important notice**: not all clients support tunnel-split (send only part of traffic via VPN).
+For example **Apple** devices **will not** be able **to connect** to this server. 
+
+**Its recomended to use OpenVPN or Wireguard instead.**
+
+1. Create settings file:
+   ```shell
+   cp ipsec/ipsec.env.example ipsec/ipsec.env
+   ```
+2. Fill your creditentials in `ipsec/ipsec.env`
+3. Start
+   ```shell
+   docker compose down
+   docker compose -f docker-compose.ipsec.yml up -d
+   ```
+4. Setup your clients: https://github.com/hwdsl2/setup-ipsec-vpn/blob/master/docs/clients-xauth.md
+
 ## Adguard
 Antizapret-VPN can use external DNS resolvers. 
 To start your own adguard docker container and use it as backend for antizapret:
