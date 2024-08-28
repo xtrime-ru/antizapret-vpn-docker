@@ -8,9 +8,10 @@ Easy-to-use Docker image based upon original [AntiZapret LXD image](https://bitb
 - Patches: [Apple](./rootfs/etc/knot-resolver/kresd.conf#L53-L61), [IDN](./rootfs/root/patches/parse.patch#L16), [RU](./rootfs/etc/knot-resolver/kresd.conf#L117)
 - [Community-driven list](https://github.com/xtrime-ru/antizapret-vpn-docker/blob/master/rootfs/root/antizapret/config/include-hosts-dist.txt) with geoblocked and unlisted domains: YouTube, Microsoft, OpenAI and more
 - [openvpn-dco](https://openvpn.net/as-docs/tutorials/tutorial--turn-on-openvpn-dco.html) - a kernel extension for improving performance
-- Option to [forwarding queries](./rootfs/init.sh#L21-L35) to an external resolver
+- Option to [forwarding queries](./rootfs/init.sh#L21-L35) to an external resolver, aka Adguard support.
 - [Support regex in custom rules](#adding-domainsips)
 - [XOR Tunneblick patch](https://tunnelblick.net/cOpenvpn_xorpatch.html)
+- Multiple VPN transports: Wireguard, OpenVPN, IPsec/XAuth ("Cisco IPsec")
 
 
 # Installation
@@ -34,6 +35,68 @@ There will be UDP and TCP configurations.
 Use UDP for better performance.
 Use TCP in unstable conditions.
 
+## Wireguard server
+
+1. Generate password for wireguard admin panel
+```shell
+docker run --rm ghcr.io/wg-easy/wg-easy wgpw YOUR_PASSWORD | sed "s/'//g" | sed -r 's/\$/\$\$/g' | tee ./wireguard/wireguard.env
+```
+2. start container
+```shell
+docker compose -f docker-compose.wireguard.yml pull
+docker compose -f docker-compose.wireguard.yml up -d
+```
+3. Open `http://YOUR_SERVER_IP:51821` and create new client
+
+## Adguard
+Antizapret-VPN can use external DNS resolvers. 
+To start your own adguard docker container and use it as backend for antizapret:
+```shell
+docker compose down
+docker compose -f docker-compose.adguard.yml up -d
+```
+
+Go to `http://YOUR_SERVER_IP:3000` and setup adguard. 
+You can leave all values default. Except port for adguard. Change it from 80 to 3000
+
+## Customize containers
+Its recommended not to change docker-compose files, because it can break ability to git pull updates.
+
+The correct way - is to create [docker-compose.override.yml](https://docs.docker.com/compose/multiple-compose-files/merge/).
+
+For example you want all transports and adguard, and modify env variables of antizapret-vpn:
+```yml
+services:
+  antizapret-vpn:
+    environment:
+      - DNS=adguardhome
+      - ADGUARD=1
+      - OPENVPN_OPTIMIZATIONS=1
+      - OPENVPN_TLS_CRYPT=1
+    depends_on:
+      - adguardhome
+  adguardhome:
+    extends:
+      file: docker-compose.adguard.yml
+      service: adguardhome
+  ipsec:
+    extends:
+      file: docker-compose.ipsec.yml
+      service: ipsec
+  wg-easy:
+    extends:
+      file: docker-compose.wireguard.yml
+      service: wg-easy
+```
+
+`docker compose` will merge `docker-compose.yml` and your custom `docker-compose.override.yml`.
+
+Start all containers from `docker-compose.override.yml`:
+```shell
+docker compose down && docker compose pull && docker compose up -d
+```
+
+
 ## Update:
 
 ```shell
@@ -41,6 +104,9 @@ git pull
 docker compose pull
 docker compose down && docker compose up -d
 ```
+
+
+
 
 # Documentation
 
@@ -86,7 +152,8 @@ You can define these variables in docker-compose.yml file for your needs:
 - `OPENVPN_HOST=example.com` — will be used as a server address in .ovpn profiles upon keys generation (default: your server's IP)
 - `OPENVPN_PORT=1194` — will be used as a server port in .ovpn profiles upon keys generation. (default: 1194)
   Also port need to be changed manually in [docker-compose.yml](./docker-compose.yml#L21-L22).
-  Replace `%EXTERNAL_PORT%` with port number:
+  Replace `%EXTERNAL_PORT%` with port number,
+  and dont change internal port, because this variable do not override openvpn server configs:
   ```yml
   ports:
       - %EXTERNAL_PORT%:1194/tcp
@@ -138,19 +205,6 @@ DCO is incompatible with legacy ciphers and will be disabled. This is also incre
 1. Set ENV variable `CBC_CIPHERS=1` in docker-compose.yml.
 2. Restart container.
 3. Download and apply updated .ovpn files from `keys/client/` folder.
-
-## Wireguard server
-
-1. Generate password for wireguard admin panel
-```shell
-docker run --rm ghcr.io/wg-easy/wg-easy wgpw YOUR_PASSWORD | sed "s/'//g" | sed -r 's/\$/\$\$/g' | tee ./wireguard/wireguard.env
-```
-2. start container
-```shell
-docker compose -f docker-compose.wireguard.yml pull
-docker compose -f docker-compose.wireguard.yml up -d
-```
-3. Open `http://YOUR_SERVER_IP:51821` and create new client
 
 
 # Credits
