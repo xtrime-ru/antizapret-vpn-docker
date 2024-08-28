@@ -147,6 +147,7 @@ docker run --rm ghcr.io/wg-easy/wg-easy wgpw YOUR_PASSWORD | sed "s/'//g" | sed 
 ```
 2. start container
 ```shell
+docker compose -f docker-compose.wireguard.yml pull
 docker compose -f docker-compose.wireguard.yml up -d
 ```
 3. Open `http://YOUR_SERVER_IP:51821` and create new client
