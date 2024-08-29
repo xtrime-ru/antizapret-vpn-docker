@@ -8,6 +8,7 @@ services:
       - WG_ALLOWED_IPS=10.0.0.0/8
       - WG_DEFAULT_DNS=10.0.0.1
       - WG_PERSISTENT_KEEPALIVE=5
+      - WG_PORT=443
     image: ghcr.io/wg-easy/wg-easy
     container_name: wg-easy
     volumes:
@@ -17,7 +18,7 @@ services:
       - ./wireguard/wireguard.env
     command: /entrypoint.sh
     ports:
-      - "51820:51820/udp"
+      - "443:51820/udp"
       - "51821:51821/tcp"
     restart: unless-stopped
     cap_add:
