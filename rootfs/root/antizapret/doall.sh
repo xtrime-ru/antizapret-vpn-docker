@@ -11,6 +11,8 @@ STAGE_1=${STAGE_1:-false}
 STAGE_2=${STAGE_2:-false}
 STAGE_3=${STAGE_3:-true}
 
+SKIP_UPDATE_FROM_ZAPRET=${SKIP_UPDATE_FROM_ZAPRET:-false}
+
 FILES=(
     temp/list.csv
     temp/nxdomain.txt

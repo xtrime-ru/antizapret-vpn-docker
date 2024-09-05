@@ -19,6 +19,8 @@ services:
       - DNS_RU
       - ADGUARD
       - LOG_DNS
+      - SKIP_UPDATE_FROM_ZAPRET
+      - UPDATE_TIMER
     ports:
       - 1194:1194/tcp
       - 1194:1194/udp

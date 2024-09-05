@@ -113,6 +113,8 @@ ADGUARD=${ADGUARD:-0}
 LOG_DNS=${LOG_DNS:-0}
 PYTHONUNBUFFERED=1
 SELF_IP=$(hostname -i)
+SKIP_UPDATE_FROM_ZAPRET=${SKIP_UPDATE_FROM_ZAPRET:-false}
+UPDATE_TIMER=${UPDATE_TIMER:-"6h"}
 EOF
 
 source /etc/default/antizapret
@@ -140,6 +142,9 @@ set_tls_crypt "$OPENVPN_TLS_CRYPT"
 set_mtu "$OPENVPN_MTU"
 
 set_optimizations "$OPENVPN_OPTIMIZATIONS"
+
+# Changing the timer for updating lists
+sed -i "s/^OnUnitActiveSec=6h/OnUnitActiveSec=$UPDATE_TIMER/g" /etc/systemd/system/antizapret-update.timer
 
 # generate certs/keys/profiles for OpenVPN
 /root/openvpn/generate.sh

@@ -132,6 +132,7 @@ RUN <<-"EOF" bash -ex
         systemd-networkd
 
     patch antizapret/parse.sh patches/parse.patch
+    patch antizapret/update.sh patches/update.patch
     sed -i "/\b\(googleusercontent\|cloudfront\|deviantart\)\b/d" /root/antizapret/config/exclude-regexp-dist.awk
     for list in antizapret/config/*-dist.txt; do
         sed -E '/^(#.*)?[[:space:]]*$/d' $list | sort | uniq | sponge $list
