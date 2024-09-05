@@ -1,6 +1,6 @@
 --- parse.sh	2024-08-13 13:07:47.354618400 +0500
 +++ parse.sh	2024-08-13 13:07:47.354618400 +0500
-@@ -1,22 +1,22 @@
+@@ -1,22 +1,26 @@
  #!/bin/bash
  set -e
 
@@ -13,7 +13,11 @@
 +
  # Extract domains from list
 -awk -F ';' '{print $2}' temp/list.csv | sort -u | awk '/^$/ {next} /\\/ {next} /^[а-яА-Яa-zA-Z0-9\-\_\.\*]*+$/ {gsub(/\*\./, ""); gsub(/\.$/, ""); print}' | grep -Fv 'bеllonа' | CHARSET=UTF-8 idn > result/hostlist_original.txt
-+awk -F ';' '{print $2}' temp/list.csv | sort -u | awk '/^$/ {next} /\\/ {next} /^[а-яА-Яa-zA-Z0-9\-_\.\*]*+$/ {gsub(/\*\./, ""); gsub(/\.$/, ""); print}' | grep -Fv 'bеllonа' | CHARSET=UTF-8 idn --no-tld | grep -Fv 'xn--' > result/hostlist_original.txt
++if [[ $SKIP_UPDATE_FROM_ZAPRET == false ]]; then
++   awk -F ';' '{print $2}' temp/list.csv | sort -u | awk '/^$/ {next} /\\/ {next} /^[а-яА-Яa-zA-Z0-9\-_\.\*]*+$/ {gsub(/\*\./, ""); gsub(/\.$/, ""); print}' | grep -Fv 'bеllonа' | CHARSET=UTF-8 idn --no-tld | grep -Fv 'xn--' > result/hostlist_original.txt
++else
++   echo \n > result/hostlist_original.txt
++fi
 
  # Generate zones from domains
  # FIXME: nxdomain list parsing is disabled due to its instability on z-i

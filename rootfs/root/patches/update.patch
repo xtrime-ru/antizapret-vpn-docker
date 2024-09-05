@@ -1,0 +1,17 @@
+--- "update.sh" 2024-08-13 13:07:47.354618400 +0500
++++ "update.sh" 2024-08-13 13:07:47.354618400 +0500
+@@ -4,6 +4,13 @@
+ set -e
+ HERE="$(dirname "$(readlink -f "${0}")")"
+ cd "$HERE"
+ 
++if [[ $SKIP_UPDATE_FROM_ZAPRET == true ]]; then
++    rm -f temp/list.csv temp/nxdomain.txt
++    echo -n > temp/list.csv
++    echo -n > temp/nxdomain.txt
++    exit 0
++fi
++
+ LISTLINK='https://raw.githubusercontent.com/zapret-info/z-i/master/dump.csv'
+ NXDOMAINLINK='https://raw.githubusercontent.com/zapret-info/z-i/master/nxdomain.txt'
+ curl -f --fail-early --compressed -o temp/list_orig.csv "$LISTLINK" || exit 1
