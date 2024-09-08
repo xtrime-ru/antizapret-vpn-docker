@@ -8,10 +8,11 @@ if [ $(which curl | wc -l) -eq 0 ]; then
 fi
 
 export WG_HOST=$(curl -4 icanhazip.com)
+export AZ_HOST=$(dig +short antizapret-vpn)
 
-ip route add 10.0.0.0/8 via $(dig +short antizapret-vpn)
-iptables -t nat -A OUTPUT -d 10.0.0.1/32 -j DNAT --to-destination $(dig +short antizapret-vpn)
-iptables -t nat -A PREROUTING -d 10.0.0.1/32 -j DNAT --to-destination $(dig +short antizapret-vpn)
-iptables -t nat -A POSTROUTING -d 10.0.0.1/32 -j MASQUERADE
+ip route add 10.224.0.0/15 via $AZ_HOST
+iptables -t nat -A OUTPUT -d 10.225.255.254/32 -j DNAT --to-destination $AZ_HOST
+iptables -t nat -A PREROUTING -d 10.225.255.254/32 -j DNAT --to-destination $AZ_HOST
+iptables -t nat -A POSTROUTING -d 10.225.255.254/32 -j MASQUERADE
 
 exec /usr/bin/dumb-init node server.js

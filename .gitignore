@@ -3,3 +3,4 @@
 /keys/
 /config/
 /.adguard/
+/docker-compose.override.yml
