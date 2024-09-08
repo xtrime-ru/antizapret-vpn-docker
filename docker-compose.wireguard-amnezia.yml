@@ -26,10 +26,8 @@ services:
     image: ghcr.io/w0rng/amnezia-wg-easy
     container_name: amnezia-wg-easy
     volumes:
-      - ./.etc_wireguard:/etc/wireguard
+      - ./.etc_wireguard_amneziana:/etc/wireguard
       - ./wireguard/entrypoint.sh:/entrypoint.sh
-    env_file:
-      - ./wireguard/wireguard.env
     command: /entrypoint.sh
     ports:
       - "51320:51320/udp"

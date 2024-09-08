@@ -27,8 +27,6 @@ services:
     volumes:
       - ./.etc_wireguard:/etc/wireguard
       - ./wireguard/entrypoint.sh:/entrypoint.sh
-    env_file:
-      - ./wireguard/wireguard.env
     command: /entrypoint.sh
     ports:
       - "443:443/udp"
