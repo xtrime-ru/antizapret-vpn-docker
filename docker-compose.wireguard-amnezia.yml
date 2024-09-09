@@ -4,45 +4,12 @@ services:
       file: docker-compose.yml
       service: antizapret-vpn
   amnezia-wg-easy:
-    environment:
-      - WG_ALLOWED_IPS=
-          10.224.0.0/15,
-          10.1.166.0/24,
-          103.246.200.0/22,
-          178.239.88.0/21,
-          185.104.45.0/24,
-          193.105.213.36/30,
-          203.104.128.0/20,
-          203.104.144.0/21,
-          203.104.152.0/22,
-          68.171.224.0/19,
-          74.82.64.0/19,
-          104.109.143.0/24
-      - WG_DEFAULT_DNS=10.225.255.254
-      - WG_PERSISTENT_KEEPALIVE=25
-      - PORT=51321
-      - WG_PORT=51320
-      - WG_DEFAULT_ADDRESS=10.1.166.x
     image: ghcr.io/w0rng/amnezia-wg-easy
     container_name: amnezia-wg-easy
     volumes:
-      - ./.etc_wireguard_amneziana:/etc/wireguard
-      - ./wireguard/entrypoint.sh:/entrypoint.sh
-    command: /entrypoint.sh
-    ports:
-      - "51320:51320/udp"
-      - "51321:51321/tcp"
-    restart: unless-stopped
-    cap_add:
-      - NET_ADMIN
-      - SYS_MODULE
-    sysctls:
-      - net.ipv4.ip_forward=1
-      - net.ipv4.conf.all.src_valid_mark=1
+      - ./.etc_wireguard_amnezia:/etc/wireguard
     devices:
       - /dev/net/tun:/dev/net/tun
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "100k"
-        max-file: "2"
+    extends:
+      file: docker-compose.wireguard.yml
+      service: wg-easy
