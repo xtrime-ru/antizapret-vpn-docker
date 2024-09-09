@@ -229,4 +229,7 @@ DCO is incompatible with legacy ciphers and will be disabled. This is also incre
 - [ProstoVPN](https://antizapret.prostovpn.org) — the original project
 - [AntiZapret VPN Container](https://bitbucket.org/anticensority/antizapret-vpn-container/src/master/) — source code of the LXD-based container
 - [AntiZapret PAC Generator](https://bitbucket.org/anticensority/antizapret-pac-generator-light/src/master/) — proxy auto-configuration generator to bypass censorship of Russian Federation
+- [Amnezia WireGuard VPN](https://github.com/w0rng/amnezia-wg-easy) — used for Amnezia Wireguard integration
+- [WireGuard VPN](https://github.com/wg-easy/wg-easy) — used for Wireguard integration
+- [IPsec VPN](https://github.com/hwdsl2/docker-ipsec-vpn-server) — used for IPsec integration
 - [No Thought Is a Crime](https://ntc.party) — a forum about technical, political and economical aspects of internet censorship in different countries
