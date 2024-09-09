@@ -18,7 +18,7 @@ services:
           68.171.224.0/19,
           74.82.64.0/19,
           104.109.143.0/24
-      - WG_DEFAULT_DNS=10.225.255.254
+      - WG_DEFAULT_DNS=10.224.0.1
       - WG_PERSISTENT_KEEPALIVE=25
       - WG_PORT=443
       - WG_DEFAULT_ADDRESS=10.1.166.x
