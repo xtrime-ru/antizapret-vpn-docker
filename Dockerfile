@@ -72,7 +72,7 @@ RUN <<-"EOT" bash -ex
         wget "https://raw.githubusercontent.com/Tunnelblick/Tunnelblick/master/third_party/sources/openvpn/openvpn-$OPENVPN_VER/patches/$patch"
         git apply "$patch"
     done
-
+# Patch to overcome DPI start (works only for UDP connections, taken from https://github.com/GubernievS/AntiZapret-VPN/blob/main/setup/root/patch-openvpn.sh
     sed -i '/link_socket_write_udp(struct link_socket \*sock/,/\/\* write a TCP or UDP packet to link \*\//c\
     link_socket_write_udp(struct link_socket *sock,\
                           struct buffer *buf,\
@@ -106,7 +106,8 @@ RUN <<-"EOT" bash -ex
     }\
     \
     \/\* write a TCP or UDP packet to link \*\/' "/opt/openvpn_install/openvpn-$OPENVPN_VER/src/openvpn/socket.h"
-    
+# Patch to overcome DPI end
+
     ./configure --enable-static=yes --enable-shared  --enable-systemd=yes --disable-lzo --disable-debug --disable-plugin-auth-pam --disable-dependency-tracking
     make -j$(nproc)
     make install
