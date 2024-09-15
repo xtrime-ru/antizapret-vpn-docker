@@ -109,3 +109,8 @@ docker.com
 mongodb.com
 mongodb.net
 jetbrains.com
+code.org
+veeam.com
+digitalocean.com
+hashicorp.com
+terraform.io
