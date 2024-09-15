@@ -101,10 +101,10 @@ services:
     extends:
       file: docker-compose.ipsec.yml
       service: ipsec
-  wg-easy:
+  amnezia-wg-easy:
     extends:
-      file: docker-compose.wireguard.yml
-      service: wg-easy
+      file: docker-compose.wireguard-amnezia.yml
+      service: amnezia-wg-easy
 ```
 
 `docker compose` will merge `docker-compose.yml` and your custom `docker-compose.override.yml`.
@@ -167,6 +167,9 @@ docker compose up -d
 
 You can define these variables in docker-compose.yml file for your needs:
 
+- `SKIP_UPDATE_FROM_ZAPRET=true` - do not download and use list of all blocked domains from internet. 
+	Will reduce RAM consumption. Need to manually fill domains in `*-custom.txt` files.
+- `UPDATE_TIMER=1d` - blocked domains update interval
 - `OPENVPN_HOST=example.com` — will be used as a server address in .ovpn profiles upon keys generation (default: your server's IP)
 - `OPENVPN_PORT=1194` — will be used as a server port in .ovpn profiles upon keys generation. (default: 1194)
   Also port need to be changed manually in [docker-compose.yml](./docker-compose.yml#L21-L22).
