@@ -26,6 +26,8 @@ services:
       # - FORCE_FORWARD_DNS=true
       # Parameter can be used to change port 53 for FORCE_FORWARD_DNS to one or more, separated by a space (default: 53)
       # - FORCE_FORWARD_DNS_PORTS="53 5353"
+    env_file:
+      - ./wireguard/wireguard.env
     image: ghcr.io/wg-easy/wg-easy
     container_name: wg-easy
     volumes:
