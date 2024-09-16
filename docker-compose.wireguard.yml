@@ -22,6 +22,10 @@ services:
       - WG_PERSISTENT_KEEPALIVE=25
       - WG_PORT=443
       - WG_DEFAULT_ADDRESS=10.1.166.x
+      # Redirects UDP traffic on port 53 to AntiZapret DNS (default: false)
+      # - FORCE_FORWARD_DNS=true
+      # Parameter can be used to change port 53 for FORCE_FORWARD_DNS to one or more, separated by a space (default: 53)
+      # - FORCE_FORWARD_DNS_PORTS="53 5353"
     image: ghcr.io/wg-easy/wg-easy
     container_name: wg-easy
     volumes:

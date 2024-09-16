@@ -190,8 +190,16 @@ You can define these variables in docker-compose.yml file for your needs:
 - `LOG_DNS=1` - Log all DNS requests and responses (default: 0)
 - `ADGUARD=1` - Resolve .ru, .рф and .su via DNS. By default, this zones resolved through DNS_RU. (default: 0)
 
+### Environment Variables for Wireguard and Wireguard Amnesia:
+- `FORCE_FORWARD_DNS=true` - Redirects UDP traffic on port 53 to AntiZapret DNS (default: false)
+- `FORCE_FORWARD_DNS_PORTS="53 5353"` - Parameter can be used to change port 53 for FORCE_FORWARD_DNS to one or more, separated by a space (default: 53)
+
+For other environment variables, see the original manual [Wireguard Amnesia](https://github.com/w0rng/amnezia-wg-easy) or [Wireguard](https://github.com/wg-easy/wg-easy).
+
 ## Extra information
 [OpenWrt setup guide](./docs/guide_OpenWrt.md) - how to setup OpenWrt router with this solution to keep LAN clients happy.
+
+[Keenetic setup guide](./docs/guide_Keenetic.md) - instructions for configuring the server and connecting Keenetic routers to it [(На русском языке)](./docs/guide_Keenetic_RU.md)
 
 ## Enable OpenVPN Data Channel Offload (DCO)
 [OpenVPN Data Channel Offload (DCO)](https://openvpn.net/as-docs/openvpn-dco.html) provides performance improvements by moving the data channel handling to the kernel space, where it can be handled more efficiently and with multi-threading.
