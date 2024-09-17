@@ -59,7 +59,12 @@
     git clone https://github.com/xtrime-ru/antizapret-vpn-docker.git antizapret
     cd antizapret
     ```
-3. Создаем файл `docker-compose.override.yml` со следующим содержанием:
+3. Создайте пароль для панели wireguard:
+    ```shell
+    docker run --rm ghcr.io/wg-easy/wg-easy wgpw 'ВАШ_ПАРОЛЬ' | sed "s/'//g" | sed -r 's/\$/\$\$/g' | tee ./wireguard/wireguard.env
+    ```
+4. Создаем файл `docker-compose.override.yml` со следующим содержанием:
+    > Обратите внимание на назначаемый порт WireGuard! 443 лучше обходит блокировки, но может быть расценен вашим хостером как попытка DDoS атаки на ваш сервер. Если возникнут какие либо лаги или отвалы соединения первым делом смените 443 на какой либо другой порт!
     ```yaml
     services:
       antizapret-vpn:
@@ -68,8 +73,10 @@
           - ADGUARD=1
           - OPENVPN_OPTIMIZATIONS=1
           - OPENVPN_TLS_CRYPT=1
+          # Порт для OpenVPN
           - OPENVPN_PORT=6841
         ports:
+          # Порт для OpenVPN (если не нужен можно удалить порты)
           - "6841:1194/tcp"
           - "6841:1194/udp"
         depends_on:
@@ -80,17 +87,16 @@
           service: adguardhome
           container_name: adguardhome
         ports:
+          # Порт для установки, после можно удалить
           - "6844:3000/tcp"
+          # Порт для панели управления AdGuard
           - "6845:80/tcp"
+
       # Для Amnezia замените на
       # amnezia-wg-easy
       wg-easy:
+
         environment:
-          # Сгенерируйте собственный пароль. Установлен пароль: TestGenPa123
-          # docker run -it ghcr.io/w0rng/amnezia-wg-easy wgpw "TestGenPa123"
-          # Или: https://bcrypt.ninja/
-          # Заменяем все $ на $$
-          - PASSWORD_HASH=$$2a$$12$$J0lBSna8bUdYhx90SjOqMOtu8O.s7oojtzQE/vKYEEJFjJZ32js2W
           # Разрешить маршрутизацию всех IP адресов, в маршрутизатор в любом случае в ручном режиме добавляются маршруты
           # Таким образом можно использовать подключение для полноценного VPN
           - WG_ALLOWED_IPS=0.0.0.0/0
@@ -98,30 +104,37 @@
           # В keenetic прописываем маршрут 77.88.8.8 (или любой друго DNS) на шлюз WG (добавление автоматичеки)
           # При падении WG, DNS работают на прямую
           - FORCE_FORWARD_DNS=true
+          # Язык
           - LANGUAGE=ru
+          # Порт для панели управления WireGuard
           - PORT=6843
+          # Порт WireGuard
           - WG_PORT=443
         ports:
-          - "443:443/udp"
+          # Порт для панели управления WireGuard
           - "6843:6843/tcp"
+          # Порт WireGuard
+          - "443:443/udp"
         extends:
+
           # Для Amnezia замените на
           # file: docker-compose.wireguard-amnezia.yml
           file: docker-compose.wireguard.yml
+
           # Для Amnezia замените на
           # service: amnezia-wg-easy
           service: wg-easy
     ```
-4. Собираем контейнер:
+5. Собираем контейнер:
    ```
    docker compose pull
    docker compose up -d
    ```
-5. Установка AdGuard Home
+6. Установка AdGuard Home
    1. Скрипт установки: `http://<SERVER_IP>:6844`
    2. Панель управления: `http://<SERVER_IP>:6845`
-6. Создаем профиль в Wireguard: `http://<SERVER_IP>:6843`
-7. Скачиваем профиль и переходим к клиентской части
+7. Создаем профиль в Wireguard: `http://<SERVER_IP>:6843`
+8. Скачиваем профиль и переходим к клиентской части
 ### WireGuard клиентская часть
 1. [Установить компонент "WireGuard VPN"](https://help.keenetic.com/hc/ru/articles/360010592379-WireGuard-VPN)
 2. Загрузить профиль скачанный с панельки `Интернет` > `Другие подключения` > `Wireguard` > `Загрузить из файла`
