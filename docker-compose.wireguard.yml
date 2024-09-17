@@ -38,6 +38,8 @@ services:
       - "443:443/udp"
       - "51821:51821/tcp"
     restart: unless-stopped
+    env_file:
+      - ./wireguard/wireguard.env
     cap_add:
       - NET_ADMIN
       - SYS_MODULE
