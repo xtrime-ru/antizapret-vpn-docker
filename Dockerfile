@@ -150,6 +150,7 @@ COPY rootfs/etc/openvpn /etc/openvpn-default
 
 RUN <<-"EOF" bash -ex
     (STAGE_1=true STAGE_2=true STAGE_3=false /root/antizapret/doall.sh)
+    cp /root/antizapret/result/knot-aliases-alt.conf /etc/knot-resolver/knot-aliases-alt.conf
 EOF
 
 ENTRYPOINT ["/init.sh"]
