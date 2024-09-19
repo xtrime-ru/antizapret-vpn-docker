@@ -39,6 +39,9 @@ class ProxyResolver(BaseResolver):
         self.port = port
         self.timeout = timeout
         self.unassigned_addresses = deque([str(x) for x in IPv4Network(iprange).hosts()])
+        # preserve first address from range for DNS
+        del self.unassigned_addresses[0]
+
         self.ipmap = {}
         self.tablename = tablename
 

@@ -12,10 +12,9 @@ function postrun () {
 # resolve domain address to ip address
 
 function resolve () {
-    # $1 domain/ip address, $2 fallback domain/ip address
+    # $1 domain/ip address, $2 fallback ip address
     ipcalc () { ipcalc-ng --no-decorate -o $1 2> /dev/null; }
-    local ipaddr=$(ipcalc $1 || ipcalc $2)
-    echo ${ipaddr:-127.0.0.11} # fallback to docker internal dns
+    echo "$(ipcalc $1 || echo $2)"
 }
 
 
@@ -107,7 +106,7 @@ OPENVPN_SCRAMBLE=${OPENVPN_SCRAMBLE:-0}
 OPENVPN_TLS_CRYPT=${OPENVPN_TLS_CRYPT:-0}
 OPENVPN_OPTIMIZATIONS=${OPENVPN_OPTIMIZATIONS:-0}
 OPENVPN_MTU=${OPENVPN_MTU:-0}
-DNS=$(resolve $DNS)
+DNS=$(resolve $DNS 127.0.0.11)
 DNS_RU=$(resolve $DNS_RU 77.88.8.8)
 ADGUARD=${ADGUARD:-0}
 LOG_DNS=${LOG_DNS:-0}
