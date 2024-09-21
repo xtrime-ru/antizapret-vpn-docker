@@ -40,7 +40,6 @@ No special steps are required, follow [instructions](https://github.com/xtrime-r
          1. Filtering mode: `Public DNS resolvers`.
          2. Default content filtering profiles (`guest` and `home`):`AntiZapret`.
 5. Under `Internet` > `Other Connections` enable `AntiZapret` connection.
-
 **Done!**
 ## WireGuard
 > [!WARNING]  
@@ -166,6 +165,10 @@ No special steps are required, follow [instructions](https://github.com/xtrime-r
     2. `Content Filter`.
          1. Filtering mode: `Public DNS resolvers`.
          2. Default content filtering profiles (`guest` and `home`): `AntiZapret`.
+6. `Internet` > `Ethernet`
+   1. Find your active ISP connect: 
+      1. Enable checkbox `Ignore DNSv4 from ISP`
+      1. Enable checkbox `Ignore DNSv6 from ISP`
 > [!NOTE]  
 > If using Amnezia Wireguard, there are a few more steps to follow
 [instructions](https://docs.amnezia.org/documentation/instructions/keenetic-os-awg)
