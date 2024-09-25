@@ -1,0 +1,12 @@
+[Unit]
+Description=iperf3 server 
+After=syslog.target network.target
+
+[Service]
+ExecStart=/usr/bin/iperf3 -s -1
+Restart=always
+RuntimeMaxSec=3600
+
+[Install]
+WantedBy=multi-user.target
+DefaultInstance=5201
