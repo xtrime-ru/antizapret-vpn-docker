@@ -151,5 +151,8 @@ sed -i "s/^OnUnitActiveSec=6h/OnUnitActiveSec=$UPDATE_TIMER/g" /etc/systemd/syst
 # output systemd logs to docker logs since container boot
 postrun 'until [[ "$(systemctl is-active systemd-journald)" == "active" ]]; do sleep 0.1; done; journalctl --boot --follow --lines=all --no-hostname'
 
+# daemonize iperf
+iperf3 -sD
+
 # systemd init
 exec /usr/sbin/init
