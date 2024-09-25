@@ -233,6 +233,14 @@ DCO is incompatible with legacy ciphers and will be disabled. This is also incre
 2. Restart container.
 3. Download and apply updated .ovpn files from `keys/client/` folder.
 
+## Test speed with iperf3
+iperf3 is included in antizapret-vpn container. 
+1. Connect to VPN
+2. Check upload/download speed in 10 threads for 10 seconds:
+	```shell
+	iperf3 -c 10.224.0.1 -i1 -t10 -P10
+	iperf3 -c 10.224.0.1 -i1 -t10 -P10 -R
+	```
 
 # Credits
 - [ProstoVPN](https://antizapret.prostovpn.org) — the original project

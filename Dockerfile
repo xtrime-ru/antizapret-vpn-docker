@@ -11,6 +11,7 @@ RUN <<-"EOT" bash -ex
     apt-get install -qqy --no-install-suggests --no-install-recommends \
         bsdmainutils \
         ca-certificates \
+	iperf3 \
         curl \
         dnsutils \
         ferm \
@@ -134,7 +135,8 @@ RUN <<-"EOF" bash -ex
         kresd@1 \
         openvpn-server@antizapret \
         openvpn-server@antizapret-tcp \
-        systemd-networkd
+        systemd-networkd \
+        iperf3-server@1
 
     patch antizapret/parse.sh patches/parse.patch
     patch antizapret/update.sh patches/update.patch
