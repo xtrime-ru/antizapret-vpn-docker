@@ -11,6 +11,7 @@ RUN <<-"EOT" bash -ex
     apt-get install -qqy --no-install-suggests --no-install-recommends \
         bsdmainutils \
         ca-certificates \
+	iperf3 \
         curl \
         dnsutils \
         ferm \
