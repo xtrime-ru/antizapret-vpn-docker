@@ -234,9 +234,10 @@ DCO is incompatible with legacy ciphers and will be disabled. This is also incre
 3. Download and apply updated .ovpn files from `keys/client/` folder.
 
 ## Test speed with iperf3
-iperf3 is included in antizapret-vpn container. 
+iperf3 server is included in antizapret-vpn container. 
 1. Connect to VPN
-2. Check upload/download speed in 10 threads for 10 seconds:
+2. Use iperf3 client on your phone or computer to check upload/download speed. 
+	Example 10 threads for 10 seconds and report result every second:
 	```shell
 	iperf3 -c 10.224.0.1 -i1 -t10 -P10
 	iperf3 -c 10.224.0.1 -i1 -t10 -P10 -R
