@@ -82,6 +82,9 @@ else
     echo "BaseURLPrefix = \"\"" >> $CONF_FILE
 fi
 
+export OPENVPN_ADMIN_USERNAME=${OPENVPN_ADMIN_USERNAME:-"admin"}
+export OPENVPN_PORT=${OPENVPN_PORT:-"1194"}
+
 # Set URL PREFIX
 if [[ -n "$AUTO_INITIAL" ]]; then
     /opt/scripts/initial.sh
@@ -90,7 +93,14 @@ fi
 export AZ_HOST=$(dig +short antizapret-vpn)
 ip route add 10.224.0.0/15 via $AZ_HOST
 
-export OPENVPN_ADMIN_USERNAME=${OPENVPN_ADMIN_USERNAME:-"admin"}
+
+# Set URL PREFIX
+if [[ -n "$CK_ENABLE" ]]; then
+    if [[ ! -e /opt/cloak/config/config.json ]]; then
+        /opt/scripts/cloak.sh
+    fi
+    systemctl enable ck-server
+fi
 
 # Start the OpenVPN GUI
 echo "Starting openvpn-ui !"
