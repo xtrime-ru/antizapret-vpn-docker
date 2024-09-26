@@ -1,6 +1,6 @@
 .*
 **/*.env
-/keys/
-/config/
+!.gitkeep
+/*_config/
 /.adguard/
 /docker-compose.override.yml

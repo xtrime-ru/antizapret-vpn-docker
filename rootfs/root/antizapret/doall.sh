@@ -17,20 +17,12 @@ FILES=(
     temp/list.csv
     temp/nxdomain.txt
     temp/exclude-hosts.txt
-    temp/exclude-ips.txt
     temp/hostlist_original_with_include.txt
     temp/include-hosts.txt
-    temp/include-ips.txt
-    result/blocked-ranges.txt
     result/dnsmasq-aliases-alt.conf
     result/hostlist_original.txt
     result/hostlist_zones.txt
-    result/iplist_all.txt
-    result/iplist_blockedbyip.txt
-    result/iplist_blockedbyip_noid2971.txt
-    result/iplist_special_range.txt
     result/knot-aliases-alt.conf
-    result/openvpn-blocked-ranges.txt
     result/squid-whitelist-zones.conf
 )
 
