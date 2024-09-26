@@ -24,6 +24,7 @@ services:
       options:
         max-size: 100k
         max-file: 2
+  
   openvpn:
     image: xtrime/openvpn
     build:
@@ -34,11 +35,17 @@ services:
         TARGETARCH: amd64
     container_name: openvpn
     environment:
-      - OPENVPN_ADMIN_USERNAME=admin
-      - SITE_NAME=Admin
-      - AUTO_INITIAL=1
-      # - URL_PREFIX=/ovpn
-      # - APP_PORT=8080 # Use if need to specify the custom one
+      - OPENVPN_ADMIN_USERNAME=admin # Default username web ui
+      - SITE_NAME=Admin # Title web ui
+      - AUTO_INITIAL=1 # Auto initial (clean to install via wizard)
+      - OPENVPN_PORT # Port openvpn server, default 1194
+      - URL_PREFIX # URL prefix to admin ui, example: /admin-openvpn
+      - APP_PORT # Set web ui port
+      - CK_ENABLE=1 # =1 if enable Cloak
+      - CK_UID # Set client UID or generate
+      - CK_ADMIN_UID # Set ADMIN UID or generate
+      - CK_PRIVATE_KEY # Set PK or generate
+      - CK_REDIR_ADDR # Set redirect addr or cloudflare.com
     env_file:
       - ./openvpn/.env
     ports:
@@ -53,5 +60,6 @@ services:
       - ./openvpn/scripts:/opt/scripts
       - ./openvpn_config/conf:/etc/openvpn
       - ./openvpn_config/db:/opt/openvpn-gui/db
+      - ./openvpn_config/cloak:/opt/cloak/conf
     depends_on:
       - antizapret-vpn

@@ -133,6 +133,10 @@ RUN date +"%d%m%Y-%H%M%S" > /opt/openvpn-gui/static/build.txt
 VOLUME /etc/openvpn
 VOLUME /opt/openvpn-gui/db
 
+#CLOAK
+ADD https://github.com/cbeuw/Cloak/releases/download/v2.9.0/ck-server-linux-amd64-v2.9.0 /opt/cloak/ck-server
+COPY ./openvpn/ck-server.service /etc/systemd/system/ck-server.service
+
 # Advise to open necassary ports
 EXPOSE 1194/udp 8080/tcp
 WORKDIR /etc/openvpn/easy-rsa
