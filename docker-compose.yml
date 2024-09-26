@@ -49,9 +49,13 @@ services:
     env_file:
       - ./openvpn/.env
     ports:
-      - "8080:8080/tcp"
-      - "1194:1194/udp"
-    restart: always
+      - "8080:8080/tcp" # For web ui
+      - "443:443/tcp" # For Cloak
+      - "80:80/tcp" # For Cloak
+      - "1194:1194/udp" # For OpenVPN
+    restart: unless-stopped
+    privileged: true
+    stop_signal: SIGRTMIN+4
     devices:
       - /dev/net/tun
     cap_add:

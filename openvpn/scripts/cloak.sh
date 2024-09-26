@@ -19,12 +19,13 @@ if [ -z "${CK_REDIR_ADDR}" ]; then
     CK_REDIR_ADDR="cloudflare.com" 
 fi
 
+mkdir -p /opt/cloak/config
 cat << EOF > /opt/cloak/config/config.json
 {
   "ProxyBook": {
     "openvpn": [
       "udp",
-      "127.0.0.1:${$OPENVPN_PORT}"
+      "127.0.0.1:${OPENVPN_PORT}"
     ],
   },
   "BindAddr": [
