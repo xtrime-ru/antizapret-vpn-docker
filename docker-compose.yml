@@ -24,3 +24,34 @@ services:
       options:
         max-size: 100k
         max-file: 2
+  openvpn:
+    image: xtrime/openvpn
+    build:
+      context: .
+      dockerfile: Dockerfile.openvpn
+      args:
+        TARGETOS: linux
+        TARGETARCH: amd64
+    container_name: openvpn
+    environment:
+      - OPENVPN_ADMIN_USERNAME=admin
+      - SITE_NAME=Admin
+      - AUTO_INITIAL=1
+      # - URL_PREFIX=/ovpn
+      # - APP_PORT=8080 # Use if need to specify the custom one
+    env_file:
+      - ./openvpn/.env
+    ports:
+      - "8080:8080/tcp"
+      - "1194:1194/udp"
+    restart: always
+    devices:
+      - /dev/net/tun
+    cap_add:
+      - NET_ADMIN
+    volumes:
+      - ./openvpn/scripts:/opt/scripts
+      - ./openvpn_config/conf:/etc/openvpn
+      - ./openvpn_config/db:/opt/openvpn-gui/db
+    depends_on:
+      - antizapret-vpn
