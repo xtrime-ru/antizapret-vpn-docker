@@ -114,3 +114,4 @@ veeam.com
 digitalocean.com
 hashicorp.com
 terraform.io
+githubcopilot.com
