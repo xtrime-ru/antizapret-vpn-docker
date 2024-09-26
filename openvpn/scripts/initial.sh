@@ -7,8 +7,7 @@ export DNS="13"
 export CUSTOMIZE_ENC="y"
 export SET_MGMT="management 127.0.0.1 2080"
 
-export EXTERNAL_IP=$(curl -4 icanhazip.com)
-export ENDPOINT=${OPENVPN_IP_FOR_CLIENT:-EXTERNAL_IP}
+export ENDPOINT=${OPENVPN_IP_FOR_CLIENT:-$(curl -4 icanhazip.com)}
 export IP_RANGE="10.1.165.0"
 export PROTOCOL_CHOICE="1" #udp
 export PORT="1194"
