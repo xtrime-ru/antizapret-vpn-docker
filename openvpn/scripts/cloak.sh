@@ -4,15 +4,15 @@ set -e
 cd /opt/cloak
 
 if [ -z "${CK_UID}" ]; then
-    CK_UID=$(ck-server -uid)
+    CK_UID=$(./ck-server -uid)
 fi
 
 if [ -z "${CK_ADMIN_UID}" ]; then
-    CK_ADMIN_UID=$(ck-server -uid)
+    CK_ADMIN_UID=$(./ck-server -uid)
 fi
 
 if [ -z "${CK_PRIVATE_KEY}" ]; then
-    CK_PRIVATE_KEY=$(ck-server -key)
+    CK_PRIVATE_KEY=$(./ck-server -key)
 fi
 
 if [ -z "${CK_REDIR_ADDR}" ]; then
