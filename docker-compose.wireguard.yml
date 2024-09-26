@@ -25,7 +25,8 @@ services:
     image: ghcr.io/wg-easy/wg-easy
     container_name: wg-easy
     volumes:
-      - ./.etc_wireguard:/etc/wireguard
+      - /etc/localtime:/etc/localtime:ro
+      - ./wireguard_config:/etc/wireguard
       - ./wireguard/entrypoint.sh:/entrypoint.sh
     command: /entrypoint.sh
     ports:

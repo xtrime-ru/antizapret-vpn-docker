@@ -7,7 +7,7 @@ services:
     image: ghcr.io/w0rng/amnezia-wg-easy
     container_name: amnezia-wg-easy
     volumes:
-      - ./.etc_wireguard_amnezia:/etc/wireguard
+      - ./wireguard_amnezia_config:/etc/wireguard
     devices:
       - /dev/net/tun:/dev/net/tun
     extends:
