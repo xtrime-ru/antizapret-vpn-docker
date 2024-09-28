@@ -41,16 +41,10 @@ services:
       - OPENVPN_PORT # Port openvpn server, default 1194
       - URL_PREFIX # URL prefix to admin ui, example: /admin-openvpn
       - APP_PORT # Set web ui port
-      - CK_ENABLE=1 # =1 if enable Cloak
-      - CK_UID # Set client UID or generate
-      - CK_ADMIN_UID # Set ADMIN UID or generate
-      - CK_PRIVATE_KEY # Set PK or generate
-      - CK_REDIR_ADDR # Set redirect addr or cloudflare.com
     env_file:
       - ./openvpn/.env
     ports:
       - "8080:8080/tcp" # For web ui
-      - "443:443/tcp" # For Cloak
       - "80:80/tcp" # For Cloak
       - "1194:1194/udp" # For OpenVPN
     restart: unless-stopped
@@ -62,8 +56,16 @@ services:
       - NET_ADMIN
     volumes:
       - ./openvpn/scripts:/opt/scripts
-      - ./openvpn_config/conf:/etc/openvpn
-      - ./openvpn_config/db:/opt/openvpn-gui/db
-      - ./openvpn_config/cloak:/opt/cloak/conf
+      - ./config/openvpn/conf:/etc/openvpn
+      - ./config/openvpn/db:/opt/openvpn-gui/db
     depends_on:
       - antizapret-vpn
+
+  cloak:
+    environment:
+      - CK_PROXYBOOK_OPENVPN=udp://openvpn:1194 # Set upstream openvpn
+    extends:
+      file: docker-compose.cloak.yml
+      service: cloak
+    depends_on:
+      - openvpn

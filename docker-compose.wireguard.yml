@@ -26,7 +26,7 @@ services:
     container_name: wg-easy
     volumes:
       - /etc/localtime:/etc/localtime:ro
-      - ./wireguard_config:/etc/wireguard
+      - ./config/wireguard:/etc/wireguard
       - ./wireguard/entrypoint.sh:/entrypoint.sh
     command: /entrypoint.sh
     ports:
