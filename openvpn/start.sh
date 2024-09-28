@@ -93,16 +93,6 @@ fi
 export AZ_HOST=$(dig +short antizapret-vpn)
 ip route add 10.224.0.0/15 via $AZ_HOST
 
-
-
-# Set URL PREFIX
-if [[ -n "$CK_ENABLE" ]]; then
-    if [[ ! -e /opt/cloak/config/config.json ]]; then
-        /opt/scripts/cloak.sh
-    fi
-    /opt/cloak/ck-server -c /opt/cloak/config/config.json &
-fi
-
 # Start the OpenVPN GUI
 echo "Starting openvpn-ui !"
 ./openvpn-ui

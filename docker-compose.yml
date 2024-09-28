@@ -18,7 +18,7 @@ services:
 #      - 1.1.1.1
     volumes:
       - /etc/localtime:/etc/localtime:ro
-      - ./antizapret_config:/root/antizapret/config/custom
+      - ./config/antizapret:/root/antizapret/config/custom
     logging:
       driver: json-file
       options:
