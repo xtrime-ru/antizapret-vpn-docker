@@ -29,10 +29,7 @@ services:
     image: xtrime/openvpn
     build:
       context: .
-      dockerfile: Dockerfile.openvpn
-      args:
-        TARGETOS: linux
-        TARGETARCH: amd64
+      dockerfile: Dockerfile-openvpn
     container_name: openvpn
     environment:
       - OPENVPN_ADMIN_USERNAME=admin # Default username web ui
@@ -47,6 +44,7 @@ services:
       - "8080:8080/tcp" # For web ui
       - "80:80/tcp" # For Cloak
       - "1194:1194/udp" # For OpenVPN
+      - "1194:1194/tcp" # For OpenVPN
     restart: unless-stopped
     privileged: true
     stop_signal: SIGRTMIN+4
