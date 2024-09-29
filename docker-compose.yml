@@ -8,30 +8,64 @@ services:
     stop_signal: SIGRTMIN+4
     build: .
     environment:
-      - OPENVPN_HOST
-      - OPENVPN_PORT
-      - OPENVPN_CBC_CIPHERS
-      - OPENVPN_MTU
-      - OPENVPN_OPTIMIZATIONS
-      - OPENVPN_TLS_CRYPT
-      - OPENVPN_SCRAMBLE
       - DNS
       - DNS_RU
       - ADGUARD
       - LOG_DNS
       - SKIP_UPDATE_FROM_ZAPRET
       - UPDATE_TIMER
-    ports:
-      - 1194:1194/tcp
-      - 1194:1194/udp
 #    dns:
 #      - 1.1.1.1
     volumes:
       - /etc/localtime:/etc/localtime:ro
-      - ./keys:/etc/openvpn
-      - ./config:/root/antizapret/config/custom
+      - ./config/antizapret:/root/antizapret/config/custom
     logging:
       driver: json-file
       options:
         max-size: 100k
         max-file: 2
+  
+  openvpn:
+    image: xtrime/openvpn
+    build:
+      context: .
+      dockerfile: Dockerfile.openvpn
+      args:
+        TARGETOS: linux
+        TARGETARCH: amd64
+    container_name: openvpn
+    environment:
+      - OPENVPN_ADMIN_USERNAME=admin # Default username web ui
+      - SITE_NAME=Admin # Title web ui
+      - AUTO_INITIAL=1 # Auto initial (clean to install via wizard)
+      - OPENVPN_PORT # Port openvpn server, default 1194
+      - URL_PREFIX # URL prefix to admin ui, example: /admin-openvpn
+      - APP_PORT # Set web ui port
+    env_file:
+      - ./openvpn/.env
+    ports:
+      - "8080:8080/tcp" # For web ui
+      - "80:80/tcp" # For Cloak
+      - "1194:1194/udp" # For OpenVPN
+    restart: unless-stopped
+    privileged: true
+    stop_signal: SIGRTMIN+4
+    devices:
+      - /dev/net/tun
+    cap_add:
+      - NET_ADMIN
+    volumes:
+      - ./openvpn/scripts:/opt/scripts
+      - ./config/openvpn/conf:/etc/openvpn
+      - ./config/openvpn/db:/opt/openvpn-gui/db
+    depends_on:
+      - antizapret-vpn
+
+  cloak:
+    environment:
+      - CK_PROXYBOOK_OPENVPN=udp://openvpn:1194 # Set upstream openvpn
+    extends:
+      file: docker-compose.cloak.yml
+      service: cloak
+    depends_on:
+      - openvpn
