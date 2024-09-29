@@ -9,6 +9,74 @@ function postrun () {
 }
 
 
+# set openvpn subnets
+
+function cidr_to_mask() {
+    local cidr=${1##*/}
+    local mask=$((0xffffffff << (32 - cidr) & 0xffffffff))
+    printf "%d.%d.%d.%d\n" $(( (mask >> 24) & 255 )) $(( (mask >> 16) & 255 )) $(( (mask >> 8) & 255 )) $(( mask & 255 ))
+}
+
+function set_subnets_udp () {
+
+    #prepare and parse ENV values
+    IFS='/' read -r base_mask <<< $1
+    IFS='.' read -r i1 i2 i3 i4 <<< "$base_mask"
+
+    OPENVPN_UDP_DNS="$i1.$i2.$i3.1/32"
+    OPENVPN_UDP_DNS_NOMASK="${OPENVPN_UDP_DNS%%/*}"
+    OPENVPN_UDP_MASK=$(cidr_to_mask "$1")
+    OPENVPN_UDP_SUBNET_NOMASK="${1%%/*}"
+
+    echo "UDP Subnet:" $1
+    echo "UDP Subnet without CIDR:" $OPENVPN_UDP_SUBNET_NOMASK
+    echo "UDP Netmask:" $OPENVPN_UDP_MASK
+    echo "UDP DNS:" $OPENVPN_UDP_DNS
+    echo "UDP DNS without CIDR:" $OPENVPN_UDP_DNS_NOMASK
+
+    #ferm.conf
+    sed -i -E "s|^(.*VPNUDP_RANGE.*= ).*|\1$1|g" /etc/ferm/ferm.conf
+    sed -i -E "s|^(.*VPNUDP_DNS.*= ).*|\1$OPENVPN_UDP_DNS|g" /etc/ferm/ferm.conf
+
+    #kresd.conf, assume line #4
+    sed -i -E "4s|^(net.listen).*|\1('$OPENVPN_UDP_DNS_NOMASK', 53, { freebind = true })|g" /etc/knot-resolver/kresd.conf
+
+    #openvpn udp server conf
+    sed -i -E "s|^(server ).*|\1$OPENVPN_UDP_SUBNET_NOMASK $OPENVPN_UDP_MASK|g" /etc/openvpn/server/antizapret.conf
+    sed -i -E "s|^(#push \"route ).*|\1$OPENVPN_UDP_SUBNET_NOMASK $OPENVPN_UDP_MASK\"|g" /etc/openvpn/server/antizapret.conf
+    sed -i -E "s|^(push \"dhcp-option DNS ).*|\1$OPENVPN_UDP_DNS_NOMASK\"|g" /etc/openvpn/server/antizapret.conf
+}
+
+function set_subnets_tcp () {
+
+#prepare and parse ENV values
+    IFS='/' read -r base_mask <<< $1
+    IFS='.' read -r i1 i2 i3 i4 <<< "$base_mask"
+    OPENVPN_TCP_DNS="$i1.$i2.$i3.1/32"
+    OPENVPN_TCP_DNS_NOMASK="${OPENVPN_TCP_DNS%%/*}"
+    OPENVPN_TCP_MASK=$(cidr_to_mask "$1")
+    OPENVPN_TCP_SUBNET_NOMASK="${1%%/*}"
+
+    echo "TCP Subnet:" $1
+    echo "TCP Subnet without CIDR:" $OPENVPN_TCP_SUBNET_NOMASK
+    echo "TCP Netmask:" $OPENVPN_TCP_MASK
+    echo "TCP DNS:" $OPENVPN_TCP_DNS
+    echo "TCP DNS without CIDR:" $OPENVPN_TCP_DNS_NOMASK
+
+#ferm.conf
+    sed -i -E "s|^(.*VPNTCP_RANGE.*= ).*|\1$1|g" /etc/ferm/ferm.conf
+    sed -i -E "s|^(.*VPNTCP_DNS.*= ).*|\1$OPENVPN_TCP_DNS|g" /etc/ferm/ferm.conf
+
+#kresd.conf, assume line #5
+    sed -i -E "5s|^(net.listen).*|\1('$OPENVPN_TCP_DNS_NOMASK', 53, { freebind = true })|g" /etc/knot-resolver/kresd.conf
+
+#openvpn tcp server conf
+    sed -i -E "s|^(server ).*|\1$OPENVPN_TCP_SUBNET_NOMASK $OPENVPN_TCP_MASK|g" /etc/openvpn/server/antizapret-tcp.conf
+    sed -i -E "s|^(#push \"route ).*|\1$OPENVPN_TCP_SUBNET_NOMASK $OPENVPN_TCP_MASK\"|g" /etc/openvpn/server/antizapret-tcp.conf
+    sed -i -E "s|^(push \"dhcp-option DNS ).*|\1$OPENVPN_TCP_DNS_NOMASK\"|g" /etc/openvpn/server/antizapret-tcp.conf
+}
+
+
 # resolve domain address to ip address
 
 function resolve () {
@@ -106,6 +174,8 @@ OPENVPN_SCRAMBLE=${OPENVPN_SCRAMBLE:-0}
 OPENVPN_TLS_CRYPT=${OPENVPN_TLS_CRYPT:-0}
 OPENVPN_OPTIMIZATIONS=${OPENVPN_OPTIMIZATIONS:-0}
 OPENVPN_MTU=${OPENVPN_MTU:-0}
+OPENVPN_UDP_SUBNET=${OPENVPN_UDP_SUBNET:-0}
+OPENVPN_TCP_SUBNET=${OPENVPN_TCP_SUBNET:-0}
 DNS=$(resolve $DNS 127.0.0.11)
 DNS_RU=$(resolve $DNS_RU 77.88.8.8)
 ADGUARD=${ADGUARD:-0}
@@ -136,6 +206,24 @@ done
 # enable tunneblick xor scramble patch
 set_scramble "$OPENVPN_SCRAMBLE"
 
+# set custom subnets, if provided
+
+if [ "$OPENVPN_UDP_SUBNET" == 0 ]; then
+    echo "Disable custom UDP subnet"
+    set_subnets_udp "192.168.100.0/22"
+else
+    echo "Enable custom UDP subnet"
+    set_subnets_udp "$OPENVPN_UDP_SUBNET"
+fi
+
+if [ "$OPENVPN_TCP_SUBNET" == 0 ]; then
+    echo "Disable custom TCP subnet"
+    set_subnets_tcp "192.168.104.0/22"
+else
+    echo "Enable custom TCP subnet"
+    set_subnets_tcp "$OPENVPN_TCP_SUBNET"
+fi
+
 set_tls_crypt "$OPENVPN_TLS_CRYPT"
 
 set_mtu "$OPENVPN_MTU"
@@ -153,3 +241,4 @@ postrun 'until [[ "$(systemctl is-active systemd-journald)" == "active" ]]; do s
 
 # systemd init
 exec /usr/sbin/init
+
