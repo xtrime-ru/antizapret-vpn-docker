@@ -6,7 +6,7 @@ services:
       dockerfile: Dockerfile-cloak
     container_name: cloak
     environment:
-      - CK_PROXYBOOK_OPENVPN=udp://openvpn:1194 # Set upstream openvpn
+      # - CK_PROXYBOOK_OPENVPN=udp://openvpn:1194 # Set upstream openvpn
       - CK_PRIVATEKEY #The static private key encoded in base64 (default: auto generation)
       - CK_PUBLICKEY #The static public key encoded in base64, if specified, it is displayed in the client configuration (default: auto generation)
       - CK_BYPASSUID #A list of unrestricted users UIDs, '<UID1>,<UID1>' (default: auto generation)

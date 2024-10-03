@@ -40,6 +40,7 @@ RUN <<-"EOT" bash -ex
     rm -frv /var/lib/apt/lists/*
 EOT
 
+# OpenVPN
 RUN <<-"EOT" bash -ex
     OPENVPN_VER=2.6.12
     LIBS="libnl-genl-3-dev libssl-dev libcap-ng-dev liblz4-dev libsystemd-dev"
@@ -113,32 +114,24 @@ RUN <<-"EOT" bash -ex
     apt-get autoremove -y && apt-get clean -y
 EOT
 
+# UI
 COPY --from=app_builder /go/src/github.com/shuricksumy/openvpn-ui/openvpn-ui.tar.gz /opt/openvpn-gui/openvpn-ui.tar.gz
 COPY ./openvpn/start.sh /opt/start.sh
 COPY ./openvpn/scripts /opt/scripts
-
 RUN bash -c '/opt/scripts/install_pkg.sh'
+RUN tar -zxf /opt/openvpn-gui/openvpn-ui.tar.gz --directory /opt/openvpn-gui/
+RUN rm -f /opt/openvpn-gui/openvpn-ui.tar.gz
+RUN rm -f /opt/openvpn-gui/data.db
+#ADD BUILD NUMBER
+RUN date +"%d%m%Y-%H%M%S" > /opt/openvpn-gui/static/build.txt
+VOLUME /etc/openvpn
+VOLUME /opt/openvpn-gui/db
 
+# Clear
 RUN apt-get autoremove -y \
     && apt-get clean -y \
     && rm -rf /var/lib/apt/lists/*
 
-RUN tar -zxf /opt/openvpn-gui/openvpn-ui.tar.gz --directory /opt/openvpn-gui/
-RUN rm -f /opt/openvpn-gui/openvpn-ui.tar.gz
-RUN rm -f /opt/openvpn-gui/data.db
-
-#ADD BUILD NUMBER
-RUN date +"%d%m%Y-%H%M%S" > /opt/openvpn-gui/static/build.txt
-
-VOLUME /etc/openvpn
-VOLUME /opt/openvpn-gui/db
-
-#CLOAK
-ADD https://github.com/cbeuw/Cloak/releases/download/v2.9.0/ck-server-linux-amd64-v2.9.0 /opt/cloak/ck-server
-RUN chmod +x /opt/cloak/ck-server
-
-# Advise to open necassary ports
-EXPOSE 1194/udp 8080/tcp
 WORKDIR /etc/openvpn/easy-rsa
 
 ENTRYPOINT ["/bin/bash", "/opt/start.sh"]

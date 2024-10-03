@@ -8,8 +8,8 @@ export CUSTOMIZE_ENC="y"
 export SET_MGMT="management 127.0.0.1 2080"
 
 export ENDPOINT=${OPENVPN_IP_FOR_CLIENT:-$(curl -4 icanhazip.com)}
-export IP_RANGE="10.1.165.0"
-export PROTOCOL_CHOICE="1" #udp
+export IP_RANGE=${OPENVPN_LOCAL_IP_RANGE:-"10.1.165.0"}
+export PROTOCOL_CHOICE=${OPENVPN_PROTOCOL:-"1"} #udp
 export PORT=$OPENVPN_PORT
 export TUN_NUMBER="0"
 export DNS1="10.224.0.1"
