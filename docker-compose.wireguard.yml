@@ -5,26 +5,9 @@ services:
       service: antizapret-vpn
   wg-easy:
     environment:
-      - WG_ALLOWED_IPS=
-          10.224.0.0/15,
-          10.1.166.0/24,
-          103.246.200.0/22,
-          178.239.88.0/21,
-          185.104.45.0/24,
-          193.105.213.36/30,
-          203.104.128.0/20,
-          203.104.144.0/21,
-          203.104.152.0/22,
-          68.171.224.0/19,
-          74.82.64.0/19,
-          104.109.143.0/24,
-          66.22.192.0/18,
-          35.192.0.0/11,
-          34.0.192.0/18
       - WG_DEFAULT_DNS=10.224.0.1
       - WG_PERSISTENT_KEEPALIVE=25
       - WG_PORT=443
-      - WG_DEFAULT_ADDRESS=10.1.166.x
     image: ghcr.io/wg-easy/wg-easy
     container_name: wg-easy
     volumes:
@@ -38,6 +21,7 @@ services:
     restart: unless-stopped
     env_file:
       - ./wireguard/wireguard.env
+      - ./config/antizapret/result:/opt/antizapret/result
     cap_add:
       - NET_ADMIN
       - SYS_MODULE
