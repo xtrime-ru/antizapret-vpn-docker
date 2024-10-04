@@ -92,8 +92,11 @@ fi
 
 if [ -f "/opt/antizapret/result/openvpn-blocked-ranges.txt" ]; then
     mkdir -p $OVDIR/ccd
-    ln -s /opt/antizapret/result/openvpn-blocked-ranges.txt $OVDIR/ccd/DEFAULT
+    ln -sf /opt/antizapret/result/openvpn-blocked-ranges.txt $OVDIR/ccd/DEFAULT
 fi
+
+export AZ_HOST=$(dig +short antizapret-vpn)
+ip route add 10.224.0.0/15 via $AZ_HOST
 
 if [[ ${FORCE_FORWARD_DNS:-true} == true ]]; then
     dnsPorts=${FORCE_FORWARD_DNS_PORTS:-"53"}
@@ -101,9 +104,6 @@ if [[ ${FORCE_FORWARD_DNS:-true} == true ]]; then
         iptables -t nat -A PREROUTING -p udp --dport $dnsPort -j DNAT --to-destination $AZ_HOST
     done
 fi
-
-export AZ_HOST=$(dig +short antizapret-vpn)
-ip route add 10.224.0.0/15 via $AZ_HOST
 
 # Start the OpenVPN GUI
 echo "Starting openvpn-ui !"
