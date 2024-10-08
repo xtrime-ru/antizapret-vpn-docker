@@ -6,8 +6,9 @@ fi
 if [ $(which curl | wc -l) -eq 0 ]; then
     apk add curl
 fi
-
-export WG_HOST=$(curl -4 icanhazip.com)
+if [ -z "${WG_HOST}" ]; then
+    export WG_HOST=$(curl -4 icanhazip.com)
+fi
 export AZ_HOST=$(dig +short antizapret-vpn)
 
 ip route add 10.224.0.0/15 via $AZ_HOST
