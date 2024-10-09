@@ -11,7 +11,7 @@ RUN <<-"EOT" bash -ex
     apt-get install -qqy --no-install-suggests --no-install-recommends \
         bsdmainutils \
         ca-certificates \
-	iperf3 \
+        iperf3 \
         curl \
         dnsutils \
         ferm \
@@ -34,8 +34,6 @@ RUN <<-"EOT" bash -ex
         systemd-sysv \
         vim-tiny \
         wget
-        # git
-        # unattended-upgrades
     apt-get clean
     rm -frv /var/lib/apt/lists/*
 EOT
@@ -44,7 +42,7 @@ RUN <<-"EOT" bash -ex
     ANTIZAPRET_VER=6eae76b095ef4d719043a109c05d94900aaa3791
     ANTIZAPRET_URL=https://bitbucket.org/anticensority/antizapret-pac-generator-light/get/$ANTIZAPRET_VER.tar.gz
 
-    EASYRSA_VER=3.2.0
+    EASYRSA_VER=3.2.1
     EASYRSA_URL=https://github.com/OpenVPN/easy-rsa/releases/download/v$EASYRSA_VER/EasyRSA-$EASYRSA_VER.tgz
 
     mkdir antizapret && curl -s -L $ANTIZAPRET_URL | tar -zxv --strip-components=1 -C $_
