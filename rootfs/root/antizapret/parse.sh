@@ -7,10 +7,10 @@ cd "$HERE"
 source config/config.sh
 
 # Extract domains from list
-if [[ $SKIP_UPDATE_FROM_ZAPRET == false ]]; then
+if [[ ! -n $SKIP_UPDATE_FROM_ZAPRET ]]; then
    awk -F ';' '{print $2}' temp/list.csv | sort -u | awk '/^$/ {next} /\\/ {next} /^[а-яА-Яa-zA-Z0-9\-_\.\*]*+$/ {gsub(/\*\./, ""); gsub(/\.$/, ""); print}' | grep -Fv 'bеllonа' | CHARSET=UTF-8 idn --no-tld | grep -Fv 'xn--' > result/hostlist_original.txt
 else
-   echo \n > result/hostlist_original.txt
+   echo -e "\n" > result/hostlist_original.txt
 fi
 
 for file in config/custom/{include,exclude}-hosts-custom.txt; do
