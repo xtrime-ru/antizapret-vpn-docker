@@ -16,8 +16,6 @@ services:
       - UPDATE_TIMER
       - ADGUARDHOME_PORT
       - ADGUARDHOME_USERNAME
-      - ADGUARDHOME_PASSWORD
-      - ADGUARDHOME_PASSWORD_HASH
     env_file:
       - ./.antizapret.env
 #    dns:
@@ -44,11 +42,11 @@ services:
     container_name: openvpn
     environment:
       - AUTO_INITIAL=1 # Auto initial (clean to install via wizard)
+      - OPENVPN_ADMIN_USERNAME=admin
       - SITE_NAME # Title web ui
       - OPENVPN_PORT # Port openvpn server, default 1194
       - OPENVPN_LOCAL_IP_RANGE # IP range for OpenVPN, default 10.1.165.0
       - OPENVPN_PROTOCOL # Set protocol 1 - udp or 2 - tcp, default: 1
-      - OPENVPN_ADMIN_USERNAME # username web ui, default: admin
       - URL_PREFIX # URL prefix to admin ui, example: /admin-openvpn
       - APP_PORT=1195 # Set web ui port
     env_file:

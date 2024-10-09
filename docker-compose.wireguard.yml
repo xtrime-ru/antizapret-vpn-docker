@@ -7,21 +7,22 @@ services:
     environment:
       - WG_DEFAULT_DNS=10.224.0.1
       - WG_PERSISTENT_KEEPALIVE=25
-      - WG_PORT=443
+      - PORT=51821
+      - WG_PORT=51820
+    env_file:
+      - ./.wireguard.env
     image: ghcr.io/wg-easy/wg-easy
     container_name: wg-easy
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - ./config/wireguard:/etc/wireguard
       - ./wireguard/entrypoint.sh:/entrypoint.sh
+      - ./config/antizapret/result:/opt/antizapret/result
     command: /entrypoint.sh
     ports:
-      - "443:443/udp"
-      - "51821:51821/tcp"
+      - 51820:51820/udp
+      - 51821:51821/tcp
     restart: unless-stopped
-    env_file:
-      - ./.wireguard.env
-      - ./config/antizapret/result:/opt/antizapret/result
     cap_add:
       - NET_ADMIN
       - SYS_MODULE

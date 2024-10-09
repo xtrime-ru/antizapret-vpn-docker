@@ -12,6 +12,8 @@ if [ -z "$WG_HOST" ]; then
 fi
 
 export WG_DEFAULT_ADDRESS=${WG_DEFAULT_ADDRESS:-"10.1.166.x"}
+export WG_DEVICE=${WG_DEVICE:-"eth0"}
+export WG_PORT=${WG_PORT:-51820}
 
 if [ -z "$WG_ALLOWED_IPS" ]; then
     export WG_ALLOWED_IPS="${WG_DEFAULT_ADDRESS/"x"/"0"}/24,10.224.0.0/15"
@@ -28,10 +30,9 @@ export ANTIZAPRET_SUBNET=${ANTIZAPRET_SUBNET:-"10.224.0.0/15"}
 
 export WG_POST_UP=$(tr '\n' ' ' << EOF
 iptables -t nat -N masq_not_local;
-iptables -t nat -A POSTROUTING -s \${module.exports.WG_DEFAULT_ADDRESS.replace('x', '0')}/24 -o \${module.exports.WG_DEVICE} -j masq_not_local;
-iptables -A INPUT -p udp -m udp --dport \${module.exports.WG_PORT} -j ACCEPT;
-iptables -t nat -A masq_not_local -d \${module.exports.DOCKER_SUBNET} -j RETURN;
-iptables -t nat -A masq_not_local -d \${module.exports.ANTIZAPRET_SUBNET} -j RETURN;
+iptables -t nat -A POSTROUTING -s ${WG_DEFAULT_ADDRESS/"x"/"0"}/24 -o ${WG_DEVICE} -j masq_not_local;
+iptables -t nat -A masq_not_local -d ${DOCKER_SUBNET} -j RETURN;
+iptables -t nat -A masq_not_local -d ${ANTIZAPRET_SUBNET} -j RETURN;
 iptables -t nat -A masq_not_local -j MASQUERADE;
 iptables -A FORWARD -i wg0 -j ACCEPT;
 iptables -A FORWARD -o wg0 -j ACCEPT;
@@ -39,9 +40,8 @@ EOF
 )
 
 export WG_POST_DOWN=$(tr '\n' ' ' << EOF
-iptables -t nat -D POSTROUTING -s \${module.exports.WG_DEFAULT_ADDRESS.replace('x', '0')}/24 -o \${module.exports.WG_DEVICE} -j masq_not_local;
+iptables -t nat -D POSTROUTING -s ${WG_DEFAULT_ADDRESS/"x"/"0"}/24 -o ${WG_DEVICE} -j masq_not_local;
 iptables -t nat -X masq_not_local
-iptables -D INPUT -p udp -m udp --dport \${module.exports.WG_PORT} -j ACCEPT;
 iptables -D FORWARD -i wg0 -j ACCEPT;
 iptables -D FORWARD -o wg0 -j ACCEPT;
 EOF
