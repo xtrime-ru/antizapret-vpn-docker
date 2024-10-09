@@ -26,7 +26,7 @@ fi
 export DOCKER_SUBNET=${DOCKER_SUBNET:-"172.18.0.0/16"}
 export ANTIZAPRET_SUBNET=${ANTIZAPRET_SUBNET:-"10.224.0.0/15"}
 
-tr '\n' ' ' << EOF
+export WG_POST_UP=$(tr '\n' ' ' << EOF
 iptables -t nat -N masq_not_local;
 iptables -t nat -A POSTROUTING -s \${module.exports.WG_DEFAULT_ADDRESS.replace('x', '0')}/24 -o \${module.exports.WG_DEVICE} -j masq_not_local;
 iptables -A INPUT -p udp -m udp --dport \${module.exports.WG_PORT} -j ACCEPT;
@@ -36,7 +36,16 @@ iptables -t nat -A masq_not_local -j MASQUERADE;
 iptables -A FORWARD -i wg0 -j ACCEPT;
 iptables -A FORWARD -o wg0 -j ACCEPT;
 EOF
+)
 
+export WG_POST_DOWN=$(tr '\n' ' ' << EOF
+iptables -t nat -D POSTROUTING -s \${module.exports.WG_DEFAULT_ADDRESS.replace('x', '0')}/24 -o \${module.exports.WG_DEVICE} -j masq_not_local;
+iptables -t nat -X masq_not_local
+iptables -D INPUT -p udp -m udp --dport \${module.exports.WG_PORT} -j ACCEPT;
+iptables -D FORWARD -i wg0 -j ACCEPT;
+iptables -D FORWARD -o wg0 -j ACCEPT;
+EOF
+)
 
 export AZ_HOST=$(dig +short antizapret-vpn)
 ip route add 10.224.0.0/15 via $AZ_HOST
