@@ -14,12 +14,20 @@ services:
       - LOG_DNS
       - SKIP_UPDATE_FROM_ZAPRET
       - UPDATE_TIMER
+      - ADGUARDHOME_PORT=8080
+      - ADGUARDHOME_USERNAME
+      - ADGUARDHOME_PASSWORD
+      - ADGUARDHOME_PASSWORD_HASH
 #    dns:
 #      - 1.1.1.1
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - ./config/antizapret/custom:/root/antizapret/config/custom
       - ./config/antizapret/result:/root/antizapret/result
+      - ./config/adguard/conf:/opt/adguardhome/conf
+      - ./config/adguard/work:/opt/adguardhome/work
+    ports:
+      - 8080:8080/tcp
     logging:
       driver: json-file
       options:
@@ -33,12 +41,12 @@ services:
       dockerfile: Dockerfile-openvpn
     container_name: openvpn
     environment:
-      - OPENVPN_ADMIN_USERNAME=admin # Default username web ui
-      - SITE_NAME=Admin # Title web ui
       - AUTO_INITIAL=1 # Auto initial (clean to install via wizard)
+      - SITE_NAME # Title web ui
       - OPENVPN_PORT # Port openvpn server, default 1194
       - OPENVPN_LOCAL_IP_RANGE # IP range for OpenVPN, default 10.1.165.0
       - OPENVPN_PROTOCOL # Set protocol 1 - udp or 2 - tcp, default: 1
+      - OPENVPN_ADMIN_USERNAME # username web ui, default: admin
       - URL_PREFIX # URL prefix to admin ui, example: /admin-openvpn
       - APP_PORT=1195 # Set web ui port
     env_file:

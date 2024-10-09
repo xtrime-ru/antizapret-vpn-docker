@@ -23,7 +23,6 @@ RUN <<-"EOT" bash -ex
         ipcalc-ng \
         iptables \
         iproute2 \
-        knot-resolver \
         moreutils \
         nano \
         openssl \
@@ -33,6 +32,7 @@ RUN <<-"EOT" bash -ex
         sipcalc \
         systemd-sysv \
         vim-tiny \
+        apache2-utils \
         wget
     apt-get clean
     rm -frv /var/lib/apt/lists/*
@@ -41,11 +41,21 @@ EOT
 COPY rootfs /
 
 RUN <<-"EOF" bash -ex
+    curl -s -S -L https://raw.githubusercontent.com/AdguardTeam/AdGuardHome/master/scripts/install.sh | sh -s -- -v
+    /opt/AdGuardHome/AdGuardHome -s uninstall
+    mv /opt/AdGuardHome /opt/adguardhome
+    mkdir -p /opt/adguardhome/work
+    mkdir -p /opt/adguardhome/conf
+    cp /root/adguardhome/* /opt/adguardhome/conf
+    /opt/adguardhome/AdGuardHome -s install -w /opt/adguardhome/work -c /opt/adguardhome/conf/AdGuardHome.yaml
+    wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq && chmod +x /usr/bin/yq
+EOF
+
+RUN <<-"EOF" bash -ex
     systemctl enable \
         antizapret-update.service \
         antizapret-update.timer \
         dnsmap \
-        kresd@1 \
         systemd-networkd \
         iperf3-server@1
 
@@ -63,7 +73,6 @@ EOF
 
 RUN <<-"EOF" bash -ex
     (STAGE_1=true STAGE_2=true STAGE_3=false /root/antizapret/doall.sh)
-    cp /root/antizapret/result/knot-aliases-alt.conf /etc/knot-resolver/knot-aliases-alt.conf
 EOF
 
 ENTRYPOINT ["/init.sh"]

@@ -1,4 +1,6 @@
 #!/bin/bash
+source /etc/environment
+
 export DOCKER_COMMAND="2"
 export IP_CHOICE="2"
 export IPV6_SUPPORT="n"
@@ -7,12 +9,12 @@ export DNS="13"
 export CUSTOMIZE_ENC="y"
 export SET_MGMT="management 127.0.0.1 2080"
 
-export ENDPOINT=${OPENVPN_IP_FOR_CLIENT:-$(curl -4 icanhazip.com)}
-export IP_RANGE=${OPENVPN_LOCAL_IP_RANGE:-"10.1.165.0"}
-export PROTOCOL_CHOICE=${OPENVPN_PROTOCOL:-"1"} #udp
+export ENDPOINT=$OPENVPN_EXTERNAL_IP
+export IP_RANGE=$OPENVPN_LOCAL_IP_RANGE
+export PROTOCOL_CHOICE=$OPENVPN_PROTOCOL
 export PORT=$OPENVPN_PORT
 export TUN_NUMBER="0"
-export DNS1="10.224.0.1"
+export DNS1=$OPENVPN_DNS
 export COMPRESSION_ENABLED="n"
 export CIPHER_CHOICE="1" #AES-128-GCM
 export CERT_TYPE="1" #ECDSA

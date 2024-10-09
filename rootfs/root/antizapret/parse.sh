@@ -32,14 +32,14 @@ then
 fi
 
 # Generate a list of IP addresses
-awk -F';' '$1 ~ /\// {print $1}' temp/list.csv | grep -P '([0-9]{1,3}\.){3}[0-9]{1,3}\/[0-9]{1,2}' -o | sort -Vu > result/iplist_special_range.txt
-awk -F ';' '($1 ~ /^([0-9]{1,3}\.){3}[0-9]{1,3}/) {gsub(/\|/, RS, $1); print $1}' temp/list.csv | \
-    awk '/^([0-9]{1,3}\.){3}[0-9]{1,3}$/' | sort -u > result/iplist_all.txt
-awk -F ';' '($1 ~ /^([0-9]{1,3}\.){3}[0-9]{1,3}/) && (($2 == "" && $3 == "") || ($1 == $2)) {gsub(/\|/, RS); print $1}' temp/list.csv | \
-    awk '/^([0-9]{1,3}\.){3}[0-9]{1,3}$/' | sort -u > result/iplist_blockedbyip.txt
-grep -F -v '33-4/2018' temp/list.csv | grep -F -v '33а-5536/2019' | \
-    awk -F ';' '($1 ~ /^([0-9]{1,3}\.){3}[0-9]{1,3}/) && (($2 == "" && $3 == "") || ($1 == $2)) {gsub(/\|/, RS); print $1}' | \
-    awk '/^([0-9]{1,3}\.){3}[0-9]{1,3}$/' | sort -u > result/iplist_blockedbyip_noid2971.txt
+# awk -F';' '$1 ~ /\// {print $1}' temp/list.csv | grep -P '([0-9]{1,3}\.){3}[0-9]{1,3}\/[0-9]{1,2}' -o | sort -Vu > result/iplist_special_range.txt
+# awk -F ';' '($1 ~ /^([0-9]{1,3}\.){3}[0-9]{1,3}/) {gsub(/\|/, RS, $1); print $1}' temp/list.csv | \
+#     awk '/^([0-9]{1,3}\.){3}[0-9]{1,3}$/' | sort -u > result/iplist_all.txt
+# awk -F ';' '($1 ~ /^([0-9]{1,3}\.){3}[0-9]{1,3}/) && (($2 == "" && $3 == "") || ($1 == $2)) {gsub(/\|/, RS); print $1}' temp/list.csv | \
+#     awk '/^([0-9]{1,3}\.){3}[0-9]{1,3}$/' | sort -u > result/iplist_blockedbyip.txt
+# grep -F -v '33-4/2018' temp/list.csv | grep -F -v '33а-5536/2019' | \
+#     awk -F ';' '($1 ~ /^([0-9]{1,3}\.){3}[0-9]{1,3}/) && (($2 == "" && $3 == "") || ($1 == $2)) {gsub(/\|/, RS); print $1}' | \
+#     awk '/^([0-9]{1,3}\.){3}[0-9]{1,3}$/' | sort -u > result/iplist_blockedbyip_noid2971.txt
 awk -F ';' '$1 ~ /\// {print $1}' temp/list.csv | egrep -o '([0-9]{1,3}\.){3}[0-9]{1,3}\/[0-9]{1,2}' | sort -u > result/blocked-ranges.txt
 
 
@@ -52,31 +52,38 @@ do
     echo $"push \"route ${C_NET} ${C_NETMASK}\"" >> result/openvpn-blocked-ranges.txt
 done < result/blocked-ranges.txt
 
-
-# Generate dnsmasq aliases
-echo -n > result/dnsmasq-aliases-alt.conf
+# Generate adguardhome aliases
+/bin/cp --update=none /root/adguardhome/* /opt/adguardhome/conf
+/bin/cp -f /opt/adguardhome/conf/upstream_dns_file_basis /opt/adguardhome/conf/upstream_dns_file
 while read -r line
 do
-    echo "server=/$line/127.0.0.4" >> result/dnsmasq-aliases-alt.conf
+    echo "[/$line/]127.0.0.4" >> /opt/adguardhome/conf/upstream_dns_file
 done < result/hostlist_zones.txt
 
-
-# Generate knot-resolver aliases
-echo 'blocked_hosts = {' > result/knot-aliases-alt.conf
-while read -r line
-do
-    line="$line."
-    echo "${line@Q}," >> result/knot-aliases-alt.conf
-done < result/hostlist_zones.txt
-echo '}' >> result/knot-aliases-alt.conf
+# # Generate dnsmasq aliases
+# echo -n > result/dnsmasq-aliases-alt.conf
+# while read -r line
+# do
+#     echo "server=/$line/127.0.0.4" >> result/dnsmasq-aliases-alt.conf
+# done < result/hostlist_zones.txt
 
 
-# Generate squid zone file
-echo -n > result/squid-whitelist-zones.conf
-while read -r line
-do
-    echo ".$line" >> result/squid-whitelist-zones.conf
-done < result/hostlist_zones.txt
+# # Generate knot-resolver aliases
+# echo 'blocked_hosts = {' > result/knot-aliases-alt.conf
+# while read -r line
+# do
+#     line="$line."
+#     echo "${line@Q}," >> result/knot-aliases-alt.conf
+# done < result/hostlist_zones.txt
+# echo '}' >> result/knot-aliases-alt.conf
+
+
+# # Generate squid zone file
+# echo -n > result/squid-whitelist-zones.conf
+# while read -r line
+# do
+#     echo ".$line" >> result/squid-whitelist-zones.conf
+# done < result/hostlist_zones.txt
 
 
 # Print results

@@ -1104,13 +1104,14 @@ function setFWRules() {
 
 	# Script to add rules
 	echo "#!/bin/bash
-if [[ -z \$NIC ]]; then
-	NIC=\$(ip -4 route ls | grep default | grep -Po '(?<=dev )(\S+)' | head -1)
-fi
+source /etc/environment
 
-if [[ ! \$(iptables -t nat -C POSTROUTING -s $IP_RANGE/24 -o \$NIC -j MASQUERADE) ]]; then
-  iptables -t nat -I POSTROUTING 1 -s $IP_RANGE/24 -o \$NIC -j MASQUERADE
-  iptables -t nat -I POSTROUTING 1 -o tun$TUN_NUMBER -j MASQUERADE
+if [[ ! \$(iptables -t nat -C POSTROUTING -s \$OPENVPN_LOCAL_IP_RANGE/24 -o \$NIC -j masq_not_local) ]]; then
+  iptables -t nat -N masq_not_local
+  iptables -t nat -A POSTROUTING -s \$OPENVPN_LOCAL_IP_RANGE/24 -o \$NIC -j masq_not_local
+  iptables -t nat -A masq_not_local -d \$DOCKER_SUBNET -j RETURN
+  iptables -t nat -A masq_not_local -d \$ANTIZAPRET_SUBNET -j RETURN
+  iptables -t nat -A masq_not_local -j MASQUERADE
   iptables -I INPUT 1 -i tun$TUN_NUMBER -j ACCEPT
   iptables -I FORWARD 1 -i \$NIC -o tun$TUN_NUMBER -j ACCEPT
   iptables -I FORWARD 1 -i tun$TUN_NUMBER -o \$NIC -j ACCEPT
@@ -1133,13 +1134,11 @@ fi" >>${SET_FW_FILE_PATH}
 
 	# Script to remove rules
 	echo "#!/bin/bash
-if [[ -z \$NIC ]]; then
-	NIC=\$(ip -4 route ls | grep default | grep -Po '(?<=dev )(\S+)' | head -1)
-fi
+source /etc/environment
 
-if [[ \$(iptables -t nat -C POSTROUTING -s $IP_RANGE/24 -o \$NIC -j MASQUERADE) ]]; then
-  iptables -t nat -D POSTROUTING -s $IP_RANGE/24 -o \$NIC -j MASQUERADE
-  iptables -t nat -D POSTROUTING -o tun$TUN_NUMBER -j MASQUERADE
+if [[ \$(iptables -t nat -C POSTROUTING -s \$OPENVPN_LOCAL_IP_RANGE/24 -o \$NIC -j masq_not_local) ]]; then
+  iptables -t nat -X masq_not_local
+  iptables -t nat -D POSTROUTING -s \$OPENVPN_LOCAL_IP_RANGE/24 -o \$NIC -j masq_not_local
   iptables -D INPUT -i tun$TUN_NUMBER -j ACCEPT
   iptables -D FORWARD -i \$NIC -o tun$TUN_NUMBER -j ACCEPT
   iptables -D FORWARD -i tun$TUN_NUMBER -o \$NIC -j ACCEPT

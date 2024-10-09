@@ -3,13 +3,20 @@
 set -e
 set -x
 
-# Directory where OpenVPN configuration files are stored
-if [[ "$OVDIR" == "" ]]; then
-	OVDIR="/etc/openvpn"
-fi
 
-# Change to the /opt directory
-cd /opt/
+cat << EOF | sponge /etc/environment
+OPENVPN_ADMIN_USERNAME=${OPENVPN_ADMIN_USERNAME:-"admin"}
+OPENVPN_PORT=${OPENVPN_PORT:-"1194"}
+OPENVPN_EXTERNAL_IP=${OPENVPN_EXTERNAL_IP:-$(curl -4 icanhazip.com)}
+OPENVPN_LOCAL_IP_RANGE=${OPENVPN_LOCAL_IP_RANGE:-"10.1.165.0"}
+OPENVPN_DNS=${OPENVPN_DNS:-"10.1.165.1"}
+DOCKER_SUBNET="172.18.0.0/16"
+ANTIZAPRET_SUBNET="10.224.0.0/15"
+NIC=$(ip -4 route ls | grep default | grep -Po '(?<=dev )(\S+)' | head -1)
+OVDIR=${OVDIR:-"/etc/openvpn"}
+EOF
+source /etc/environment
+ln -sf /etc/environment /etc/profile.d/environment.sh
 
 # Change to the OpenVPN GUI directory
 cd /opt/openvpn-gui
@@ -82,8 +89,6 @@ else
     echo "BaseURLPrefix = \"\"" >> $CONF_FILE
 fi
 
-export OPENVPN_ADMIN_USERNAME=${OPENVPN_ADMIN_USERNAME:-"admin"}
-export OPENVPN_PORT=${OPENVPN_PORT:-"1194"}
 
 # Set URL PREFIX
 if [[ -n "$AUTO_INITIAL" ]]; then
