@@ -14,10 +14,12 @@ services:
       - LOG_DNS
       - SKIP_UPDATE_FROM_ZAPRET
       - UPDATE_TIMER
-      - ADGUARDHOME_PORT=8080
+      - ADGUARDHOME_PORT
       - ADGUARDHOME_USERNAME
       - ADGUARDHOME_PASSWORD
       - ADGUARDHOME_PASSWORD_HASH
+    env_file:
+      - ./.antizapret.env
 #    dns:
 #      - 1.1.1.1
     volumes:
@@ -27,7 +29,7 @@ services:
       - ./config/adguard/conf:/opt/adguardhome/conf
       - ./config/adguard/work:/opt/adguardhome/work
     ports:
-      - 8080:8080/tcp
+      - 80:80/tcp
     logging:
       driver: json-file
       options:
@@ -50,7 +52,7 @@ services:
       - URL_PREFIX # URL prefix to admin ui, example: /admin-openvpn
       - APP_PORT=1195 # Set web ui port
     env_file:
-      - ./openvpn/.env
+      - ./.openvpn.env
     ports:
       - "1195:1195/tcp" # For web ui
       - "1194:1194/udp" # For OpenVPN

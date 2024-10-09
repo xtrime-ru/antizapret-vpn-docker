@@ -20,7 +20,7 @@ services:
       - "51821:51821/tcp"
     restart: unless-stopped
     env_file:
-      - ./wireguard/wireguard.env
+      - ./.wireguard.env
       - ./config/antizapret/result:/opt/antizapret/result
     cap_add:
       - NET_ADMIN
