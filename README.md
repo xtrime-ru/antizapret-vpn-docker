@@ -185,6 +185,8 @@ You can define these variables in docker-compose.yml file for your needs:
 - `OPENVPN_CBC_CIPHERS=1` - Enable support of [legacy clients](#legacy-clients). WIll disable [DCO](#enable-openvpn-data-channel-offload-dco)
 - `OPENVPN_SCRAMBLE=1` - Enable additional obfuscation [XOR Tunneblick patch](https://tunnelblick.net/cOpenvpn_xorpatch.html)
 - `OPENVPN_TLS_CRYPT=1` - Enable additional TLS encryption in OpenVPN. May help with connection obfuscation.
+- `OPENVPN_TCP_SUBNET=192.168.108.0/22` - Customize TCP subnet for OpenVPN connection, in case of conflict with your network settings. Default: 192.168.104.0/22
+- `OPENVPN_UDP_SUBNET=192.168.60.0/22` - Customize UDP subnet for OpenVPN connection, in case of conflict with your network settings. Default: 192.168.100.0/22
 - `DNS=1.1.1.1` — DNS server to resolve domains (default: host DNS server)
 - `DNS_RU=77.88.8.8` — Russian DNS server; used to fix issues with geo zones mismatch for domains like `apple.com` (default: 77.88.8.8)
 - `LOG_DNS=1` - Log all DNS requests and responses (default: 0)
