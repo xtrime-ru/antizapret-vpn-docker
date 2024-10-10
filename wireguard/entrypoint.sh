@@ -17,8 +17,8 @@ export WG_PORT=${WG_PORT:-51820}
 
 if [ -z "$WG_ALLOWED_IPS" ]; then
     export WG_ALLOWED_IPS="${WG_DEFAULT_ADDRESS/"x"/"0"}/24,10.224.0.0/15"
-    if [ -f "/opt/antizapret/result/blocked-ranges.txt" ]; then
-        blocked_ranges=`tr '\n' ',' < /opt/antizapret/result/blocked-ranges.txt | sed 's/,$//g'`
+    if [ -f "/opt/antizapret/result/blocked-ranges-with-include.txt" ]; then
+        blocked_ranges=`tr '\n' ',' < /opt/antizapret/result/blocked-ranges-with-include.txt | sed 's/,$//g'`
         if [ -z "${blocked_ranges}" ]; then
             export WG_ALLOWED_IPS="${WG_ALLOWED_IPS},${blocked_ranges}"
         fi

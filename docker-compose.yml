@@ -68,8 +68,6 @@ services:
       - ./config/openvpn/conf:/etc/openvpn
       - ./config/openvpn/db:/opt/openvpn-gui/db
       - ./config/antizapret/result:/opt/antizapret/result
-    depends_on:
-      - antizapret-vpn
 
   cloak:
     environment:

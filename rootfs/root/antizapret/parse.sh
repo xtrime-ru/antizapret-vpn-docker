@@ -31,7 +31,7 @@ then
 fi
 
 awk -F ';' '$1 ~ /\// {print $1}' temp/list.csv | egrep -o '([0-9]{1,3}\.){3}[0-9]{1,3}\/[0-9]{1,2}' | sort -u > result/blocked-ranges.txt
-sort -u temp/include-ips.txt result/blocked-ranges.txt > result/blocked-ranges.txt
+sort -u temp/include-ips.txt result/blocked-ranges.txt > result/blocked-ranges-with-include.txt
 
 # Generate OpenVPN route file
 echo -n > result/openvpn-blocked-ranges.txt
@@ -40,12 +40,12 @@ do
     C_NET="$(echo $line | awk -F '/' '{print $1}')"
     C_NETMASK="$(sipcalc -- "$line" | awk '/Network mask/ {print $4; exit;}')"
     echo $"push \"route ${C_NET} ${C_NETMASK}\"" >> result/openvpn-blocked-ranges.txt
-done < result/blocked-ranges.txt
+done < result/blocked-ranges-with-include.txt
 
 # Generate adguardhome aliases
 /bin/cp --update=none /root/adguardhome/* /opt/adguardhome/conf
 /bin/cp -f /opt/adguardhome/conf/upstream_dns_file_basis result/adguard_upstream_dns_file
-sed -E -e 's~(.*)~[/\1/] 127.0.0.4~' result/hostlist_zones.txt > result/adguard_upstream_dns_file
+sed -E -e 's~(.*)~[/\1/] 127.0.0.4~' result/hostlist_zones.txt >> result/adguard_upstream_dns_file
 /bin/cp -f result/adguard_upstream_dns_file /opt/adguardhome/conf/upstream_dns_file
 
 exit 0
