@@ -96,10 +96,7 @@ if [[ -n "$AUTO_INITIAL" ]]; then
 fi
 
 until [ -f "/opt/antizapret/result/openvpn-blocked-ranges.txt" ]; do sleep 0.5; done
-if [ -f "/opt/antizapret/result/openvpn-blocked-ranges.txt" ]; then
-    mkdir -p $OVDIR/ccd
-    ln -sf /opt/antizapret/result/openvpn-blocked-ranges.txt $OVDIR/ccd/DEFAULT
-fi
+cp -f /opt/antizapret/result/openvpn-blocked-ranges.txt $OVDIR/openvpn-blocked-ranges.txt
 
 export AZ_HOST=$(dig +short antizapret-vpn)
 ip route add 10.224.0.0/15 via $AZ_HOST

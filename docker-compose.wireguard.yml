@@ -34,5 +34,11 @@ services:
       options:
         max-size: "100k"
         max-file: "2"
+    healthcheck:
+      test: cmp /app/blocked-ranges-with-include.txt /opt/antizapret/result/blocked-ranges-with-include.txt || sh -c 'kill -INT -1 && (sleep 5; kill -s 9 -1)'
+      interval: 60s
+      timeout: 30s
+      retries: 1
     depends_on:
       - antizapret-vpn
+      

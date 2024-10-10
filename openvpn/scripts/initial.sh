@@ -31,10 +31,11 @@ export CLIENT_TO_CLIENT="y"
 
 if [[ ! -e /etc/openvpn/server.conf ]]; then
         bash /opt/scripts/openvpn-install-v2.sh
-        echo "" > /etc/openvpn/.provisioned
-		echo "script-security 2" >> /etc/openvpn/server.conf
-        echo "auth-user-pass-verify /opt/scripts/auth_client.sh via-file" >> /etc/openvpn/server.conf
-        echo "auth-user-pass" >> /etc/openvpn/client-template.txt
-        echo "push \"route 10.224.0.0 255.254.0.0\"" >> /etc/openvpn/server.conf
+        echo "" > $OVDIR/.provisioned
+        echo "script-security 2" >> $OVDIR/server.conf
+        echo "auth-user-pass-verify /opt/scripts/auth_client.sh via-file" >> $OVDIR/server.conf
+        echo "auth-user-pass" >> $OVDIR/client-template.txt
+        echo "push \"route 10.224.0.0 255.254.0.0\"" >> $OVDIR/server.conf
+        echo "config $OVDIR/openvpn-blocked-ranges.txt"
         echo "    --= SETUP IS DONE ==-"
 fi

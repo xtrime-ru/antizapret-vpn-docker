@@ -17,7 +17,7 @@ function resolve () {
     echo "$(ipcalc $1 || echo $2)"
 }
 
-rm -rf /opt/antizapret/result/*
+rm -rf /root/antizapret/result/*
 
 ADGUARDHOME_USERNAME=${ADGUARDHOME_USERNAME:-"admin"}
 if [[ -n $ADGUARDHOME_PASSWORD ]]; then
