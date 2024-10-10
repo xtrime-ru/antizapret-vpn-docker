@@ -10,7 +10,7 @@ services:
       - PORT=51821
       - WG_PORT=51820
     env_file:
-      - ./.wireguard.env
+      - ./.env.wireguard
     image: ghcr.io/wg-easy/wg-easy
     container_name: wg-easy
     volumes:

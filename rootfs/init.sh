@@ -1,5 +1,7 @@
-#!/bin/bash -e
+#!/bin/bash
 
+set -e
+set -x
 
 # run commands after systemd initialization
 function postrun () {
@@ -14,6 +16,14 @@ function resolve () {
     ipcalc () { ipcalc-ng --no-decorate -o $1 2> /dev/null; }
     echo "$(ipcalc $1 || echo $2)"
 }
+
+for route in ${ROUTES//;/ }; do
+    host_route=${route%:*}
+    gateway=$(resolve $host_route '')
+    if [ ! -n "$gateway" ]; then continue; fi
+    subnet=${route#*:};
+    ip route add $subnet via $gateway
+done
 
 ADGUARDHOME_USERNAME=${ADGUARDHOME_USERNAME:-"admin"}
 if [[ -n $ADGUARDHOME_PASSWORD ]]; then
@@ -33,6 +43,7 @@ PYTHONUNBUFFERED=1
 SELF_IP=$(hostname -i)
 SKIP_UPDATE_FROM_ZAPRET=${SKIP_UPDATE_FROM_ZAPRET:-false}
 UPDATE_TIMER=${UPDATE_TIMER:-"6h"}
+ROUTES=${ROUTES:-""}
 ADGUARDHOME_PORT=${ADGUARDHOME_PORT:-"80"}
 ADGUARDHOME_USERNAME='${ADGUARDHOME_USERNAME}'
 ADGUARDHOME_PASSWORD_HASH='${ADGUARDHOME_PASSWORD_HASH}'
@@ -43,7 +54,7 @@ ln -sf /etc/default/antizapret /etc/profile.d/antizapret.sh
 
 
 # creating custom hosts files if they have not yet been initialized
-for file in $(echo {exclude,include}-hosts-custom.txt); do
+for file in $(echo {exclude,include}-{hosts,ips}-custom.txt); do
     path=/root/antizapret/config/custom/$file
     [ ! -f $path ] && touch $path
 done
