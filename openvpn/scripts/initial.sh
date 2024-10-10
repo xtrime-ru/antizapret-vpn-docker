@@ -36,6 +36,6 @@ if [[ ! -e /etc/openvpn/server.conf ]]; then
         echo "auth-user-pass-verify /opt/scripts/auth_client.sh via-file" >> $OVDIR/server.conf
         echo "auth-user-pass" >> $OVDIR/client-template.txt
         echo "push \"route 10.224.0.0 255.254.0.0\"" >> $OVDIR/server.conf
-        echo "config $OVDIR/openvpn-blocked-ranges.txt"
+        echo "config $OVDIR/openvpn-blocked-ranges.txt" >> $OVDIR/server.conf
         echo "    --= SETUP IS DONE ==-"
 fi
