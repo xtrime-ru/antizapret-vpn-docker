@@ -95,6 +95,7 @@ if [[ -n "$AUTO_INITIAL" ]]; then
     /opt/scripts/initial.sh
 fi
 
+until [ -f "/opt/antizapret/result/openvpn-blocked-ranges.txt" ]; do sleep 0.5; done
 if [ -f "/opt/antizapret/result/openvpn-blocked-ranges.txt" ]; then
     mkdir -p $OVDIR/ccd
     ln -sf /opt/antizapret/result/openvpn-blocked-ranges.txt $OVDIR/ccd/DEFAULT

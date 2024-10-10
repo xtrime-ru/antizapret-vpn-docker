@@ -17,13 +17,7 @@ function resolve () {
     echo "$(ipcalc $1 || echo $2)"
 }
 
-for route in ${ROUTES//;/ }; do
-    host_route=${route%:*}
-    gateway=$(resolve $host_route '')
-    if [ ! -n "$gateway" ]; then continue; fi
-    subnet=${route#*:};
-    ip route add $subnet via $gateway
-done
+rm -rf /opt/antizapret/result/*
 
 ADGUARDHOME_USERNAME=${ADGUARDHOME_USERNAME:-"admin"}
 if [[ -n $ADGUARDHOME_PASSWORD ]]; then
@@ -64,6 +58,9 @@ sed -i "s/^OnUnitActiveSec=6h/OnUnitActiveSec=$UPDATE_TIMER/g" /etc/systemd/syst
 
 # output systemd logs to docker logs since container boot
 postrun 'until [[ "$(systemctl is-active systemd-journald)" == "active" ]]; do sleep 0.1; done; journalctl --boot --follow --lines=all --no-hostname'
+
+# add routes from env ROUTES
+postrun 'until [[ "$(systemctl is-active systemd-journald)" == "active" ]]; do sleep 0.1; done; /routes.sh'
 
 # AdGuard initialization
 /bin/cp --update=none /root/adguardhome/* /opt/adguardhome/conf/
