@@ -28,3 +28,5 @@ services:
       options:
         max-size: "100k"
         max-file: "2"
+    depends_on:
+      - antizapret-vpn
