@@ -17,13 +17,12 @@ export WG_PORT=${WG_PORT:-51820}
 
 
 until [ -f "/opt/antizapret/result/blocked-ranges-with-include.txt" ]; do sleep 0.5; done
+cp -f /opt/antizapret/result/blocked-ranges-with-include.txt /app/blocked-ranges-with-include.txt
 if [ -z "$WG_ALLOWED_IPS" ]; then
     export WG_ALLOWED_IPS="${WG_DEFAULT_ADDRESS/"x"/"0"}/24,10.224.0.0/15"
-    if [ -f "/opt/antizapret/result/blocked-ranges-with-include.txt" ]; then
-        blocked_ranges=`tr '\n' ',' < /opt/antizapret/result/blocked-ranges-with-include.txt | sed 's/,$//g'`
-        if [ -n "${blocked_ranges}" ]; then
-            export WG_ALLOWED_IPS="${WG_ALLOWED_IPS},${blocked_ranges}"
-        fi
+    blocked_ranges=`tr '\n' ',' < /app/blocked-ranges-with-include.txt | sed 's/,$//g'`
+    if [ -n "${blocked_ranges}" ]; then
+        export WG_ALLOWED_IPS="${WG_ALLOWED_IPS},${blocked_ranges}"
     fi
 fi
 
