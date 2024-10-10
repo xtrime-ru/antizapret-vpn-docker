@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -ex
 
 HERE="$(dirname "$(readlink -f "${0}")")"
 cd "$HERE"
@@ -31,7 +31,7 @@ then
 fi
 
 awk -F ';' '$1 ~ /\// {print $1}' temp/list.csv | egrep -o '([0-9]{1,3}\.){3}[0-9]{1,3}\/[0-9]{1,2}' | sort -u > result/blocked-ranges.txt
-sort -u tmp/include-ips.txt result/blocked-ranges.txt > result/blocked-ranges.txt
+sort -u temp/include-ips.txt result/blocked-ranges.txt > result/blocked-ranges.txt
 
 # Generate OpenVPN route file
 echo -n > result/openvpn-blocked-ranges.txt
