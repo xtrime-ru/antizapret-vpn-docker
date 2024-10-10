@@ -8,6 +8,7 @@ services:
     stop_signal: SIGRTMIN+4
     build: .
     environment:
+      - ROUTES="openvpn:10.1.165.0/24;amnezia-wg-easy:10.1.166.0/24;wg-easy:10.1.166.0/24;ipsec:10.1.163.0/24;ipsec:10.1.162.0/24"
       - DNS
       - DNS_RU
       - ADGUARD
@@ -17,7 +18,7 @@ services:
       - ADGUARDHOME_PORT
       - ADGUARDHOME_USERNAME
     env_file:
-      - ./.antizapret.env
+      - ./.env.antizapret
 #    dns:
 #      - 1.1.1.1
     volumes:
@@ -50,7 +51,7 @@ services:
       - URL_PREFIX # URL prefix to admin ui, example: /admin-openvpn
       - APP_PORT=1195 # Set web ui port
     env_file:
-      - ./.openvpn.env
+      - ./.env.openvpn
     ports:
       - "1195:1195/tcp" # For web ui
       - "1194:1194/udp" # For OpenVPN
