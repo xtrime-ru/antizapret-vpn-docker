@@ -69,6 +69,7 @@ postrun 'until [[ "$(systemctl is-active systemd-journald)" == "active" ]]; do s
 # AdGuard initialization
 /bin/cp --update=none /root/adguardhome/* /opt/adguardhome/conf/
 yq -i '
+    .http.address="0.0.0.0:'$ADGUARDHOME_PORT'" |
     .users[0].name="'$ADGUARDHOME_USERNAME'" |
     .users[0].password="'$ADGUARDHOME_PASSWORD_HASH'" |
     .dns.bind_hosts=["127.0.0.1","'$SELF_IP'"]
