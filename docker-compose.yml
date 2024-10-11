@@ -14,7 +14,6 @@ services:
       - ADGUARD
       - LOG_DNS
       - SKIP_UPDATE_FROM_ZAPRET
-      - UPDATE_TIMER
       - ADGUARDHOME_PORT
       - ADGUARDHOME_USERNAME
     env_file:

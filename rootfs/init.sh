@@ -53,13 +53,6 @@ for file in $(echo {exclude,include}-{hosts,ips}-custom.txt); do
     [ ! -f $path ] && touch $path
 done
 
-# Changing the timer for updating lists
-if [ "$UPDATE_TIMER" == "0" ]; then
-    rm /etc/systemd/system/antizapret-update.timer
-else
-    sed -i "s/^OnUnitActiveSec=6h/OnUnitActiveSec=$UPDATE_TIMER/g" /etc/systemd/system/antizapret-update.timer
-fi
-
 # output systemd logs to docker logs since container boot
 postrun 'until [[ "$(systemctl is-active systemd-journald)" == "active" ]]; do sleep 0.1; done; journalctl --boot --follow --lines=all --no-hostname'
 
