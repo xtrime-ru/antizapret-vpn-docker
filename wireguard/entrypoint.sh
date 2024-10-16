@@ -48,8 +48,9 @@ iptables -D FORWARD -o wg0 -j ACCEPT;
 EOF
 )
 
+
 export AZ_HOST=$(dig +short antizapret-vpn)
-ip route add 10.224.0.0/15 via $AZ_HOST
+ip route add $ANTIZAPRET_SUBNET via $AZ_HOST
 
 if [[ ${FORCE_FORWARD_DNS:-true} == true ]]; then
     dnsPorts=${FORCE_FORWARD_DNS_PORTS:-"53"}
