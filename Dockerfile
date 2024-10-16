@@ -41,8 +41,7 @@ EOT
 COPY rootfs /
 
 RUN <<-"EOF" bash -ex
-    curl -s -S -L https://raw.githubusercontent.com/AdguardTeam/AdGuardHome/master/scripts/install.sh | sh -s -- -v
-    /opt/AdGuardHome/AdGuardHome -s uninstall
+    wget -c https://github.com/AdguardTeam/AdGuardHome/releases/latest/download/AdGuardHome_linux_amd64.tar.gz -O - | tar -xz -C /opt/
     mv /opt/AdGuardHome /opt/adguardhome
     mkdir -p /opt/adguardhome/work
     mkdir -p /opt/adguardhome/conf
