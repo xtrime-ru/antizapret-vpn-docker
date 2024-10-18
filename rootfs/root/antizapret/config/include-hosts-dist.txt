@@ -115,3 +115,9 @@ digitalocean.com
 hashicorp.com
 terraform.io
 githubcopilot.com
+
+#discord
+discord.com
+discord.gg
+discordapp.net
+discord.media
