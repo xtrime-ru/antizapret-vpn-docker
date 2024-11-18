@@ -33,7 +33,7 @@ strava.com
 swagger.io
 theins.ru
 wixmp.com
-
+reverb.com
 
 # youtube
 youtube.com
@@ -115,6 +115,26 @@ digitalocean.com
 hashicorp.com
 terraform.io
 githubcopilot.com
+mbed.com
+analog.com
+microchip.com
+digikey.com
+te.com
+nxp.com
+brightcove.com
+brightcove.net
+schemaapp.com
+zencdn.net
+octopart-clicks.com
+octopart.com
+octostatic.com
+dell.com
+dellcdn.com
+ti.com
+mouser.com
+qualcomm.com
+usablenet.com
+recraft.ai
 
 #discord
 discord.com
