@@ -59,4 +59,7 @@ if [[ ${FORCE_FORWARD_DNS:-true} == true ]]; then
     done
 fi
 
+PASSWORD_HASH="$(wgpw "$WIREGUARD_PASSWORD" | sed "s/'//g" | sed 's/PASSWORD_HASH=//g')"
+export PASSWORD_HASH
+
 exec /usr/bin/dumb-init node server.js

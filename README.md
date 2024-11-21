@@ -5,10 +5,10 @@ Easy-to-use Docker image based upon original [AntiZapret LXD image](https://bitb
 
 # Improvements
 
-- Patches: [Apple](./rootfs/etc/knot-resolver/kresd.conf#L53-L61), [IDN](./rootfs/root/patches/parse.patch#L16), [RU](./rootfs/etc/knot-resolver/kresd.conf#L117)
+- Patches: [Apple](antizapret/etc/knot-resolver/kresd.conf#L53-L61), [IDN](antizapret/root/patches/parse.patch#L16), [RU](antizapret/etc/knot-resolver/kresd.conf#L117)
 - [Community-driven list](https://github.com/xtrime-ru/antizapret-vpn-docker/blob/master/rootfs/root/antizapret/config/include-hosts-dist.txt) with geoblocked and unlisted domains: YouTube, Microsoft, OpenAI and more
 - [openvpn-dco](https://openvpn.net/as-docs/tutorials/tutorial--turn-on-openvpn-dco.html) - a kernel extension for improving performance
-- Option to [forwarding queries](./rootfs/init.sh#L21-L35) to an external resolver, aka Adguard support.
+- Option to [forwarding queries](antizapret/init.sh#L21-L35) to an external resolver, aka Adguard support.
 - [Support regex in custom rules](#adding-domainsips)
 - [XOR Tunneblick patch](https://tunnelblick.net/cOpenvpn_xorpatch.html)
 - Multiple VPN transports: Wireguard, OpenVPN, IPsec/XAuth ("Cisco IPsec")

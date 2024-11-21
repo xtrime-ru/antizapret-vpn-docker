@@ -38,16 +38,14 @@ RUN <<-"EOT" bash -ex
     rm -frv /var/lib/apt/lists/*
 EOT
 
-COPY rootfs /
+COPY antizapret /
+
+COPY --from=mikefarah/yq /usr/bin/yq /usr/bin/yq
+COPY --from=adguard/adguardhome /opt/adguardhome /opt/adguardhome
 
 RUN <<-"EOF" bash -ex
-    wget -c https://github.com/AdguardTeam/AdGuardHome/releases/latest/download/AdGuardHome_linux_amd64.tar.gz -O - | tar -xz -C /opt/
-    mv /opt/AdGuardHome /opt/adguardhome
-    mkdir -p /opt/adguardhome/work
-    mkdir -p /opt/adguardhome/conf
     cp /root/adguardhome/* /opt/adguardhome/conf
     /opt/adguardhome/AdGuardHome -s install -w /opt/adguardhome/work -c /opt/adguardhome/conf/AdGuardHome.yaml
-    wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq && chmod +x /usr/bin/yq
 EOF
 
 RUN <<-"EOF" bash -ex

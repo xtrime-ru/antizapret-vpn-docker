@@ -12,6 +12,8 @@ function resolve () {
 for route in ${ROUTES//;/ }; do
     host_route=${route%:*}
     gateway=$(resolve $host_route '')
+    echo "Checking route: $route;  gateway: $gateway"
+
     if [ ! -n "$gateway" ]; then continue; fi
     subnet=${route#*:};
     ip route add $subnet via $gateway
