@@ -47,6 +47,7 @@ googlevideo.com
 # google
 play.google.com
 news.google.com
+googleapis.com
 
 
 # microsoft 
@@ -142,4 +143,3 @@ discord.gg
 discordapp.net
 discordapp.com
 discord.media
-googleapis.com
