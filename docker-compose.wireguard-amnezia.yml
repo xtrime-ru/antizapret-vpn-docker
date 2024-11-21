@@ -1,15 +1,10 @@
 services:
-  antizapret-vpn:
-    extends:
-      file: docker-compose.yml
-      service: antizapret-vpn
-  amnezia-wg-easy:
+  wireguard-amnezia:
     image: ghcr.io/w0rng/amnezia-wg-easy
-    container_name: amnezia-wg-easy
     volumes:
       - ./config/wireguard_amnezia:/etc/wireguard
     devices:
       - /dev/net/tun:/dev/net/tun
     extends:
       file: docker-compose.wireguard.yml
-      service: wg-easy
+      service: wireguard

@@ -8,7 +8,7 @@ services:
     stop_signal: SIGRTMIN+4
     build: .
     environment:
-      - "ROUTES=openvpn:10.1.165.0/24;amnezia-wg-easy:10.1.166.0/24;wg-easy:10.1.166.0/24;ipsec:10.1.163.0/24;ipsec:10.1.162.0/24"
+      - "ROUTES=openvpn:10.1.165.0/24;wireguard-amnezia:10.1.166.0/24;wireguard:10.1.166.0/24;ipsec:10.1.163.0/24;ipsec:10.1.162.0/24"
       - DNS
       - DNS_RU
       - ADGUARD
@@ -16,8 +16,9 @@ services:
       - SKIP_UPDATE_FROM_ZAPRET
       - ADGUARDHOME_PORT
       - ADGUARDHOME_USERNAME
+      - ADGUARDHOME_PASSWORD
     env_file:
-      - ./.env.antizapret
+      - ./antizapret/.env
 #    dns:
 #      - 1.1.1.1
     volumes:
@@ -27,57 +28,9 @@ services:
       - ./config/adguard/conf:/opt/adguardhome/conf
       - ./config/adguard/work:/opt/adguardhome/work
     ports:
-      - 80:80/tcp
+      - 3000:3000/tcp
     logging:
       driver: json-file
       options:
         max-size: 100k
         max-file: 2
-  
-  openvpn:
-    image: xtrime/openvpn
-    build:
-      context: .
-      dockerfile: Dockerfile-openvpn
-    container_name: openvpn
-    environment:
-      - AUTO_INITIAL=1 # Auto initial (clean to install via wizard)
-      - OPENVPN_ADMIN_USERNAME=admin
-      - SITE_NAME # Title web ui
-      - OPENVPN_PORT # Port openvpn server, default 1194
-      - OPENVPN_LOCAL_IP_RANGE # IP range for OpenVPN, default 10.1.165.0
-      - OPENVPN_PROTOCOL # Set protocol 1 - udp or 2 - tcp, default: 1
-      - URL_PREFIX # URL prefix to admin ui, example: /admin-openvpn
-      - APP_PORT=1195 # Set web ui port
-    env_file:
-      - ./.env.openvpn
-    ports:
-      - "1195:1195/tcp" # For web ui
-      - "1194:1194/udp" # For OpenVPN
-      - "1194:1194/tcp" # For OpenVPN
-    restart: unless-stopped
-    privileged: true
-    stop_signal: SIGRTMIN+4
-    devices:
-      - /dev/net/tun
-    cap_add:
-      - NET_ADMIN
-    volumes:
-      - ./openvpn/scripts:/opt/scripts
-      - ./config/openvpn/conf:/etc/openvpn
-      - ./config/openvpn/db:/opt/openvpn-gui/db
-      - ./config/antizapret/result:/opt/antizapret/result
-    healthcheck:
-      test: cmp /etc/openvpn/openvpn-blocked-ranges.txt /opt/antizapret/result/openvpn-blocked-ranges.txt || sh -c 'kill -INT -1 && (sleep 5; kill -s 9 -1)'
-      interval: 60s                         
-      timeout: 30s
-      retries: 1
-    depends_on:
-      - antizapret-vpn
-
-  cloak:
-    environment:
-      - CK_PROXYBOOK_OPENVPN=udp://openvpn:1194 # Set upstream openvpn
-    extends:
-      file: docker-compose.cloak.yml
-      service: cloak

@@ -5,8 +5,10 @@ HERE="$(dirname "$(readlink -f "${0}")")"
 cd "$HERE"
 RESOLVE_NXDOMAIN="no"
 
+echo "Size of temp/list.csv: $(cat temp/list.csv | wc -l) lines"
+
 # Extract domains from list
-if [[ ! -n $SKIP_UPDATE_FROM_ZAPRET ]]; then
+if [[ "$SKIP_UPDATE_FROM_ZAPRET" == false ]]; then
    awk -F ';' '{print $2}' temp/list.csv | sort -u | awk '/^$/ {next} /\\/ {next} /^[а-яА-Яa-zA-Z0-9\-_\.\*]*+$/ {gsub(/\*\./, ""); gsub(/\.$/, ""); print}' | grep -Fv 'bеllonа' | CHARSET=UTF-8 idn --no-tld | grep -Fv 'xn--' > result/hostlist_original.txt
 else
    echo -e "\n" > result/hostlist_original.txt
@@ -47,5 +49,7 @@ done < result/blocked-ranges-with-include.txt
 /bin/cp -f /opt/adguardhome/conf/upstream_dns_file_basis result/adguard_upstream_dns_file
 sed -E -e 's~(.*)~[/\1/] 127.0.0.4~' result/hostlist_zones.txt >> result/adguard_upstream_dns_file
 /bin/cp -f result/adguard_upstream_dns_file /opt/adguardhome/conf/upstream_dns_file
+
+echo "Adguard config generated: $(cat /opt/adguardhome/conf/upstream_dns_file | wc -l) lines"
 
 exit 0
