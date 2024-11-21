@@ -25,16 +25,13 @@ export DH_TYPE="1" #ECDH
 export DH_CURVE_CHOICE="1" #prime256v1
 export DH_KEY_SIZE_CHOICE="1" #prime256v1
 export HMAC_ALG_CHOICE="1" #SHA256
-export TLS_SIG="4" #no tls
+export TLS_SIG="1" #tsl_crypt
 export DISABLE_DEF_ROUTE_FOR_CLIENTS="y"
 export CLIENT_TO_CLIENT="y"
 
 if [[ ! -e /etc/openvpn/server.conf ]]; then
         bash /opt/scripts/openvpn-install-v2.sh
         echo "" > $OVDIR/.provisioned
-        echo "script-security 2" >> $OVDIR/server.conf
-        echo "auth-user-pass-verify /opt/scripts/auth_client.sh via-file" >> $OVDIR/server.conf
-        echo "auth-user-pass" >> $OVDIR/client-template.txt
         echo "push \"route 10.224.0.0 255.254.0.0\"" >> $OVDIR/server.conf
         echo "config $OVDIR/openvpn-blocked-ranges.txt" >> $OVDIR/server.conf
         echo "    --= SETUP IS DONE ==-"

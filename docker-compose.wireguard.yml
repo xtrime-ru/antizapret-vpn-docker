@@ -1,18 +1,13 @@
 services:
-  antizapret-vpn:
-    extends:
-      file: docker-compose.yml
-      service: antizapret-vpn
-  wg-easy:
+  wireguard:
     environment:
       - WG_DEFAULT_DNS=10.224.0.1
       - WG_PERSISTENT_KEEPALIVE=25
       - PORT=51821
       - WG_PORT=51820
     env_file:
-      - ./.env.wireguard
+      - ./wireguard/.env
     image: ghcr.io/wg-easy/wg-easy
-    container_name: wg-easy
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - ./config/wireguard:/etc/wireguard

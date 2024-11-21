@@ -2,7 +2,7 @@ http:
   pprof:
     port: 6060
     enabled: false
-  address: 0.0.0.0:80
+  address: 0.0.0.0:300
   session_ttl: 720h
 users:
   - name: admin
@@ -47,11 +47,11 @@ dns:
   cache_ttl_max: 0
   cache_optimistic: false
   bogus_nxdomain: []
-  aaaa_disabled: false
+  aaaa_disabled: true
   enable_dnssec: false
   edns_client_subnet:
     custom_ip: ""
-    enabled: false
+    enabled: true
     use_custom: false
   max_goroutines: 300
   handle_ddr: true
