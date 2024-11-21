@@ -38,7 +38,7 @@ SELF_IP=$(hostname -i)
 SKIP_UPDATE_FROM_ZAPRET=${SKIP_UPDATE_FROM_ZAPRET:-false}
 UPDATE_TIMER=${UPDATE_TIMER:-"6h"}
 ROUTES='${ROUTES:-""}'
-ADGUARDHOME_PORT=${ADGUARDHOME_PORT:-"80"}
+ADGUARDHOME_PORT=${ADGUARDHOME_PORT:-"3000"}
 ADGUARDHOME_USERNAME='${ADGUARDHOME_USERNAME}'
 ADGUARDHOME_PASSWORD_HASH='${ADGUARDHOME_PASSWORD_HASH}'
 EOF
@@ -53,11 +53,11 @@ for file in $(echo {exclude,include}-{hosts,ips}-custom.txt); do
     [ ! -f $path ] && touch $path
 done
 
-# output systemd logs to docker logs since container boot
-postrun 'until [[ "$(systemctl is-active systemd-journald)" == "active" ]]; do sleep 0.1; done; journalctl --boot --follow --lines=all --no-hostname'
-
 # add routes from env ROUTES
-postrun 'until [[ "$(systemctl is-active systemd-journald)" == "active" ]]; do sleep 0.1; done; /routes.sh'
+postrun '/routes.sh'
+
+# output systemd logs to docker logs since container boot
+postrun 'until [[ "$(systemctl is-active systemd-journald)" == "active" ]]; do sleep 1; done; journalctl --boot --follow --lines=all --no-hostname'
 
 # AdGuard initialization
 /bin/cp --update=none /root/adguardhome/* /opt/adguardhome/conf/
@@ -68,8 +68,6 @@ yq -i '
     .dns.bind_hosts=["127.0.0.1","'$SELF_IP'"]
     ' /opt/adguardhome/conf/AdGuardHome.yaml
 
-# reload az results for mount dirs
-/root/antizapret/parse.sh
 
 # systemd init
 exec /usr/sbin/init

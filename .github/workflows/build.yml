@@ -7,7 +7,7 @@ on:
       - dev
     paths:
       - .github
-      - rootfs
+      - ../../adguard
       - Dockerfile
 
 concurrency:

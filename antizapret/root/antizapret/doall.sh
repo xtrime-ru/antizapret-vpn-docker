@@ -12,10 +12,12 @@ STAGE_2=${STAGE_2:-false}
 STAGE_3=${STAGE_3:-true}
 
 SKIP_UPDATE_FROM_ZAPRET=${SKIP_UPDATE_FROM_ZAPRET:-false}
+export SKIP_UPDATE_FROM_ZAPRET
 
 FILES=(
     temp/list.csv
     temp/nxdomain.txt
+    result/adguard_upstream_dns_file
 )
 
 
@@ -53,7 +55,6 @@ if [[ $FORCE == true ]]; then
     echo 'Force update detected!'
     ./update.sh
     ./parse.sh
-    # ./build_regex.sh
     ./process.sh
     exit
 fi
@@ -78,7 +79,7 @@ if ! diff_hashes; then create_hash > /root/.hash; STAGE_2=true; fi
 
 [[ $STAGE_1 == true ]] && (echo "run update.sh" && ./update.sh || exit 1)
 
-[[ $STAGE_2 == true ]] && (echo "run parse.sh" && ./parse.sh || exit 2) # && echo "run build_regex.sh" && ./build_regex.sh || exit 2)
+[[ $STAGE_2 == true ]] && (echo "run parse.sh" && ./parse.sh || exit 2)
 
 [[ $STAGE_3 == true ]] && (echo "run process.sh" && ./process.sh 2> /dev/null || exit 3)
 
