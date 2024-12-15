@@ -22,7 +22,7 @@ function resolve () {
 
 function set_ciphers () {
     # $1 AES-128-CBC:AES-256-CBC[:...]
-    local CIPHERS=AES-128-GCM:AES-256-GCM
+    local CIPHERS=AES-128-GCM:AES-256-GCM:CHACHA20-POLY1305
     local ARGS=$([ -n "$1" ] && echo "$CIPHERS:$1" || echo "$CIPHERS")
     sed -i "s|data-ciphers .*|data-ciphers \"$ARGS\"|g" /etc/openvpn/server/*.conf
 }
