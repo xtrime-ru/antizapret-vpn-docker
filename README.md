@@ -150,6 +150,11 @@ Here is few regex example:
 	microsoft\.[^.]*$
 	microsoft\.(ru|com|com\.de)
 	```
+Domains are compared with rules by [bash pattern matching](https://www.gnu.org/savannah-checkouts/gnu/bash/manual/bash.html#Pattern-Matching). It does not support PCRE short-syntax for character classes. Use POSIX classes instead of short-syntax: 
+ - `[\w]` ❌ -> `[[:alnum:]_]` ✅ or `[[:alpha:][:digit:]_]`
+ - `[\S]` ❌ -> `[[:space:]]` ✅
+ - etc...
+
 
 ## Keys/Configs Persistence
 
