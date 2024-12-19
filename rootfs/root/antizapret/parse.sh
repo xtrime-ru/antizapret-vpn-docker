@@ -19,7 +19,7 @@ fi
 
 for file in config/custom/{include,exclude}-{hosts,ips}-custom.txt; do
     basename=$(basename $file | sed 's|-custom.txt||')
-    sort -u $file config/${basename}-dist.txt > temp/${basename}.txt
+    sort -u $file config/${basename}-dist.txt | uniq | awk 'NF' > temp/${basename}.txt
 done
 sort -u temp/include-hosts.txt result/hostlist_original.txt > temp/hostlist_original_with_include.txt
 
