@@ -41,12 +41,13 @@ ytimg.com
 ggpht.com
 googleusercontent.com
 googlevideo.com
+youtubei.googleapis.com
 
 
 # google
 play.google.com
 news.google.com
-googleapis.com
+chrome.google.com
 
 
 # microsoft 
@@ -142,3 +143,4 @@ discord.gg
 discordapp.net
 discordapp.com
 discord.media
+discord-attachments-uploads-prd.storage.googleapis.com
