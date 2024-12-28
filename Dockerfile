@@ -59,7 +59,9 @@ RUN <<-"EOT" bash -ex
     wget "https://raw.githubusercontent.com/Tunnelblick/Tunnelblick/master/third_party/sources/openvpn/openvpn-$OPENVPN_VER/openvpn-$OPENVPN_VER.tar.gz"
     tar xvf "openvpn-$OPENVPN_VER.tar.gz"
     cd "openvpn-$OPENVPN_VER"
-    #
+    #Choose a version of the anti-censorship patch for OpenVPN (UDP only): 1) Strong - Recommended for default 2) Error-free - If the strong patch causes a connection error on your device or router
+    ALGORITHM=2
+    
     patches=(
         "02-tunnelblick-openvpn_xorpatch-a.diff"
         "03-tunnelblick-openvpn_xorpatch-b.diff"
@@ -78,35 +80,70 @@ RUN <<-"EOT" bash -ex
     					struct buffer *buf,\
     					struct link_socket_actual *to)\
     {\
-    	uint16_t stuffing_sent = 0;\
+    #define ALGORITHM '"$ALGORITHM"'\
+    	uint16_t buffer_sent = 0;\
     	uint8_t opcode = *BPTR(buf) >> 3;\
     if (opcode == 7 || opcode == 8 || opcode == 10)\
     {\
-    	srand(time(NULL));\
-    	for (int i=0; i<2; i++) {\
-    		int stuffing_len = rand() % 91 + 10;\
-    		uint8_t stuffing_data[100];\
-    		for (int j=0; j<stuffing_len; j++) {\
-    			stuffing_data[j] = rand() % 256;\
-    		}\
-    		struct buffer stuffing_buf = alloc_buf(100);\
-    		buf_write(&stuffing_buf, stuffing_data, stuffing_len);\
-    		for (int j=0; j<100; j++) {\
+    	if (ALGORITHM == 2) {\
     #ifdef _WIN32\
-    			stuffing_sent =+ link_socket_write_win32(sock, &stuffing_buf, to);\
+    		buffer_sent =+ link_socket_write_win32(sock, buf, to);\
     #else\
-    			stuffing_sent =+ link_socket_write_udp_posix(sock, &stuffing_buf, to);\
+    		buffer_sent =+ link_socket_write_udp_posix(sock, buf, to);\
+    #endif\
+    	}\
+    	uint16_t buffer_len = BLEN(buf);\
+    	srand(time(NULL));\
+    	for (int i = 0; i < 2; i++) {\
+    		uint16_t data_len = rand() % 101 + buffer_len;\
+    		uint8_t data[data_len];\
+    		struct buffer data_buffer;\
+    		if (ALGORITHM == 1) {\
+    			data_buffer = alloc_buf(data_len);\
+    			if (i == 0) {\
+    				data[0] = 1;\
+    				data[1] = 0;\
+    				data[2] = 0;\
+    				data[3] = 0;\
+    				data[4] = 1;\
+    				for (int k = 5; k < data_len; k++) {\
+    					data[k] = rand() % 256;\
+    				}\
+    			}\
+    			else {\
+    				for (int k = 0; k < data_len; k++) {\
+    					data[k] = rand() % 256;\
+    				}\
+    			}\
+    		}\
+    		else {\
+    			data_buffer = clone_buf(buf);\
+    			buf_read(&data_buffer, data, buffer_len);\
+    			buf_clear(&data_buffer);\
+    			data[0] = 40;\
+    			for (int k = buffer_len; k < data_len; k++) {\
+    				data[k] = rand() % 256;\
+    			}\
+    		}\
+    		buf_write(&data_buffer, data, data_len);\
+    		int data_repeat = rand() % 101 + 100;\
+    		for (int j = 0; j < data_repeat; j++) {\
+    #ifdef _WIN32\
+    			buffer_sent =+ link_socket_write_win32(sock, &data_buffer, to);\
+    #else\
+    			buffer_sent =+ link_socket_write_udp_posix(sock, &data_buffer, to);\
     #endif\
     		}\
-    		free_buf(&stuffing_buf);\
+    		free_buf(&data_buffer);\
+    		usleep(data_repeat * 1000);\
     	}\
     }\
     #ifdef _WIN32\
-    	stuffing_sent =+ link_socket_write_win32(sock, buf, to);\
+    	buffer_sent =+ link_socket_write_win32(sock, buf, to);\
     #else\
-    	stuffing_sent =+ link_socket_write_udp_posix(sock, buf, to);\
+    	buffer_sent =+ link_socket_write_udp_posix(sock, buf, to);\
     #endif\
-    	return stuffing_sent;\
+    	return buffer_sent;\
     }\
     \
     \/\* write a TCP or UDP packet to link \*\/' "/opt/openvpn_install/openvpn-$OPENVPN_VER/src/openvpn/socket.h"
