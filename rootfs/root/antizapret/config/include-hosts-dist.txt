@@ -11,6 +11,7 @@ bbci.co.uk
 buymeacoffee.com
 cdninstagram.com
 cloudflare.com
+cloudfront.net
 deezer.com
 fanatical.com
 game-debate.com
