@@ -1,0 +1,5 @@
+FROM d3vilh/openvpn-ui
+
+RUN apk update && apk upgrade --no-cache && apk add --no-cache --upgrade grep moreutils sqlite
+
+ADD ./openvpn/ui-start.sh /opt/start.sh
