@@ -1,40 +1,45 @@
 services:
   openvpn:
-    image: xtrime/openvpn
     build:
-      context: .
+      context: ./
       dockerfile: Dockerfile-openvpn
-    environment:
-      - AUTO_INITIAL=1 # Auto initial (clean to install via wizard)
-      - OPENVPN_ADMIN_USERNAME=admin
-      - SITE_NAME # Title web ui
-      - OPENVPN_PORT # Port openvpn server, default 1194
-      - OPENVPN_LOCAL_IP_RANGE # IP range for OpenVPN, default 10.1.165.0
-      - OPENVPN_PROTOCOL # Set protocol 1 - udp or 2 - tcp, default: 1
-      - URL_PREFIX # URL prefix to admin ui, example: /admin-openvpn
-      - APP_PORT=1195 # Set web ui port
-    env_file:
-      - ./openvpn/.env
-    ports:
-      - "1195:1195/tcp" # For web ui
-      - "1194:1194/udp" # For OpenVPN
-      - "1194:1194/tcp" # For OpenVPN
-    restart: unless-stopped
     privileged: true
-    stop_signal: SIGRTMIN+4
-    devices:
-      - /dev/net/tun
-    cap_add:
-      - NET_ADMIN
+    ports:
+      - "1194:1194/udp"   # openvpn UDP port
+      # - "1194:1194/tcp"   # openvpn TCP port
+    environment:
+      OBFUSCATE_TYPE: 2
     volumes:
-      - ./openvpn/scripts:/opt/scripts
-      - ./config/openvpn/conf:/etc/openvpn
-      - ./config/openvpn/db:/opt/openvpn-gui/db
+      - ./config/openvpn:/etc/openvpn
+      - ./openvpn/easy-rsa.vars:/etc/openvpn/config/easy-rsa.vars
+      - ./openvpn/fw-rules.sh:/opt/app/fw-rules.sh
+      - ./openvpn/checkpsw.sh:/opt/app/checkpsw.sh
       - ./config/antizapret/result:/opt/antizapret/result
     healthcheck:
-      test: cmp /etc/openvpn/openvpn-blocked-ranges.txt /opt/antizapret/result/openvpn-blocked-ranges.txt || sh -c 'kill -INT -1 && (sleep 5; kill -s 9 -1)'
-      interval: 60s                         
-      timeout: 30s
+      test: cmp -s /etc/openvpn/openvpn-blocked-ranges.txt /opt/antizapret/result/openvpn-blocked-ranges.txt || sh -c 'killall -INT -r openvpn && (sleep 5; killall -s 9 -r openvpn)'
+      interval: 30s
+      timeout: 10s
       retries: 1
+    cap_add:
+      - NET_ADMIN
+    restart: unless-stopped
     depends_on:
-      - antizapret-vpn
+      - "openvpn-ui"
+  openvpn-ui:
+    build:
+      context: ./
+      dockerfile: Dockerfile-openvpn-ui
+    environment:
+      - OPENVPN_ADMIN_USERNAME=admin
+      - OPENVPN_ADMIN_PASSWORD=gagaZush
+    privileged: true
+    ports:
+      - "8080:8080/tcp"
+    volumes:
+      - ./openvpn/easy-rsa.vars:/usr/share/easy-rsa/var
+      - ./openvpn/init.db:/opt/openvpn-ui/init.db
+      - ./config/openvpn/db:/opt/openvpn-ui/db
+      - ./config/openvpn/pki:/usr/share/easy-rsa/pki
+      - ./config/openvpn:/etc/openvpn
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    restart: unless-stopped

@@ -5,8 +5,6 @@ services:
       - WG_PERSISTENT_KEEPALIVE=25
       - PORT=51821
       - WG_PORT=51820
-    env_file:
-      - ./wireguard/.env
     image: ghcr.io/wg-easy/wg-easy
     volumes:
       - /etc/localtime:/etc/localtime:ro
