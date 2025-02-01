@@ -1,0 +1,14 @@
+[Unit]
+Description=Adguard
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+WorkingDirectory=/opt/adguardhome/work
+ExecStart=/opt/adguardhome/AdGuardHome -w /opt/adguardhome/work -c /opt/adguardhome/conf/AdGuardHome.yaml
+EnvironmentFile=/etc/default/antizapret
+User=root
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
