@@ -29,9 +29,6 @@ fi
 # save DNS variables to /etc/default/antizapret
 # in order to systemd services can access them
 cat << EOF | sponge /etc/default/antizapret
-DNS=$(resolve $DNS 127.0.0.11)
-DNS_RU=$(resolve $DNS_RU 77.88.8.8)
-ADGUARD=${ADGUARD:-0}
 LOG_DNS=${LOG_DNS:-0}
 PYTHONUNBUFFERED=1
 SELF_IP=$(hostname -i)
@@ -67,7 +64,6 @@ yq -i '
     .users[0].password="'$ADGUARDHOME_PASSWORD_HASH'" |
     .dns.bind_hosts=["127.0.0.1","'$SELF_IP'"]
     ' /opt/adguardhome/conf/AdGuardHome.yaml
-
 
 # systemd init
 exec /usr/sbin/init

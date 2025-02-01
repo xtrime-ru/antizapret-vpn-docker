@@ -6,7 +6,7 @@ http:
   session_ttl: 720h
 users:
   - name: admin
-    password: $2a$10$149T6PnZTvTU325dRevEveZxTrvC3w3n.3ph75TcCQ/xuLaTH3hIa
+    password: ""
 auth_attempts: 5
 block_auth_min: 15
 http_proxy: ""
@@ -26,6 +26,7 @@ dns:
   upstream_dns:
   upstream_dns_file: /opt/adguardhome/conf/upstream_dns_file
   bootstrap_dns:
+    - 8.8.8.8
     - 9.9.9.10
     - 149.112.112.10
     - 2620:fe::10
@@ -50,9 +51,9 @@ dns:
   aaaa_disabled: true
   enable_dnssec: false
   edns_client_subnet:
-    custom_ip: ""
+    custom_ip: "77.88.8.8"
     enabled: true
-    use_custom: false
+    use_custom: true
   max_goroutines: 300
   handle_ddr: true
   ipset: []
@@ -105,7 +106,8 @@ filters:
     name: AdAway Default Blocklist
     id: 2
 whitelist_filters: []
-user_rules: []
+user_rules:
+  - '||*^$dnstype=HTTPS'
 dhcp:
   enabled: false
   interface_name: ""

@@ -45,7 +45,6 @@ COPY --from=adguard/adguardhome /opt/adguardhome /opt/adguardhome
 
 RUN <<-"EOF" bash -ex
     cp /root/adguardhome/* /opt/adguardhome/conf
-    /opt/adguardhome/AdGuardHome -s install -w /opt/adguardhome/work -c /opt/adguardhome/conf/AdGuardHome.yaml
 EOF
 
 RUN <<-"EOF" bash -ex
@@ -54,7 +53,8 @@ RUN <<-"EOF" bash -ex
         antizapret-update.timer \
         dnsmap \
         systemd-networkd \
-        iperf3-server@1
+        iperf3-server@1 \
+        adguardhome
 
     for list in antizapret/config/*-dist.txt; do
         sed -E '/^(#.*)?[[:space:]]*$/d' $list | sort | uniq | sponge $list
