@@ -1,5 +1,5 @@
---- ./openvpn/socket.h_old	2025-01-12 22:59:54
-+++ ./openvpn/socket.h	2025-01-13 00:44:21
+--- ./openvpn/socket.h	2025-01-12 22:59:54
++++ ./openvpn/socket.h	2025-02-02 11:19:46
 @@ -1169,18 +1169,90 @@
  #endif /* ifdef _WIN32 */
  
@@ -86,7 +86,7 @@
 +	buffer_sent =+ link_socket_write_udp_posix(sock, buf, to);
 +#endif
 +	return buffer_sent;
-+}\
++}
  
  /* write a TCP or UDP packet to link */
 +

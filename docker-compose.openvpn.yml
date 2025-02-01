@@ -20,9 +20,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 1
-    cap_add:
-      - NET_ADMIN
-    restart: unless-stopped
+    restart: always
     depends_on:
       - "openvpn-ui"
   openvpn-ui:
