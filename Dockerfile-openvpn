@@ -1,8 +1,9 @@
 FROM d3vilh/openvpn-server
 
-RUN apk update && apk upgrade --no-cache && apk add --no-cache --upgrade grep moreutils
+RUN apk update && apk upgrade --no-cache && apk add --no-cache --upgrade grep moreutils \
+    && apk del openvpn
 
-ARG OPENVPN_VER=2.6.12
+ARG OPENVPN_VER=2.6.13
 ADD ./openvpn/socket.patch /socket.patch
 # OpenVPN
 RUN <<-"EOT" bash -ex
@@ -15,7 +16,7 @@ RUN <<-"EOT" bash -ex
     cd "openvpn-${OPENVPN_VER}"
 
     patch -p1 "/opt/openvpn_install/openvpn-$OPENVPN_VER/src/openvpn/socket.h" /socket.patch
-    ./configure --enable-static=yes --enable-shared  --enable-systemd=no --disable-lzo --disable-debug --disable-plugin-auth-pam --disable-dependency-tracking
+    ./configure --enable-static=yes --enable-dco --enable-shared --enable-systemd=no --disable-lzo --disable-debug --disable-plugin-auth-pam --disable-dependency-tracking
     make -j$(nproc)
     make install
 

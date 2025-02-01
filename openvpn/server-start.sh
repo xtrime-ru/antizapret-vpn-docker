@@ -81,4 +81,4 @@ mkdir -p $OPENVPN_DIR/staticclients
 
 echo 'Start openvpn process...'
 tail -f $OPENVPN_DIR/log/*.log &
-exec /usr/sbin/openvpn --cd $OPENVPN_DIR --script-security 2 --config $OPENVPN_DIR/server.conf
+exec /usr/local/sbin/openvpn --cd $OPENVPN_DIR --script-security 2 --config $OPENVPN_DIR/server.conf
