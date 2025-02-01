@@ -110,6 +110,7 @@ nnmclub.ch
 docker.com
 mongodb.com
 mongodb.net
+mongodb-cdn.com
 jetbrains.com
 code.org
 veeam.com
