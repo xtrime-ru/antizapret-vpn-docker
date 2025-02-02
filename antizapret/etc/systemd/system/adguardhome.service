@@ -9,6 +9,7 @@ ExecStart=/opt/adguardhome/AdGuardHome -w /opt/adguardhome/work -c /opt/adguardh
 EnvironmentFile=/etc/default/antizapret
 User=root
 Restart=always
+StartLimitIntervalSec=0
 
 [Install]
 WantedBy=multi-user.target

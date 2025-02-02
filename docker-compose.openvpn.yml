@@ -8,7 +8,7 @@ services:
       - "1194:1194/udp"   # openvpn UDP port
       # - "1194:1194/tcp"   # openvpn TCP port
     environment:
-      OBFUSCATE_TYPE: 2
+      - OBFUSCATE_TYPE=0
     volumes:
       - ./config/openvpn:/etc/openvpn
       - ./openvpn/easy-rsa.vars:/etc/openvpn/config/easy-rsa.vars
@@ -20,7 +20,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 1
-    restart: always
+    restart: unless-stopped
     depends_on:
       - "openvpn-ui"
   openvpn-ui:

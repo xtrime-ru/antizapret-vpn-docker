@@ -154,8 +154,6 @@
 /seedbanda/ {next}
 #/gidonline/ {next}
 /^alco/ {next}
-(/\*/) {next}
-(/\\/) {next} 
 /multikland\.net/ {next}
 /synchroncode\.com/ {next}
 /placehere\.link/ {next}
@@ -370,7 +368,4 @@
 /^salon/ {next}
 /^sam-poehal/ {next}
 /^schetchik/ {next}
-
-
-length($1) > 30 && !/wixmp/ {next}
 

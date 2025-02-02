@@ -33,5 +33,5 @@ services:
       timeout: 30s
       retries: 1
     depends_on:
-      - antizapret-vpn
+      - antizapret
       
