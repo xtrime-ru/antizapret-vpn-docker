@@ -51,7 +51,7 @@ news.google.com
 chrome.google.com
 
 
-# microsoft 
+# microsoft
 bing.com
 bing.net
 microsoft.com
