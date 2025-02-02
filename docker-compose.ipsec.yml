@@ -10,8 +10,6 @@ services:
       - VPN_XAUTH_NET=10.1.162.0/24
       - VPN_XAUTH_POOL=10.1.162.10-10.1.162.254
       - VPN_DNS_SRV1=10.224.0.1
-    env_file:
-      - ./ipsec/.env
     ports:
       - "500:500/udp"
       - "4500:4500/udp"
@@ -25,4 +23,4 @@ services:
         max-size: "100k"
         max-file: "2"
     depends_on:
-      - antizapret-vpn
+      - antizapret

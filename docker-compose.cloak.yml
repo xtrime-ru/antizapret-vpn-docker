@@ -1,6 +1,5 @@
 services:
   cloak:
-    image: xtrime/cloak
     build:
       context: .
       dockerfile: Dockerfile-cloak

@@ -1,24 +1,16 @@
 services:
-  antizapret-vpn:
+  antizapret:
     image: xtrime/antizapret-vpn:latest
-    container_name: antizapret-vpn
-    hostname: antizapret
     restart: unless-stopped
     privileged: true
     stop_signal: SIGRTMIN+4
     build: .
     environment:
       - "ROUTES=openvpn:10.1.165.0/24;wireguard-amnezia:10.1.166.0/24;wireguard:10.1.166.0/24;ipsec:10.1.163.0/24;ipsec:10.1.162.0/24"
-      - DNS
-      - DNS_RU
-      - ADGUARD
-      - LOG_DNS
       - SKIP_UPDATE_FROM_ZAPRET
       - ADGUARDHOME_PORT
       - ADGUARDHOME_USERNAME
       - ADGUARDHOME_PASSWORD
-    env_file:
-      - ./antizapret/.env
 #    dns:
 #      - 1.1.1.1
     volumes:

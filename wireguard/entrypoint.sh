@@ -49,7 +49,7 @@ EOF
 )
 
 
-export AZ_HOST=$(dig +short antizapret-vpn)
+export AZ_HOST=$(dig +short antizapret)
 ip route add $ANTIZAPRET_SUBNET via $AZ_HOST
 
 if [[ ${FORCE_FORWARD_DNS:-true} == true ]]; then

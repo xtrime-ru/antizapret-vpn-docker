@@ -29,7 +29,6 @@ fi
 # save DNS variables to /etc/default/antizapret
 # in order to systemd services can access them
 cat << EOF | sponge /etc/default/antizapret
-LOG_DNS=${LOG_DNS:-0}
 PYTHONUNBUFFERED=1
 SELF_IP=$(hostname -i)
 SKIP_UPDATE_FROM_ZAPRET=${SKIP_UPDATE_FROM_ZAPRET:-false}
