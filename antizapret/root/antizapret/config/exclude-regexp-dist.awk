@@ -369,3 +369,4 @@
 /^sam-poehal/ {next}
 /^schetchik/ {next}
 
+/^[0-9\-]+\./ {next}
