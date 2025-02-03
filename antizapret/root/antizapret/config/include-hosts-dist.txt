@@ -109,6 +109,7 @@ nnmclub.ch
 # developer tools
 docker.com
 mongodb.com
+mongodb-cdn.com
 mongodb.net
 jetbrains.com
 code.org
