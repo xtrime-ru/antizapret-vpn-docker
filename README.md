@@ -133,25 +133,22 @@ Wireguard, Wireguard Amnezia, Openvpn:
 - `FORCE_FORWARD_DNS_PORTS="53 5353"` - Parameter can be used to change port 53 for FORCE_FORWARD_DNS to one or more, separated by a space (default: 53)
 - For other environment variables, see the original manual [Wireguard Amnezia](https://github.com/w0rng/amnezia-wg-easy) or [Wireguard](https://github.com/wg-easy/wg-easy).
 
-## Creating OpenVpn client certificates: 
+## OpenVpn
+### Create client certificates: 
 https://github.com/d3vilh/openvpn-ui?tab=readme-ov-file#generating-ovpn-client-profiles
 1) go to `http://%your_ip%:8080/certificates`
 2) click "create certificate"
 3) enter unique name. Leave all other fields empty
 4) click create
-5) click on certificate name in list to download ovpn file. 
+5) click on certificate name in list to download ovpn file.
 
-## Extra information
-- [OpenWrt setup guide](./docs/guide_OpenWrt.md) - how to setup OpenWrt router with this solution to keep LAN clients happy.
-- [Keenetic setup guide](./docs/guide_Keenetic.md) - instructions for configuring the server and connecting Keenetic routers to it [(на русском языке)](./docs/guide_Keenetic_RU.md)
-
-## Enable OpenVPN Data Channel Offload (DCO)
+### Enable OpenVPN Data Channel Offload (DCO)
 [OpenVPN Data Channel Offload (DCO)](https://openvpn.net/as-docs/openvpn-dco.html) provides performance improvements by moving the data channel handling to the kernel space, where it can be handled more efficiently and with multi-threading.
 **tl;dr** it increases speed and reduces CPU usage on a server.
 
 Kernel extensions can be installed only on <u>a host machine</u>, not in a container.
 
-### Ubuntu 24.04
+#### Ubuntu 24.04
 ```bash
 sudo apt update
 sudo apt upgrade
@@ -160,7 +157,7 @@ sudo apt install -y efivar
 sudo apt install -y openvpn-dco-dkms
 ```
 
-### Ubuntu 20.04, 22.04
+#### Ubuntu 20.04, 22.04
 ```bash
 sudo apt update
 sudo apt upgrade 
@@ -171,11 +168,48 @@ wget http://archive.ubuntu.com/ubuntu/pool/universe/o/openvpn-dco-dkms/$deb
 sudo dpkg -i $deb
 ```
 
-## Legacy clients support
-
+### Legacy clients support
 If your clients do not have GCM ciphers support you can use legacy CBC ciphers.
 DCO is incompatible with legacy ciphers and will be disabled. This is also increase CPU load.
 
+### OpenVPN block
+Most providers now block openvpn to foreign IPs. Obfuscation not always fix the issue. 
+For stable openvpn operation you can buy VPS inside of your country and then proxy all traffic to foreign server.
+Here is example of startup script. 
+Replace X.X.X.X with IP address of your server and run it on fresh VPS (ubuntu 24.04 is recommended): 
+
+```shell
+#!/bin/sh
+
+# Fill with your foreign server ip
+export VPN_IP=X.X.X.X
+
+echo "net.ipv4.ip_forward=1" >> /etc/sysctl.d/99-sysctl.conf 
+sysctl -w net.ipv4.ip_forward=1
+
+# DNAT rules 
+iptables -t nat -A PREROUTING -p tcp ! --dport 22 -j DNAT --to-destination "$VPN_IP"
+iptables -t nat -A PREROUTING -p udp ! --dport 22 -j DNAT --to-destination "$VPN_IP"
+# MASQUERADE rules
+iptables -t nat -A POSTROUTING -p tcp -d "$VPN_IP" -j MASQUERADE
+iptables -t nat -A POSTROUTING -p udp -d "$VPN_IP"  -j MASQUERADE
+
+echo iptables-persistent iptables-persistent/autosave_v4 boolean true | sudo debconf-set-selections
+echo iptables-persistent iptables-persistent/autosave_v6 boolean false | sudo debconf-set-selections
+apt install -y iptables-persistent
+
+```
+
+## CDN + EDNS
+Some domains resolve differenlty depending from subnet (geoip) of client. In this case using of DNS located on remote server will break some services. 
+EDNS is allowing to overwrite client IP in DNS requests to upstream server and get correct results.
+Its enabled by default and client ip is pointed to Moscow (Yandex Subnet).
+If you located in other region, you need to replace `77.88.8.8` with your real ip address on this page `http://your-server-ip:3000/#dns`
+
+## Extra information
+- [OpenWrt setup guide](./docs/guide_OpenWrt.md) - how to setup OpenWrt router with this solution to keep LAN clients happy.
+- [Keenetic setup guide](./docs/guide_Keenetic.md) - instructions for configuring the server and connecting Keenetic routers to it [(на русском языке)](./docs/guide_Keenetic_RU.md)
+- 
 ## Test speed with iperf3
 iperf3 server is included in antizapret-vpn container. 
 1. Connect to VPN
