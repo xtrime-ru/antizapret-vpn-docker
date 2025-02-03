@@ -57,6 +57,8 @@ postrun 'until [[ "$(systemctl is-active systemd-journald)" == "active" ]]; do s
 
 # AdGuard initialization
 /bin/cp --update=none /root/adguardhome/* /opt/adguardhome/conf/
+/bin/cp --update=none /opt/adguardhome/conf/upstream_dns_file_basis /opt/adguardhome/conf/upstream_dns_file
+
 yq -i '
     .http.address="0.0.0.0:'$ADGUARDHOME_PORT'" |
     .users[0].name="'$ADGUARDHOME_USERNAME'" |

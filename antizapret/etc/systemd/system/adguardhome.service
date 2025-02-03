@@ -2,6 +2,7 @@
 Description=Adguard
 After=network-online.target
 Wants=network-online.target
+StartLimitIntervalSec=0
 
 [Service]
 WorkingDirectory=/opt/adguardhome/work
@@ -9,7 +10,7 @@ ExecStart=/opt/adguardhome/AdGuardHome -w /opt/adguardhome/work -c /opt/adguardh
 EnvironmentFile=/etc/default/antizapret
 User=root
 Restart=always
-StartLimitIntervalSec=0
+RestartSec=1
 
 [Install]
 WantedBy=multi-user.target
