@@ -17,7 +17,6 @@ function resolve () {
     echo "$(ipcalc $1 || echo $2)"
 }
 
-rm -rf /root/antizapret/result/*
 
 ADGUARDHOME_USERNAME=${ADGUARDHOME_USERNAME:-"admin"}
 if [[ -n $ADGUARDHOME_PASSWORD ]]; then
@@ -58,6 +57,7 @@ postrun 'until [[ "$(systemctl is-active systemd-journald)" == "active" ]]; do s
 # AdGuard initialization
 /bin/cp --update=none /root/adguardhome/* /opt/adguardhome/conf/
 /bin/cp --update=none /opt/adguardhome/conf/upstream_dns_file_basis /opt/adguardhome/conf/upstream_dns_file
+/bin/cp --update=none /root/antizapret/result_dist/* /root/antizapret/result/
 
 yq -i '
     .http.address="0.0.0.0:'$ADGUARDHOME_PORT'" |

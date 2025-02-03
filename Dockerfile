@@ -70,6 +70,8 @@ EOF
 
 RUN <<-"EOF" bash -ex
     (STAGE_1=true STAGE_2=true STAGE_3=false /root/antizapret/doall.sh)
+    mkdir /root/antizapret/result_dist/
+    mv /root/antizapret/result/* /root/antizapret/result_dist/
 EOF
 
 ENTRYPOINT ["/init.sh"]

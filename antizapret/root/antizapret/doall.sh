@@ -9,7 +9,7 @@ FORCE=${FORCE:-false}
 
 STAGE_1=${STAGE_1:-false}
 STAGE_2=${STAGE_2:-false}
-STAGE_3=${STAGE_3:-true}
+STAGE_3=${STAGE_3:-false}
 
 SKIP_UPDATE_FROM_ZAPRET=${SKIP_UPDATE_FROM_ZAPRET:-false}
 export SKIP_UPDATE_FROM_ZAPRET
@@ -25,7 +25,7 @@ create_hash () {
     path=./config/custom
     echo $(
         sed -E '/^(#.*)?[[:space:]]*$/d' $path/*.txt | \
-            sort | uniq | sha1sum | awk '{print $1}'
+            sort -u | sha1sum | awk '{print $1}'
     )
 }
 
@@ -76,6 +76,9 @@ done
 
 if ! diff_hashes; then create_hash > /root/.hash; STAGE_2=true; fi
 
+if [[ $STAGE_1 == true ]] || [[ $STAGE_2 == true ]]; then
+    STAGE_3=true;
+fi
 
 [[ $STAGE_1 == true ]] && (echo "run update.sh" && ./update.sh || exit 1)
 
