@@ -62,6 +62,7 @@ services:
 3. Start services:
 ```shell
    docker compose pull
+   docker compose build
    docker compose up -d
 ```
 4. Admin panels started at following ports at your host: 
@@ -74,7 +75,8 @@ services:
 ```shell
 git pull
 docker compose pull
-docker compose down && docker compose up -d
+docker compose build
+docker compose down --remove-orphans && docker compose up -d --remove-orphans
 ```
 
 ## Reset:
@@ -123,13 +125,13 @@ Openvpn-ui
 - `OPENVPN_ADMIN_PASSWORD=` — will be used as a server address in .ovpn profiles upon keys generation (default: your server's IP)
 - `OPENVPN_PORT=1194` — will be used as a server port in .ovpn profiles upon keys generation. (default: 1194)
 
-Wireguard/Wireguard Amnesia
+Wireguard/Wireguard Amnezia
 - `WIREGUARD_PASSWORD=`
 
-Wireguard, Wireguard Amnesia, Openvpn:
+Wireguard, Wireguard Amnezia, Openvpn:
 - `FORCE_FORWARD_DNS=true` - Redirects UDP traffic on port 53 to AntiZapret DNS (default: false)
 - `FORCE_FORWARD_DNS_PORTS="53 5353"` - Parameter can be used to change port 53 for FORCE_FORWARD_DNS to one or more, separated by a space (default: 53)
-- For other environment variables, see the original manual [Wireguard Amnesia](https://github.com/w0rng/amnezia-wg-easy) or [Wireguard](https://github.com/wg-easy/wg-easy).
+- For other environment variables, see the original manual [Wireguard Amnezia](https://github.com/w0rng/amnezia-wg-easy) or [Wireguard](https://github.com/wg-easy/wg-easy).
 
 ## Creating OpenVpn client certificates: 
 https://github.com/d3vilh/openvpn-ui?tab=readme-ov-file#generating-ovpn-client-profiles
