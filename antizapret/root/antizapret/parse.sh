@@ -21,15 +21,15 @@ done
 sort -u temp/include-hosts.txt result/hostlist_original.txt > temp/hostlist_original_with_include.txt
 
 awk -F ';' '{split($1, a, /\|/); for (i in a) {print a[i]";"$2}}' temp/list.csv | \
- grep -f config/exclude-hosts-by-ips-dist.txt | awk -F ';' '{print $2}' | sort -u > temp/exclude-hosts-by-ip.txt
+ grep -f config/exclude-hosts-by-ips-dist.txt | awk -F ';' '{print $2}' >> temp/exclude-hosts.txt
 
-awk -f scripts/getzones.awk temp/hostlist_original_with_include.txt | grep -v -F -x -f temp/exclude-hosts-by-ip.txt | sort -u > result/hostlist_zones.txt
+awk -f scripts/getzones.awk temp/hostlist_original_with_include.txt | grep -v -F -x -f temp/exclude-hosts.txt | sort -u > result/hostlist_zones.txt
 
 if [[ "$RESOLVE_NXDOMAIN" == "yes" ]];
 then
     timeout 2h scripts/resolve-dns-nxdomain.py result/hostlist_zones.txt > temp/nxdomain-exclude-hosts.txt
     cat temp/nxdomain-exclude-hosts.txt >> temp/exclude-hosts.txt
-    awk -f scripts/getzones.awk temp/hostlist_original_with_include.txt | grep -v -F -x -f temp/exclude-hosts-by-ip.txt | sort -u > result/hostlist_zones.txt
+    awk -f scripts/getzones.awk temp/hostlist_original_with_include.txt | grep -v -F -x -f temp/exclude-hosts.txt | sort -u > result/hostlist_zones.txt
 fi
 
 awk -F ';' '$1 ~ /\// {print $1}' temp/list.csv | egrep -o '([0-9]{1,3}\.){3}[0-9]{1,3}\/[0-9]{1,2}' | sort -u > result/blocked-ranges.txt
@@ -47,7 +47,6 @@ done < result/blocked-ranges-with-include.txt
 # Generate adguardhome aliases
 /bin/cp --update=none /root/adguardhome/* /opt/adguardhome/conf
 /bin/cp -f /opt/adguardhome/conf/upstream_dns_file_basis result/adguard_upstream_dns_file
-sed -E -e 's~(.*)~[/\1/] #~' temp/exclude-hosts.txt >> result/adguard_upstream_dns_file
 sed -E -e 's~(.*)~[/\1/] 127.0.0.4~' result/hostlist_zones.txt >> result/adguard_upstream_dns_file
 /bin/cp -f result/adguard_upstream_dns_file /opt/adguardhome/conf/upstream_dns_file
 
