@@ -6,7 +6,7 @@ set -x
 cat << EOF | sponge /etc/environment
 OPENVPN_LOCAL_IP_RANGE='${OPENVPN_LOCAL_IP_RANGE:-"10.1.165.0"}'
 OPENVPN_DNS='${OPENVPN_DNS:-"10.1.165.1"}'
-ANTIZAPRET_SUBNET='10.224.0.0/15'
+ANTIZAPRET_SUBNET=${ANTIZAPRET_SUBNET:-"10.224.0.0/15"}
 NIC='$(ip -4 route ls | grep default | grep -Po '(?<=dev )(\S+)' | head -1)'
 OVDIR='${OVDIR:-"/etc/openvpn"}'
 EOF
