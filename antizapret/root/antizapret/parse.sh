@@ -47,6 +47,7 @@ done < result/blocked-ranges-with-include.txt
 # Generate adguardhome aliases
 /bin/cp --update=none /root/adguardhome/* /opt/adguardhome/conf
 /bin/cp -f /opt/adguardhome/conf/upstream_dns_file_basis result/adguard_upstream_dns_file
+echo "" >> result/adguard_upstream_dns_file
 sed -E -e 's~(.*)~[/\1/] 127.0.0.4~' result/hostlist_zones.txt >> result/adguard_upstream_dns_file
 /bin/cp -f result/adguard_upstream_dns_file /opt/adguardhome/conf/upstream_dns_file
 
