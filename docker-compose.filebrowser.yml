@@ -1,0 +1,19 @@
+services:
+  filebrowser:
+    image: filebrowser/filebrowser
+    restart: unless-stopped
+    hostname: filebrowser
+    ports:
+      - "2000:80/tcp"
+    privileged: true
+    entrypoint: /app/entrypoint.sh
+    volumes:
+      - ./config/antizapret/custom:/srv
+      - ./filebrowser/:/app/:ro
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100k"
+        max-file: "2"
+    depends_on:
+      - antizapret

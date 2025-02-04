@@ -1,3 +1,11 @@
+FROM golang:1.23 as builder-api
+
+WORKDIR /app
+
+COPY ./antizapret/api .
+
+RUN go build -o app main.go
+
 FROM ubuntu:24.04
 
 WORKDIR /root
@@ -42,6 +50,7 @@ COPY antizapret /
 
 COPY --from=mikefarah/yq /usr/bin/yq /usr/bin/yq
 COPY --from=adguard/adguardhome /opt/adguardhome /opt/adguardhome
+COPY --from=builder-api /app/app /opt/api/app
 
 RUN <<-"EOF" bash -ex
     cp /root/adguardhome/* /opt/adguardhome/conf
@@ -54,7 +63,8 @@ RUN <<-"EOF" bash -ex
         dnsmap \
         systemd-networkd \
         iperf3-server@1 \
-        adguardhome
+        adguardhome \
+        antizapret-api
 
     for list in antizapret/config/*-dist.txt; do
         sed -E '/^(#.*)?[[:space:]]*$/d' $list | sort | uniq | sponge $list
