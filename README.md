@@ -40,6 +40,12 @@ services:
   antizapret:
     environment:
       - ADGUARDHOME_PASSWORD=somestrongpassword
+  filebrowser:
+    environment:
+      - FILEBROWSER_PASSWORD=somestrongpassword
+    extends:
+      file: docker-compose.filebrowser.yml
+      service: filebrowser
   openvpn:
     extends:
       file: docker-compose.openvpn.yml
@@ -67,6 +73,7 @@ services:
 ```
 4. Admin panels started at following ports at your host:
 - adguard: 3000
+- filebrowser: 2000
 - wireguard/amnezia: 51821
 - openvpn: 8080
 
@@ -129,6 +136,10 @@ Antizapret:
 - `ADGUARDHOME_PASSWORD=`
 - `DNS=1.1.1.1` - Upstream DNS for resolving blocked sites
 - `ROUTES` - list of VPN containers and their virtual addresses. Needed for uniq client addresses in adguard logs 
+
+Filebrowser:
+- `FILEBROWSER_PORT=admin`
+- `FILEBROWSER_PASSWORD=password`
 
 Openvpn
 - `OBFUSCATE_TYPE=0` - custom obfuscation level of openvpn protocol.
@@ -280,4 +291,5 @@ For example **Apple** devices **will not** be able **to connect** to this server
 - [OpenVPN](https://github.com/d3vilh/openvpn-ui) - used for OpenVPN integration
 - [IPsec VPN](https://github.com/hwdsl2/docker-ipsec-vpn-server) — used for IPsec integration
 - [AdGuardHome](https://github.com/AdguardTeam/AdGuardHome) - DNS resolver
+- [filebrowser](https://github.com/filebrowser/filebrowser) - web file browser & editor
 - [No Thought Is a Crime](https://ntc.party) — a forum about technical, political and economical aspects of internet censorship in different countries
