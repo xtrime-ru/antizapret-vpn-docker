@@ -65,12 +65,12 @@ services:
    docker compose build
    docker compose up -d
 ```
-4. Admin panels started at following ports at your host: 
+4. Admin panels started at following ports at your host:
 - adguard: 3000
 - wireguard/amnezia: 51821
 - openvpn: 8080
 
-## Update:
+## Update
 
 ```shell
 git pull
@@ -78,6 +78,19 @@ docker compose pull
 docker compose build
 docker compose down --remove-orphans && docker compose up -d --remove-orphans
 ```
+
+### Upgrade from v3
+**Only WireGuard/Amnezia configs can be moved**, please make backup WireGuard files (from `./.etc_wireguard` or `./.etc_wireguard_amnezia`) and put them in `./config/wireguard` or `./config/wireguard_amnezia` accordingly after steps below.
+
+Recommended to perform full remove of old version:
+```shell
+docker compose down --remove-orphans
+docker system prune -af
+cd ../
+rm -rf antizapret/
+```
+
+Then follow installation steps from this README.
 
 ## Reset:
 Remove all settings, vpn configs and return initial state of service:
@@ -108,7 +121,7 @@ de
 You can define these variables in docker-compose.override.yml file for your needs:
 
 Antizapret:
-- `SKIP_UPDATE_FROM_ZAPRET=true` - do not download and use list of all blocked domains from internet. 
+- `SKIP_UPDATE_FROM_ZAPRET=true` - do not download and use list of all blocked domains from internet.
 	Will reduce RAM consumption. Need to manually fill domains in `*-custom.txt` files.
 - `UPDATE_TIMER=1d` - blocked domains update interval
 - `ADGUARDHOME_PORT=3000`
@@ -116,7 +129,7 @@ Antizapret:
 - `ADGUARDHOME_PASSWORD=`
 
 Openvpn
-- `OBFUSCATE_TYPE=0` - custom obfuscation level of openvpn protocol.   
+- `OBFUSCATE_TYPE=0` - custom obfuscation level of openvpn protocol.
    0 - disable.Act as regular openvpn client, support by all clients.
    1 - light obfuscation, works with microtics
    2 - strong obfuscation, works with some clients: openvpn gui client, asuswrt client...
@@ -134,7 +147,7 @@ Wireguard, Wireguard Amnezia, Openvpn:
 - For other environment variables, see the original manual [Wireguard Amnezia](https://github.com/w0rng/amnezia-wg-easy) or [Wireguard](https://github.com/wg-easy/wg-easy).
 
 ## OpenVpn
-### Create client certificates: 
+### Create client certificates:
 https://github.com/d3vilh/openvpn-ui?tab=readme-ov-file#generating-ovpn-client-profiles
 1) go to `http://%your_ip%:8080/certificates`
 2) click "create certificate"
@@ -160,7 +173,7 @@ sudo apt install -y openvpn-dco-dkms
 #### Ubuntu 20.04, 22.04
 ```bash
 sudo apt update
-sudo apt upgrade 
+sudo apt upgrade
 echo "#### Please reboot your system after upgrade ###" && sleep 100
 deb=openvpn-dco-dkms_0.0+git20231103-1_all.deb
 sudo apt install -y efivar dkms linux-headers-$(uname -r)
@@ -173,10 +186,10 @@ If your clients do not have GCM ciphers support you can use legacy CBC ciphers.
 DCO is incompatible with legacy ciphers and will be disabled. This is also increase CPU load.
 
 ### OpenVPN block
-Most providers now block openvpn to foreign IPs. Obfuscation not always fix the issue. 
+Most providers now block openvpn to foreign IPs. Obfuscation not always fix the issue.
 For stable openvpn operation you can buy VPS inside of your country and then proxy all traffic to foreign server.
-Here is example of startup script. 
-Replace X.X.X.X with IP address of your server and run it on fresh VPS (ubuntu 24.04 is recommended): 
+Here is example of startup script.
+Replace X.X.X.X with IP address of your server and run it on fresh VPS (ubuntu 24.04 is recommended):
 
 ```shell
 #!/bin/sh
@@ -184,10 +197,10 @@ Replace X.X.X.X with IP address of your server and run it on fresh VPS (ubuntu 2
 # Fill with your foreign server ip
 export VPN_IP=X.X.X.X
 
-echo "net.ipv4.ip_forward=1" >> /etc/sysctl.d/99-sysctl.conf 
+echo "net.ipv4.ip_forward=1" >> /etc/sysctl.d/99-sysctl.conf
 sysctl -w net.ipv4.ip_forward=1
 
-# DNAT rules 
+# DNAT rules
 iptables -t nat -A PREROUTING -p tcp ! --dport 22 -j DNAT --to-destination "$VPN_IP"
 iptables -t nat -A PREROUTING -p udp ! --dport 22 -j DNAT --to-destination "$VPN_IP"
 # MASQUERADE rules
@@ -201,7 +214,7 @@ apt install -y iptables-persistent
 ```
 
 ## CDN + EDNS
-Some domains resolve differenlty depending from subnet (geoip) of client. In this case using of DNS located on remote server will break some services. 
+Some domains resolve differenlty depending from subnet (geoip) of client. In this case using of DNS located on remote server will break some services.
 EDNS is allowing to overwrite client IP in DNS requests to upstream server and get correct results.
 Its enabled by default and client ip is pointed to Moscow (Yandex Subnet).
 If you located in other region, you need to replace `77.88.8.8` with your real ip address on this page `http://your-server-ip:3000/#dns`
@@ -209,11 +222,11 @@ If you located in other region, you need to replace `77.88.8.8` with your real i
 ## Extra information
 - [OpenWrt setup guide](./docs/guide_OpenWrt.md) - how to setup OpenWrt router with this solution to keep LAN clients happy.
 - [Keenetic setup guide](./docs/guide_Keenetic.md) - instructions for configuring the server and connecting Keenetic routers to it [(на русском языке)](./docs/guide_Keenetic_RU.md)
-- 
+-
 ## Test speed with iperf3
-iperf3 server is included in antizapret-vpn container. 
+iperf3 server is included in antizapret-vpn container.
 1. Connect to VPN
-2. Use iperf3 client on your phone or computer to check upload/download speed. 
+2. Use iperf3 client on your phone or computer to check upload/download speed.
 	Example 10 threads for 10 seconds and report result every second:
 	```shell
 	iperf3 -c 10.224.0.1 -i1 -t10 -P10
