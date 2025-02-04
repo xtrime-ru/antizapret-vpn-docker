@@ -5,7 +5,6 @@ services:
     hostname: filebrowser
     ports:
       - "2000:80/tcp"
-    privileged: true
     entrypoint: /app/entrypoint.sh
     volumes:
       - ./config/antizapret/custom:/srv
