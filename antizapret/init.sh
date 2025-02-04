@@ -59,6 +59,10 @@ postrun 'until [[ "$(systemctl is-active systemd-journald)" == "active" ]]; do s
 /bin/cp --update=none /opt/adguardhome/conf/upstream_dns_file_basis /opt/adguardhome/conf/upstream_dns_file
 /bin/cp --update=none /root/antizapret/result_dist/* /root/antizapret/result/
 
+# Temporary fix for akamai + google dns + ecs issues
+# https://github.com/AdguardTeam/AdGuardHome/issues/3652
+/bin/cp -f /root/adguardhome/upstream_dns_file_basis /opt/adguardhome/conf/upstream_dns_file_basis
+
 yq -i '
     .http.address="0.0.0.0:'$ADGUARDHOME_PORT'" |
     .users[0].name="'$ADGUARDHOME_USERNAME'" |
