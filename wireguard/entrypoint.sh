@@ -26,7 +26,7 @@ if [ -z "$WG_ALLOWED_IPS" ]; then
     fi
 fi
 
-export DOCKER_SUBNET=$(ip route | grep -oPh "^172.*/\d{1,2}")
+export DOCKER_SUBNET=$(ip route | grep -oEh "^172.*/\d{1,2}")
 export ANTIZAPRET_SUBNET=${ANTIZAPRET_SUBNET:-"10.224.0.0/15"}
 
 export WG_POST_UP=$(tr '\n' ' ' << EOF
