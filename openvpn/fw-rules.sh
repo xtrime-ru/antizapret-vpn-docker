@@ -25,6 +25,7 @@ ip route add "$ANTIZAPRET_SUBNET" via "$AZ_HOST"
 if [[ ${FORCE_FORWARD_DNS:-true} == true ]]; then
     dnsPorts=${FORCE_FORWARD_DNS_PORTS:-"53"}
     for dnsPort in $dnsPorts; do
+        iptables -t nat -A PREROUTING -p tcp --dport "$dnsPort" -j DNAT --to-destination "$AZ_HOST"
         iptables -t nat -A PREROUTING -p udp --dport "$dnsPort" -j DNAT --to-destination "$AZ_HOST"
     done
 fi
