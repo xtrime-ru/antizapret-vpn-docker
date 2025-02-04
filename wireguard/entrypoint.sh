@@ -14,12 +14,12 @@ fi
 export WG_DEFAULT_ADDRESS=${WG_DEFAULT_ADDRESS:-"10.1.166.x"}
 export WG_DEVICE=${WG_DEVICE:-"eth0"}
 export WG_PORT=${WG_PORT:-51820}
-
+export ANTIZAPRET_SUBNET=${ANTIZAPRET_SUBNET:-"10.224.0.0/15"}
 
 until [ -f "/opt/antizapret/result/blocked-ranges-with-include.txt" ]; do sleep 0.5; done
 cp -f /opt/antizapret/result/blocked-ranges-with-include.txt /app/blocked-ranges-with-include.txt
 if [ -z "$WG_ALLOWED_IPS" ]; then
-    export WG_ALLOWED_IPS="${WG_DEFAULT_ADDRESS/"x"/"0"}/24,10.224.0.0/15"
+    export WG_ALLOWED_IPS="${WG_DEFAULT_ADDRESS/"x"/"0"}/24,$ANTIZAPRET_SUBNET"
     blocked_ranges=`tr '\n' ',' < /app/blocked-ranges-with-include.txt | sed 's/,$//g'`
     if [ -n "${blocked_ranges}" ]; then
         export WG_ALLOWED_IPS="${WG_ALLOWED_IPS},${blocked_ranges}"
@@ -27,7 +27,6 @@ if [ -z "$WG_ALLOWED_IPS" ]; then
 fi
 
 export DOCKER_SUBNET=$(ip route | grep -oEh "^172.*/\d{1,2}")
-export ANTIZAPRET_SUBNET=${ANTIZAPRET_SUBNET:-"10.224.0.0/15"}
 
 export WG_POST_UP=$(tr '\n' ' ' << EOF
 iptables -t nat -N masq_not_local;
