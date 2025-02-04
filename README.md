@@ -127,6 +127,7 @@ Antizapret:
 - `ADGUARDHOME_PORT=3000`
 - `ADGUARDHOME_USERNAME=admin`
 - `ADGUARDHOME_PASSWORD=`
+- `DNS=1.1.1.1` - Upstream DNS for resolving blocked sites
 
 Openvpn
 - `OBFUSCATE_TYPE=0` - custom obfuscation level of openvpn protocol.
@@ -145,6 +146,22 @@ Wireguard, Wireguard Amnezia, Openvpn:
 - `FORCE_FORWARD_DNS=true` - Redirects UDP traffic on port 53 to AntiZapret DNS (default: false)
 - `FORCE_FORWARD_DNS_PORTS="53 5353"` - Parameter can be used to change port 53 for FORCE_FORWARD_DNS to one or more, separated by a space (default: 53)
 - For other environment variables, see the original manual [Wireguard Amnezia](https://github.com/w0rng/amnezia-wg-easy) or [Wireguard](https://github.com/wg-easy/wg-easy).
+
+## DNS
+### Adguard Upstream DNS
+Adguard uses Google DNS and Quad9 DNS to resolve unblocked domains. This upstreams support ECS requests (more info below).
+Cloudflare DNS do not support ECS and is not recommended for use.  
+
+Source code: [Adguard upstream DNS](./antizapret/root/adguardhome/upstream_dns_file_basis)
+After container is started working copy is located here: `./config/adguard/conf/upstream_dns_file_basis`
+
+
+### CDN + ECS
+Some domains can resolve differently, depending on subnet (geoip) of client. In this case using of DNS located on remote server will break some services.
+ECS allow to provide client IP in DNS requests to upstream server and get correct results.
+Its enabled by default in Adguard and client ip is pointed to Moscow (Yandex Subnet).
+
+If you located in other region, you need to replace `77.88.8.8` with your real ip address on this page `http://your-server-ip:3000/#dns`
 
 ## OpenVpn
 ### Create client certificates:
@@ -212,12 +229,6 @@ echo iptables-persistent iptables-persistent/autosave_v6 boolean false | sudo de
 apt install -y iptables-persistent
 
 ```
-
-## CDN + EDNS
-Some domains resolve differenlty depending from subnet (geoip) of client. In this case using of DNS located on remote server will break some services.
-EDNS is allowing to overwrite client IP in DNS requests to upstream server and get correct results.
-Its enabled by default and client ip is pointed to Moscow (Yandex Subnet).
-If you located in other region, you need to replace `77.88.8.8` with your real ip address on this page `http://your-server-ip:3000/#dns`
 
 ## Extra information
 - [OpenWrt setup guide](./docs/guide_OpenWrt.md) - how to setup OpenWrt router with this solution to keep LAN clients happy.

@@ -22,9 +22,9 @@ FILES=(
 
 
 create_hash () {
-    path=./config/custom
+    path="/root/antizapret/config/custom/*.txt  /opt/adguardhome/conf/upstream_dns*"
     echo $(
-        sed -E '/^(#.*)?[[:space:]]*$/d' $path/*.txt | \
+        sed -E '/^(#.*)?[[:space:]]*$/d' $path | \
             sort -u | sha1sum | awk '{print $1}'
     )
 }
