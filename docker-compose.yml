@@ -11,6 +11,7 @@ services:
       - ADGUARDHOME_PORT
       - ADGUARDHOME_USERNAME
       - ADGUARDHOME_PASSWORD
+      - DNS
 #    dns:
 #      - 1.1.1.1
     volumes:
