@@ -107,7 +107,7 @@ filters:
     id: 2
 whitelist_filters: []
 user_rules:
-  - '||*^$dnstype=HTTPS'
+  - '#||*^$dnstype=HTTPS'
 dhcp:
   enabled: false
   interface_name: ""
