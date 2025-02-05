@@ -41,7 +41,8 @@ EOF
 
 export WG_POST_DOWN=$(tr '\n' ' ' << EOF
 iptables -t nat -D POSTROUTING -s ${WG_DEFAULT_ADDRESS/"x"/"0"}/24 -o ${WG_DEVICE} -j masq_not_local;
-iptables -t nat -X masq_not_local
+iptables -t nat -F masq_not_local;
+iptables -t nat -X masq_not_local;
 iptables -D FORWARD -i wg0 -j ACCEPT;
 iptables -D FORWARD -o wg0 -j ACCEPT;
 EOF
