@@ -46,15 +46,23 @@ youtubei.googleapis.com
 
 
 # google
-play.google.com
 news.google.com
 chrome.google.com
-android.clients.google.com
+
+
+# google play and android
+play.google.com
 dl.google.com
 dl-ssl.google.com
 android.com
+androidify.com
 android.apis.google.com
 android.clients.google.com
+googleplay.com
+play-fe.googleapis.com
+play-games.googleusercontent.com
+play-lh.googleusercontent.com
+play.googleapis.com
 
 
 # microsoft
