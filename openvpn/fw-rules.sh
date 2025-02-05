@@ -6,7 +6,7 @@ set -x
 cat << EOF | sponge /etc/environment
 OPENVPN_LOCAL_IP_RANGE='${OPENVPN_LOCAL_IP_RANGE:-"10.1.165.0"}'
 OPENVPN_DNS='${OPENVPN_DNS:-"10.1.165.1"}'
-ANTIZAPRET_SUBNET='10.224.0.0/15'
+ANTIZAPRET_SUBNET=${ANTIZAPRET_SUBNET:-"10.224.0.0/15"}
 NIC='$(ip -4 route ls | grep default | grep -Po '(?<=dev )(\S+)' | head -1)'
 OVDIR='${OVDIR:-"/etc/openvpn"}'
 EOF
@@ -25,6 +25,7 @@ ip route add "$ANTIZAPRET_SUBNET" via "$AZ_HOST"
 if [[ ${FORCE_FORWARD_DNS:-true} == true ]]; then
     dnsPorts=${FORCE_FORWARD_DNS_PORTS:-"53"}
     for dnsPort in $dnsPorts; do
+        iptables -t nat -A PREROUTING -p tcp --dport "$dnsPort" -j DNAT --to-destination "$AZ_HOST"
         iptables -t nat -A PREROUTING -p udp --dport "$dnsPort" -j DNAT --to-destination "$AZ_HOST"
     done
 fi

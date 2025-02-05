@@ -49,6 +49,12 @@ youtubei.googleapis.com
 play.google.com
 news.google.com
 chrome.google.com
+android.clients.google.com
+dl.google.com
+dl-ssl.google.com
+android.com
+android.apis.google.com
+android.clients.google.com
 
 
 # microsoft
@@ -76,12 +82,7 @@ x.com
 
 
 # signal
-chat.signal.org
-cdn2.signal.org
-storage.signal.org
-sfu.voip.signal.org
-updates2.signal.org
-uptime.signal.org
+signal.org
 
 
 # smartbear

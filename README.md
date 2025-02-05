@@ -135,6 +135,7 @@ Antizapret:
 - `ADGUARDHOME_USERNAME=admin`
 - `ADGUARDHOME_PASSWORD=`
 - `DNS=1.1.1.1` - Upstream DNS for resolving blocked sites
+- `ROUTES` - list of VPN containers and their virtual addresses. Needed for uniq client addresses in adguard logs 
 
 Filebrowser:
 - `FILEBROWSER_PORT=admin`
@@ -145,13 +146,21 @@ Openvpn
    0 - disable.Act as regular openvpn client, support by all clients.
    1 - light obfuscation, works with microtics
    2 - strong obfuscation, works with some clients: openvpn gui client, asuswrt client...
+- `ANTIZAPRET_SUBNET=10.224.0.0/15` - subnet for virtual blocked ips
+- `OPENVPN_DNS=10.1.165.1` - DNS address for clients. Must be in `ANTIZAPRET_SUBNET`
 
 Openvpn-ui
 - `OPENVPN_ADMIN_PASSWORD=` — will be used as a server address in .ovpn profiles upon keys generation (default: your server's IP)
 - `OPENVPN_PORT=1194` — will be used as a server port in .ovpn profiles upon keys generation. (default: 1194)
 
 Wireguard/Wireguard Amnezia
-- `WIREGUARD_PASSWORD=`
+- `WIREGUARD_PASSWORD=` - password for admin panel
+- `ANTIZAPRET_SUBNET=10.224.0.0/15` - subnet for virtual blocked ips
+- `WG_DEFAULT_DNS=10.224.0.1` - DNS address for clients. Must be in `ANTIZAPRET_SUBNET`
+- `WG_PERSISTENT_KEEPALIVE=25`
+- `PORT=51821` - admin panel port
+- `WG_PORT=51820` - wireguard server port
+- `WG_DEVICE=eth0`
 
 Wireguard, Wireguard Amnezia, Openvpn:
 - `FORCE_FORWARD_DNS=true` - Redirects UDP traffic on port 53 to AntiZapret DNS (default: false)
