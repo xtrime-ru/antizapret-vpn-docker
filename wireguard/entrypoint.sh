@@ -27,11 +27,12 @@ if [ -z "$WG_ALLOWED_IPS" ]; then
 fi
 
 export DOCKER_SUBNET=$(ip route | grep -oEh "^172.*/\d{1,2}")
+export AZ_HOST=$(dig +short antizapret)
 
 export WG_POST_UP=$(tr '\n' ' ' << EOF
 iptables -t nat -N masq_not_local;
 iptables -t nat -A POSTROUTING -s ${WG_DEFAULT_ADDRESS/"x"/"0"}/24 -o ${WG_DEVICE} -j masq_not_local;
-iptables -t nat -A masq_not_local -d ${DOCKER_SUBNET} -j RETURN;
+iptables -t nat -A masq_not_local -d ${AZ_HOST} -j RETURN;
 iptables -t nat -A masq_not_local -d ${ANTIZAPRET_SUBNET} -j RETURN;
 iptables -t nat -A masq_not_local -j MASQUERADE;
 iptables -A FORWARD -i wg0 -j ACCEPT;
@@ -49,7 +50,6 @@ EOF
 )
 
 
-export AZ_HOST=$(dig +short antizapret)
 ip route add $ANTIZAPRET_SUBNET via $AZ_HOST
 
 if [[ ${FORCE_FORWARD_DNS:-true} == true ]]; then
