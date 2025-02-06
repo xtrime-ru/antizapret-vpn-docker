@@ -20,6 +20,7 @@ This repo is based on idea from original [AntiZapret LXD image](https://bitbucke
 - [openvpn-dco](https://openvpn.net/as-docs/tutorials/tutorial--turn-on-openvpn-dco.html) - a kernel extension for improving performance of OpenVPN
 - Multiple VPN transports: Wireguard, OpenVPN, IPsec/XAuth ("Cisco IPsec")
 - Adguard as main DNS resolver
+- filebrowser as web viewer & editor for `*-custom.txt` files
 
 
 # Installation
