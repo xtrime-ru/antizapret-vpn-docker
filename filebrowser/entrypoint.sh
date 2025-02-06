@@ -4,7 +4,6 @@
     --branding.files "/app/branding" \
     --shell="sh -c" \
     --locale="ru" \
-    --lockPassword="true" \
     --perm.create="false" \
     --perm.delete="false" \
     --perm.download="false" \
