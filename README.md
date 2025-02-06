@@ -3,6 +3,9 @@
 Antizapret created to redirect only blocked domains to VPN tunnel. Its called split tunneling.
 This repo is based on idea from original [AntiZapret LXD image](https://bitbucket.org/anticensority/antizapret-vpn-container/src/master/)
 
+# Support and discussions group:
+https://t.me/antizapret_support
+
 # How it works?
 
 1) List of blocked domains downloaded from open registry.
