@@ -6,6 +6,9 @@ BEGIN {RS="\n|\r"}
 #Strip spaces
 {sub(/\s/, "", $1)}
 
+#Strip double qoutes
+{sub(/"/, "", $1)}
+
 # Skipping empty strings
 (!$1) {next}
 
