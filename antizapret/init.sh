@@ -56,11 +56,6 @@ postrun '/routes.sh'
 postrun 'until [[ "$(systemctl is-active systemd-journald)" == "active" ]]; do sleep 1; done; journalctl --boot --follow --lines=all --no-hostname'
 
 # AdGuard initialization
-
-# Temporary fix for akamai + google dns + ecs issues
-# https://github.com/AdguardTeam/AdGuardHome/issues/3652
-/bin/cp -f /root/adguardhome/upstream_dns_file_basis /opt/adguardhome/conf/upstream_dns_file_basis
-
 /bin/cp --update=none /root/adguardhome/* /opt/adguardhome/conf/
 /bin/cp --update=none /root/antizapret/result_dist/* /root/antizapret/result/
 /bin/cp --update=none /root/antizapret/result/adguard_upstream_dns_file /opt/adguardhome/conf/upstream_dns_file
