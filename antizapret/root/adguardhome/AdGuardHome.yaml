@@ -32,7 +32,7 @@ dns:
     - 2620:fe::10
     - 2620:fe::fe:10
   fallback_dns: []
-  upstream_mode: load_balance
+  upstream_mode: parallel
   fastest_timeout: 1s
   allowed_clients: []
   disallowed_clients: []
@@ -87,7 +87,7 @@ tls:
 querylog:
   dir_path: ""
   ignored: []
-  interval: 2160h
+  interval: 24h
   size_memory: 1000
   enabled: true
   file_enabled: true
@@ -105,6 +105,18 @@ filters:
     url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_2.txt
     name: AdAway Default Blocklist
     id: 2
+  - enabled: true
+    url: https://raw.githubusercontent.com/Zalexanninev15/NoADS_RU/main/ads_list_extended.txt
+    name: ads_list_extended
+    id: 3
+  - enabled: true
+    url: https://easylist-downloads.adblockplus.org/easylist_noelemhide.txt
+    name: easylist_noelemhide
+    id: 4
+  - enabled: true
+    url: https://easylist-downloads.adblockplus.org/ruadlist.txt
+    name: ruadlist
+    id: 5
 whitelist_filters: []
 user_rules:
   - '#||*^$dnstype=HTTPS'
