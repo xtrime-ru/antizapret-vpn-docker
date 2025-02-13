@@ -1,0 +1,29 @@
+services:
+  dashboard:
+    image: nginx
+    restart: unless-stopped
+    ports:
+      - "1443:1443"
+      - "2443:2443"
+      - "3443:3443"
+      - "4443:4443"
+      - "5443:5443"
+      - "6443:6443"
+    environment:
+      - DASHBOARD_USERNAME=admin
+      - DASHBOARD_PASSWORD=password
+      # SERVICE_N=name:external_port:internal_hostname:internal_port
+      - SERVICE_1=AdGuard:2443:antizapret:3000
+      - SERVICE_2=File Browser:3443:filebrowser:80
+      - SERVICE_3=OpenVPN UI:4443:openvpn-ui:8080
+      - SERVICE_4=WireGuard:5443:wireguard:51821
+      - SERVICE_5=WireGuard Amnezia:6443:wireguard-amnezia:51821
+    volumes:
+      - ./dashboard/www:/usr/share/nginx/html
+      - ./dashboard/init.sh:/docker-entrypoint.d/99-dashboard.sh
+    depends_on:
+      - antizapret
+      - filebrowser
+      - openvpn-ui
+      - wireguard
+      - wireguard-amnezia

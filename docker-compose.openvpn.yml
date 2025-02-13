@@ -31,8 +31,6 @@ services:
       - OPENVPN_ADMIN_USERNAME=admin
       - OPENVPN_ADMIN_PASSWORD=gagaZush
     privileged: true
-    ports:
-      - "8080:8080/tcp"
     volumes:
       - ./openvpn/easy-rsa.vars:/usr/share/easy-rsa/var
       - ./openvpn/init.db:/opt/openvpn-ui/init.db

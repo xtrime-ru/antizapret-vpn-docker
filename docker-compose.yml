@@ -20,8 +20,6 @@ services:
       - ./config/antizapret/result:/root/antizapret/result
       - ./config/adguard/conf:/opt/adguardhome/conf
       - ./config/adguard/work:/opt/adguardhome/work
-    ports:
-      - 3000:3000/tcp
     logging:
       driver: json-file
       options:
