@@ -1,7 +1,5 @@
 #!/bin/sh
 /filebrowser config init \
-    --branding.name "AntiZapret" \
-    --branding.files "/app/branding" \
     --shell="sh -c" \
     --locale="ru" \
     --perm.create="false" \

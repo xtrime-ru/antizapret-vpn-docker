@@ -24,6 +24,7 @@ https://t.me/antizapret_support
 - Multiple VPN transports: Wireguard, OpenVPN, IPsec/XAuth ("Cisco IPsec")
 - Adguard as main DNS resolver
 - filebrowser as web viewer & editor for `*-custom.txt` files
+- Unified dashboard
 
 
 # Installation
@@ -44,6 +45,12 @@ services:
   antizapret:
     environment:
       - ADGUARDHOME_PASSWORD=somestrongpassword
+  dashboard:
+    environment:
+      - DASHBOARD_PASSWORD=somestrongpassword
+    extends:
+      file: docker-compose.dashboard.yml
+      service: dashboard
   filebrowser:
     environment:
       - FILEBROWSER_PASSWORD=somestrongpassword
@@ -76,10 +83,13 @@ services:
    docker compose up -d
 ```
 4. Admin panels started at following ports at your host:
-- adguard: 3000
-- filebrowser: 2000
-- wireguard/amnezia: 51821
-- openvpn: 8080
+- dashboard: 1433
+- adguard: 2443
+- filebrowser: 3443
+- openvpn: 4443
+- wireguard: 5443
+- wireguard-amnezia: 6443
+
 
 ## Update
 
@@ -298,4 +308,5 @@ For example **Apple** devices **will not** be able **to connect** to this server
 - [IPsec VPN](https://github.com/hwdsl2/docker-ipsec-vpn-server) — used for IPsec integration
 - [AdGuardHome](https://github.com/AdguardTeam/AdGuardHome) - DNS resolver
 - [filebrowser](https://github.com/filebrowser/filebrowser) - web file browser & editor
+- [nginx](https://github.com/nginx/nginx) - web server for unified dashboard
 - [No Thought Is a Crime](https://ntc.party) — a forum about technical, political and economical aspects of internet censorship in different countries
