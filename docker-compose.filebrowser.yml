@@ -3,6 +3,8 @@ services:
     image: filebrowser/filebrowser
     restart: unless-stopped
     hostname: filebrowser
+    ports:
+      - "2000:80/tcp"
     entrypoint: /app/entrypoint.sh
     volumes:
       - ./config/antizapret/custom:/srv
