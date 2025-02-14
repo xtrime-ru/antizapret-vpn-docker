@@ -9,13 +9,15 @@ CERT_KEY="$CERT_DIR/selfsigned.key"
 SNIPPETS_DIR="$CONFIG_DIR/snippets"
 SSL_SNIPPET="$SNIPPETS_DIR/ssl-common.conf"
 PROXY_SNIPPET="$SNIPPETS_DIR/proxy-params.conf"
-SITES_AVAILABLE="$CONFIG_DIR/sites-available"
-SITES_ENABLED="$CONFIG_DIR/sites-enabled"
+DASHBOARD_CONF="$CONFIG_DIR/conf.d/default.conf"
+SITES_AVAILABLE_DIR="$CONFIG_DIR/sites-available"
+SITES_ENABLED_CONF="$CONFIG_DIR/conf.d/enabled-sites.conf"
+SITES_ENABLED_DIR="$CONFIG_DIR/sites-enabled"
 SERVICES_JSON="$CONFIG_DIR/services.json"
-WWW_ROOT="/usr/share/nginx/html"
+WWW_ROOT_DIR="/usr/share/nginx/html"
 
 
-declare -a services
+declare -a SERVICES
 
 generate_certificate() {
     echo "[INFO] Generating or checking SSL certificates..."
@@ -72,11 +74,9 @@ create_dashboard() {
     echo "$DASHBOARD_USERNAME:$HASHED_PASS" | tee "$HTPASSWD_FILE" > /dev/null
     echo "[INFO] The file $HTPASSWD_FILE has been successfully created."
 
-    local conf_d_file="$CONFIG_DIR/conf.d/default.conf"
-    cat <<EOF | tee "$conf_d_file" > /dev/null
+    cat <<EOF | tee "$DASHBOARD_CONF" > /dev/null
 server {
     listen 1443 ssl;
-    server_name  _;
 
     include $SSL_SNIPPET;
 
@@ -88,7 +88,7 @@ server {
     auth_basic_user_file $HTPASSWD_FILE;
 
     location / {
-        root   $WWW_ROOT;
+        root   $WWW_ROOT_DIR;
         index  index.html index.htm;
     }
 
@@ -97,7 +97,7 @@ server {
     }
 }
 EOF
-    echo "[INFO] The file $conf_d_file has been successfully created."
+    echo "[INFO] The file $DASHBOARD_CONF has been successfully created."
     echo
 }
 
@@ -111,11 +111,11 @@ read_services_env() {
         fi
 
         value="${value//\"/}"
-        services+=("$value")
+        SERVICES+=("$value")
         ((counter++))
     done
 
-    if [ ${#services[@]} -eq 0 ]; then
+    if [ ${#SERVICES[@]} -eq 0 ]; then
         echo "[ERROR] No variables of the type SERVICE_1, SERVICE_2, etc., were found."
         exit 1
     fi
@@ -124,13 +124,13 @@ read_services_env() {
 create_services() {
     echo "[INFO] Creating proxy configurations..."
 
-    mkdir -p "$SITES_AVAILABLE"
-    rm -rf "${SITES_AVAILABLE:?}"/*
+    mkdir -p "$SITES_AVAILABLE_DIR"
+    rm -rf "${SITES_AVAILABLE_DIR:?}"/*
 
-    echo "[INFO] Creating configuration files in $SITES_AVAILABLE..."
-    for service in "${services[@]}"; do
+    echo "[INFO] Creating configuration files in $SITES_AVAILABLE_DIR..."
+    for service in "${SERVICES[@]}"; do
         IFS=":" read -r name external_port internal_host internal_port <<< "$service"
-        conf_file="$SITES_AVAILABLE/${internal_host}.conf"
+        conf_file="$SITES_AVAILABLE_DIR/${internal_host}.conf"
         tee "$conf_file" > /dev/null <<EOF
 #${name}#
 server {
@@ -144,22 +144,21 @@ server {
 }
 EOF
     done
-    echo "[INFO] Configuration files in $SITES_AVAILABLE have been created."
+    echo "[INFO] Configuration files in $SITES_AVAILABLE_DIR have been created."
     echo
 }
 
 enable_services() {
     echo "[INFO] Enabling proxy configurations..."
 
-    mkdir -p "$SITES_ENABLED"
-    find "$SITES_ENABLED" -type l -exec rm -f {} \;
+    mkdir -p "$SITES_ENABLED_DIR"
+    find "$SITES_ENABLED_DIR" -type l -exec rm -f {} \;
 
-    local conf_d_file="$CONFIG_DIR/conf.d/enabled-sites.conf"
-    echo "include $CONFIG_DIR/sites-enabled/*;" > $conf_d_file
+    echo "include $SITES_ENABLED_DIR/*;" > $SITES_ENABLED_CONF
 
     echo "[INFO] Checking service availability..."
 
-    for conf_file in "$SITES_AVAILABLE"/*.conf; do
+    for conf_file in "$SITES_AVAILABLE_DIR"/*.conf; do
         local backend_url host
 
         backend_url=$(grep -E "proxy_pass\s+https?://" "$conf_file" 2>/dev/null \
@@ -172,7 +171,7 @@ enable_services() {
         host=$(echo "$backend_url" | sed -E 's|^https?://([^/]+)/?.*|\1|' | cut -d: -f1)
 
         if getent hosts "$host" >/dev/null; then
-            ln -sf "$conf_file" "$SITES_ENABLED/$(basename "$conf_file")"
+            ln -sf "$conf_file" "$SITES_ENABLED_DIR/$(basename "$conf_file")"
             echo "[OK] $host is available — enabling configuration $(basename "$conf_file")."
         else
             echo "[WARN] $host is unavailable — skipping symlink creation."
@@ -190,10 +189,10 @@ export_services() {
 
     local index=1
 
-    for service in "${services[@]}"; do
+    for service in "${SERVICES[@]}"; do
         IFS=":" read -r name external_port internal_host internal_port <<< "$service"
 
-        local conf_file="$SITES_ENABLED/${internal_host}.conf"
+        local conf_file="$SITES_ENABLED_DIR/${internal_host}.conf"
         if [ ! -f "$conf_file" ]; then
             echo "[WARN] $conf_file not found, skipping..."
             continue
