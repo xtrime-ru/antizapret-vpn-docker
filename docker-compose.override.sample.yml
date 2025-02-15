@@ -1,0 +1,103 @@
+services:
+  antizapret:
+    environment:
+      - ADGUARDHOME_PASSWORD=somestrongpassword
+      - SKIP_UPDATE_FROM_ZAPRET=true # do not download and use list of all blocked domains from internet. Will reduce RAM consumption. Need - to manually fill domains in *-custom.txt files.
+      - UPDATE_TIMER=1d # blocked domains update interval
+      - ADGUARDHOME_PORT=3000
+      - ADGUARDHOME_USERNAME=admin
+      - ADGUARDHOME_PASSWORD=
+      - ADGUARDHOME_PASSWORD_HASH= # hashed password, taken from the AdGuardHome.yaml file after the first run using ADGUARDHOME_PASSWORD
+      - DNS=1.1.1.1 # Upstream DNS for resolving blocked sites
+      - ROUTES # list of VPN containers and their virtual addresses. Needed for uniq client addresses in adguard logs
+
+  # cloak:
+  #   extends:
+  #     file: services/cloak/docker-compose.yml
+  #     service: cloak
+  #   environment:
+  #     - CK_PROXYBOOK_OPENVPN=udp://openvpn:1194 # Set upstream openvpn
+  #     - CK_PRIVATEKEY # The static private key encoded in base64 (default: auto generation)
+  #     - CK_PUBLICKEY # The static public key encoded in base64, if specified, it is displayed in the client configuration (default: auto generation)
+  #     - CK_BYPASSUID # A list of unrestricted users UIDs, '<UID1>,<UID1>' (default: auto generation)
+  #     - CK_ADMINUID # The UID of the admin user (default: auto generation)
+  #     - CK_BINDADDR # A list of addresses Cloak will bind and listen, format '<IP:PORT1>,<IP:PORT2>' (default: 0.0.0.0:443)
+  #     - CK_REDIRADDR # The redirection address when the incoming traffic is not from a Cloak client (default: bing.com)
+  #     - CK_DATABASEPATH # The path to userinfo.db (default: /opt/cloak/userinfo.db)
+  #     - CK_KEEPALIVE # The number of seconds to tell the OS to wait after no activity before sending TCP KeepAlive probes to the upstream proxy server (default: 0)
+
+  dashboard:
+    extends:
+      file: services/dashboard/docker-compose.yml
+      service: dashboard
+    environment:
+      - DASHBOARD_USERNAME=admin
+      - DASHBOARD_PASSWORD=password
+
+  filebrowser:
+    extends:
+      file: services/filebrowser/docker-compose.yml
+      service: filebrowser
+    environment:
+      - FILEBROWSER_PORT=admin
+      - FILEBROWSER_PASSWORD=password
+
+  ipsec:
+    extends:
+      file: services/ipsec/docker-compose.yml
+      service: ipsec
+
+  openvpn:
+    extends:
+      file: services/openvpn/docker-compose.yml
+      service: openvpn
+    environment:
+    - OBFUSCATE_TYPE=0 # custom obfuscation level of openvpn protocol
+                       # 0 - disable. Act as regular openvpn client, support by all clients
+                       # 1 - light obfuscation, works with microtics
+                       # 2 - strong obfuscation, works with some clients: openvpn gui client, asuswrt client...
+    - ANTIZAPRET_SUBNET=10.224.0.0/15 # subnet for virtual blocked ips
+    - OPENVPN_DNS=10.1.165.1 # DNS address for clients. Must be in ANTIZAPRET_SUBNET
+    
+    - FORCE_FORWARD_DNS=true # Redirects UDP traffic on port 53 to AntiZapret DNS (default: false)
+    - FORCE_FORWARD_DNS_PORTS=53 5353 # Parameter can be used to change port 53 for FORCE_FORWARD_DNS to one or more, separated by a space (default: 53)
+
+  openvpn-ui:
+    extends:
+      file: services/openvpn/docker-compose.yml
+      service: openvpn-ui
+    environment:
+      - OPENVPN_ADMIN_PASSWORD= # will be used as a server address in .ovpn profiles upon keys generation (default: your server's IP)
+      - OPENVPN_PORT=1194 # will be used as a server port in .ovpn profiles upon keys generation. (default: 1194)
+
+  # wireguard:
+  #   extends:
+  #     file: services/wireguard/docker-compose.yml
+  #     service: wireguard
+  #   environment:
+  #     - WIREGUARD_PASSWORD= # password for admin panel
+  #     - WIREGUARD_PASSWORD_HASH= #hashed password for admin panel
+  #     - ANTIZAPRET_SUBNET=10.224.0.0/15 # subnet for virtual blocked ips
+  #     - WG_DEFAULT_DNS=10.224.0.1 #DNS address for clients. Must be in ANTIZAPRET_SUBNET
+  #     - WG_PERSISTENT_KEEPALIVE=25
+  #     - PORT=51821 # admin panel port
+  #     - WG_PORT=51820 # wireguard server port
+  #     - WG_DEVICE=eth0
+  #     - FORCE_FORWARD_DNS=true # redirects UDP traffic on port 53 to AntiZapret DNS (default: false)
+  #     - FORCE_FORWARD_DNS_PORTS=53 5353 # parameter can be used to change port 53 for FORCE_FORWARD_DNS to one or more, separated by a space (default: 53)
+
+  wireguard-amnezia:
+    extends:
+      file: services/wireguard/docker-compose.yml
+      service: wireguard-amnezia
+    environment:
+      - WIREGUARD_PASSWORD= # password for admin panel
+      - WIREGUARD_PASSWORD_HASH= # hashed password for admin panel
+      - ANTIZAPRET_SUBNET=10.224.0.0/15 # subnet for virtual blocked ips
+      - WG_DEFAULT_DNS=10.224.0.1 # DNS address for clients. Must be in ANTIZAPRET_SUBNET
+      - WG_PERSISTENT_KEEPALIVE=25
+      - PORT=51821 # admin panel port
+      - WG_PORT=51820 # wireguard server port
+      - WG_DEVICE=eth0
+      - FORCE_FORWARD_DNS=true # redirects UDP traffic on port 53 to AntiZapret DNS (default: false)
+      - FORCE_FORWARD_DNS_PORTS=53 5353 # parameter can be used to change port 53 for FORCE_FORWARD_DNS to one or more, separated by a space (default: 53)

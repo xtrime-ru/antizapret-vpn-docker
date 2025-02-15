@@ -1,0 +1,41 @@
+services:
+  openvpn:
+    image: xtrime/antizapret-openvpn
+    container_name: antizapret-openvpn
+    restart: unless-stopped
+    privileged: true
+    build: .
+    healthcheck:
+      test: cmp /etc/openvpn/openvpn-blocked-ranges.txt /opt/antizapret/result/openvpn-blocked-ranges.txt || sh -c 'killall -INT -r openvpn && (sleep 5; killall -s 9 -r openvpn)'
+      interval: 30s
+      timeout: 10s
+      retries: 1
+    volumes:
+      - $PWD/config/openvpn:/etc/openvpn
+      - $PWD/config/antizapret/result:/opt/antizapret/result
+    ports:
+      - 1194:1194/udp
+      # - 1194:1194
+    depends_on:
+      - openvpn-ui
+    environment:
+      - OBFUSCATE_TYPE=0
+
+  openvpn-ui:
+    image: xtrime/antizapret-openvpn-ui
+    container_name: antizapret-openvpn-ui
+    restart: unless-stopped
+    privileged: true
+    build:
+      context: .
+      dockerfile: Dockerfile.ui
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - $PWD/config/openvpn/db:/opt/openvpn-ui/db
+      - $PWD/config/openvpn/pki:/usr/share/easy-rsa/pki
+      - $PWD/config/openvpn:/etc/openvpn
+    ports:
+      - 8080:8080
+    environment:
+      - OPENVPN_ADMIN_USERNAME=admin
+      - OPENVPN_ADMIN_PASSWORD=gagaZush
