@@ -1,29 +1,14 @@
+# networks:
+#   antizapret:
+#     name: antizapret
+#     driver: bridge
+#     ipam:
+#       config:
+#         - subnet: 10.0.0.0/24
+#           gateway: 10.0.0.1
+
 services:
   antizapret:
-    image: xtrime/antizapret-vpn:latest
-    restart: unless-stopped
-    privileged: true
-    stop_signal: SIGRTMIN+4
-    build: .
-    environment:
-      - "ROUTES=openvpn:10.1.165.0/24;wireguard-amnezia:10.1.166.0/24;wireguard:10.1.166.0/24;ipsec:10.1.163.0/24;ipsec:10.1.162.0/24"
-      - SKIP_UPDATE_FROM_ZAPRET
-      - ADGUARDHOME_PORT
-      - ADGUARDHOME_USERNAME
-      - ADGUARDHOME_PASSWORD
-      - DNS
-#    dns:
-#      - 1.1.1.1
-    volumes:
-      - /etc/localtime:/etc/localtime:ro
-      - ./config/antizapret/custom:/root/antizapret/config/custom
-      - ./config/antizapret/result:/root/antizapret/result
-      - ./config/adguard/conf:/opt/adguardhome/conf
-      - ./config/adguard/work:/opt/adguardhome/work
-    ports:
-      - 3000:3000/tcp
-    logging:
-      driver: json-file
-      options:
-        max-size: 100k
-        max-file: 2
+    extends:
+      file: services/antizapret/docker-compose.yml
+      service: antizapret

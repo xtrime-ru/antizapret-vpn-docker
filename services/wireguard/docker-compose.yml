@@ -1,0 +1,55 @@
+x-common: &common
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options:
+      max-size: 100k
+      max-file: 2
+  healthcheck:
+    test: cmp /app/blocked-ranges-with-include.txt /opt/antizapret/result/blocked-ranges-with-include.txt || sh -c 'kill -INT -1 && (sleep 5; kill -s 9 -1)'
+    interval: 60s
+    timeout: 30s
+    retries: 1
+  cap_add:
+    - NET_ADMIN
+    - SYS_MODULE
+  sysctls:
+    - net.ipv4.ip_forward=1
+    - net.ipv4.conf.all.src_valid_mark=1
+  ports:
+    - 51820:51820/udp
+    - 51821:51821/tcp
+  depends_on:
+    - antizapret
+  environment:
+    - PORT=51821
+    - WG_PORT=51820
+    - WG_DEFAULT_DNS=10.224.0.1
+    - WG_PERSISTENT_KEEPALIVE=25
+
+services:
+  wireguard:
+    <<: *common
+    container_name: antizapret-wireguard
+    build:
+      context: .
+      args:
+        - IMAGE=ghcr.io/wg-easy/wg-easy:14
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - $PWD/config/wireguard:/etc/wireguard
+      - $PWD/config/antizapret/result:/opt/antizapret/result
+
+  wireguard-amnezia: 
+    <<: *common
+    container_name: antizapret-wireguard-amnezia
+    build:
+      context: .
+      args:
+        - IMAGE=ghcr.io/w0rng/amnezia-wg-easy:14
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - $PWD/config/wireguard_amnezia:/etc/wireguard
+      - $PWD/config/antizapret/result:/opt/antizapret/result

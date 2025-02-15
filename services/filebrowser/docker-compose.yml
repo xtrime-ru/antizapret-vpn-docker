@@ -1,0 +1,18 @@
+services:
+  filebrowser:
+    image: xtrime/antizapret-filebrowser
+    container_name: antizapret-filebrowser
+    hostname: filebrowser
+    restart: unless-stopped
+    build: .
+    logging:
+      driver: json-file
+      options:
+        max-size: 100k
+        max-file: 2
+    ports:
+      - 2000:80
+    volumes:
+      - $PWD/config/antizapret/custom:/srv
+    depends_on:
+      - antizapret

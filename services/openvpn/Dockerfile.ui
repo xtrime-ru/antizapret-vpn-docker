@@ -1,0 +1,8 @@
+FROM d3vilh/openvpn-ui
+
+RUN apk add -U --no-cache grep moreutils sqlite
+
+COPY easy-rsa.vars /usr/share/easy-rsa/var
+COPY files-ui/init.db /opt/openvpn-ui/init.db
+COPY files-ui/ui-start.sh /opt/start.sh
+COPY files-ui/restart.sh /opt/scripts/restart.sh
