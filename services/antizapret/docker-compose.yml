@@ -1,7 +1,5 @@
 services:
   antizapret:
-    image: xtrime/antizapret-core
-    container_name: antizapret-core
     restart: unless-stopped
     stop_signal: SIGRTMIN+4
     privileged: true

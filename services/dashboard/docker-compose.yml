@@ -1,7 +1,5 @@
 services:
   dashboard:
-    image: xtrime/antizapret-dashboard
-    container_name: antizapret-dashboard
     restart: unless-stopped
     build: .
     # volumes:

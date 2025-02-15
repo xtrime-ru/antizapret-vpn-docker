@@ -1,7 +1,5 @@
 services:
   cloak:
-    image: xtrime/antizapret-cloak
-    container_name: antizapret-cloak
     restart: unless-stopped
     stop_signal: SIGRTMIN+4
     build: .

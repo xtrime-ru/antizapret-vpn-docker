@@ -1,7 +1,5 @@
 services:
   ipsec:
-    image: xtrime/antizapret-ipsec
-    container_name: antizapret-ipsec
     hostname: ipsec
     restart: unless-stopped
     privileged: true

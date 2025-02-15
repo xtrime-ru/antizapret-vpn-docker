@@ -30,7 +30,6 @@ x-common: &common
 services:
   wireguard:
     <<: *common
-    container_name: antizapret-wireguard
     build:
       context: .
       args:
@@ -42,7 +41,6 @@ services:
 
   wireguard-amnezia: 
     <<: *common
-    container_name: antizapret-wireguard-amnezia
     build:
       context: .
       args:

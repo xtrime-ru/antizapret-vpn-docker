@@ -1,7 +1,5 @@
 services:
   filebrowser:
-    image: xtrime/antizapret-filebrowser
-    container_name: antizapret-filebrowser
     hostname: filebrowser
     restart: unless-stopped
     build: .

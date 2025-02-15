@@ -1,7 +1,5 @@
 services:
   openvpn:
-    image: xtrime/antizapret-openvpn
-    container_name: antizapret-openvpn
     restart: unless-stopped
     privileged: true
     build: .
@@ -22,8 +20,6 @@ services:
       - OBFUSCATE_TYPE=0
 
   openvpn-ui:
-    image: xtrime/antizapret-openvpn-ui
-    container_name: antizapret-openvpn-ui
     restart: unless-stopped
     privileged: true
     build:
