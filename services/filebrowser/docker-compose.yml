@@ -8,8 +8,6 @@ services:
       options:
         max-size: 100k
         max-file: 2
-    ports:
-      - 2000:80
     volumes:
       - $PWD/config/antizapret/custom:/srv
     depends_on:

@@ -55,3 +55,13 @@ services:
       service: wireguard-amnezia
     environment:
       - WIREGUARD_PASSWORD=password
+
+  proxy:
+    extends:
+      file: services/proxy/docker-compose.yml
+      service: proxy
+    environment:
+      # If not set, will be created and used self-signed certificate
+      - PROXY_DOMAIN=
+      # If not set, will be created and used self-signed certificate
+      - PROXY_EMAIL=
