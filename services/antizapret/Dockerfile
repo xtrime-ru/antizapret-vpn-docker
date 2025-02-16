@@ -77,6 +77,12 @@ RUN <<-"EOF" bash -ex
 EOF
 
 RUN <<-"EOF" bash -ex
+    export LISTS='
+        https://raw.githubusercontent.com/zapret-info/z-i/master/nxdomain.txt;
+        https://raw.githubusercontent.com/dartraiden/no-russia-hosts/master/hosts.txt;
+        https://antifilter.download/list/domains.lst
+    ';
+
     (STAGE_1=true STAGE_2=true STAGE_3=false /root/antizapret/doall.sh)
     mkdir /root/antizapret/result_dist/
     mv /root/antizapret/result/* /root/antizapret/result_dist/

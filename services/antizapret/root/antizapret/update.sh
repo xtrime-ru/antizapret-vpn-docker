@@ -18,10 +18,14 @@ LISTSIZE="$(curl -sI "$LISTLINK"| awk 'BEGIN {IGNORECASE=1;} /content-length/ {s
 gunzip -fd temp/list.csv.gz || exit 3
 iconv -f cp1251 -t utf8 temp/list.csv | sponge temp/list.csv
 
-
-NXDOMAINLINK='https://raw.githubusercontent.com/zapret-info/z-i/master/nxdomain.txt'
-curl -f --fail-early --compressed -o temp/nxdomain.txt "$NXDOMAINLINK" || exit 1
-LISTSIZE="$(curl -sI "$NXDOMAINLINK" | awk 'BEGIN {IGNORECASE=1;} /content-length/ {sub(/[ \t\r\n]+$/, "", $2); print $2}')"
-[[ "$LISTSIZE" != "$(stat -c '%s' temp/nxdomain.txt)" ]] && echo "List 2 size differs" && exit 2
+echo "" > temp/nxdomain.txt
+for NXDOMAINLINK in ${LISTS//;/ }; do
+    echo "Downloading lists from $NXDOMAINLINK"
+    curl -f --fail-early --compressed -o temp/nxdomain-temp.txt "$NXDOMAINLINK" || exit 1
+    LISTSIZE="$(curl -sI "$NXDOMAINLINK" | awk 'BEGIN {IGNORECASE=1;} /content-length/ {sub(/[ \t\r\n]+$/, "", $2); print $2}')"
+    [[ "$LISTSIZE" != "$(stat -c '%s' temp/nxdomain-temp.txt)" ]] && echo "List 2 size differs" && exit 2
+    cat temp/nxdomain-temp.txt >> temp/nxdomain.txt
+    rm temp/nxdomain-temp.txt
+done
 
 exit 0
