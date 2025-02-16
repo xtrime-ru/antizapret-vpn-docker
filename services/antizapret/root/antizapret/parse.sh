@@ -6,17 +6,22 @@ cd "$HERE"
 RESOLVE_NXDOMAIN="no"
 
 echo "Size of temp/list.csv: $(cat temp/list.csv | wc -l) lines"
+echo "Size of temp/nxdomain.txt: $(cat temp/nxdomain.txt | wc -l) lines"
 
 # Extract domains from list
-if [[ "$SKIP_UPDATE_FROM_ZAPRET" == false ]]; then
+if [[ "$SKIP_UPDATE_FROM_ZAPRET" == false ]] && [ -s temp/list.csv ]; then
    awk -F ';' '{print $2}' temp/list.csv | sort -u | awk '/^$/ {next} /\\/ {next} /^[а-яА-Яa-zA-Z0-9\-_\.\*]*+$/ {gsub(/\*\./, ""); gsub(/\.$/, ""); print}' | grep -Fv 'bеllonа' | CHARSET=UTF-8 idn --no-tld | grep -Fv 'xn--' > result/hostlist_original.txt
 else
    echo -e "\n" > result/hostlist_original.txt
 fi
 
+if [ -s temp/nxdomain.txt ]; then
+    sort -u temp/nxdomain.txt >> result/hostlist_original.txt
+fi
+
 for file in config/custom/{include,exclude}-{hosts,ips}-custom.txt; do
     basename=$(basename $file | sed 's|-custom.txt||')
-    sort -u $file config/${basename}-dist.txt | uniq | awk 'NF' > temp/${basename}.txt
+    sort -u $file config/${basename}-dist.txt | awk 'NF' > temp/${basename}.txt
 done
 sort -u temp/include-hosts.txt result/hostlist_original.txt > temp/hostlist_original_with_include.txt
 
@@ -35,7 +40,7 @@ fi
 awk -F ';' '$1 ~ /\// {print $1}' temp/list.csv | egrep -o '([0-9]{1,3}\.){3}[0-9]{1,3}\/[0-9]{1,2}' | sort -u > result/blocked-ranges.txt
 sort -u temp/include-ips.txt result/blocked-ranges.txt > result/blocked-ranges-with-include.txt
 
-if [ ! -z "$DOCKER_SUBNET" ]; then
+if [ -n "$DOCKER_SUBNET" ]; then
     echo "$DOCKER_SUBNET" >> result/blocked-ranges-with-include.txt
 fi
 

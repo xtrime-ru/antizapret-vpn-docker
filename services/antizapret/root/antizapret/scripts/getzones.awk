@@ -1,4 +1,7 @@
-BEGIN {RS="\n|\r"}
+BEGIN {
+    RS="\n|\r";
+    IGNORECASE=1;
+}
 
 # Remove comments
 {sub(/#.*$/, "", $1)}
@@ -20,7 +23,7 @@ BEGIN {RS="\n|\r"}
 # Removing leading "www."
 {sub(/^www\./, "", $1)}
 
-# Removing ending dot
-{sub(/\.$/, "", $1)}
+# Removing non letter symbols after domain
+{sub(/[^a-zа-я]+$/, "", $1)}
 
 {print $1}

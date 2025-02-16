@@ -151,7 +151,8 @@ Antizapret:
 - `ADGUARDHOME_PASSWORD_HASH=` - hashed password, taken from the AdGuardHome.yaml file after the first run using `ADGUARDHOME_PASSWORD`
 - `DNS=1.1.1.1` - Upstream DNS for resolving blocked sites
 - `ROUTES` - list of VPN containers and their virtual addresses. Needed for uniq client addresses in adguard logs 
-- `LISTS` - url to get blocked domains lists
+- `LISTS` - list of urls to get blocked domains lists
+- `IP_LIST` - one url to get list of blocked ips and domains
 
 Filebrowser:
 - `FILEBROWSER_PORT=admin`

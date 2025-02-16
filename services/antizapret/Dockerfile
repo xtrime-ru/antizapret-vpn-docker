@@ -77,6 +77,7 @@ RUN <<-"EOF" bash -ex
 EOF
 
 RUN <<-"EOF" bash -ex
+    export IP_LIST=https://raw.githubusercontent.com/zapret-info/z-i/master/dump.csv.gz
     export LISTS='
         https://raw.githubusercontent.com/zapret-info/z-i/master/nxdomain.txt;
         https://raw.githubusercontent.com/dartraiden/no-russia-hosts/master/hosts.txt;
