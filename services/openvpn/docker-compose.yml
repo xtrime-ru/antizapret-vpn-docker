@@ -12,8 +12,7 @@ services:
       - $PWD/config/openvpn:/etc/openvpn
       - $PWD/config/antizapret/result:/opt/antizapret/result
     ports:
-      - 1194:1194/udp
-      # - 1194:1194
+      - "1194:1194"
     depends_on:
       - openvpn-ui
     environment:
