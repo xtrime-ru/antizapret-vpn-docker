@@ -69,12 +69,20 @@ get_services() {
 }
 
 generate_global_config() {
-    cat <<EOF >>"$CONFIG_FILE"
+    if [ "$IS_SELF_SIGNED" -eq 1 ]; then
+        cat <<EOF >>"$CONFIG_FILE"
+{
+  auto_https disable_redirects
+}
+EOF
+    else
+        cat <<EOF >>"$CONFIG_FILE"
 {
   email $PROXY_EMAIL
   auto_https disable_redirects
 }
 EOF
+    fi
     echo "[INFO] Global configuration block created."
 }
 
@@ -123,6 +131,7 @@ main() {
     if [ -z "${PROXY_DOMAIN:-}" ] || [ -z "${PROXY_EMAIL:-}" ]; then
         IS_SELF_SIGNED=1
         generate_certificate
+        generate_global_config
     else
         IS_SELF_SIGNED=0
         generate_global_config
