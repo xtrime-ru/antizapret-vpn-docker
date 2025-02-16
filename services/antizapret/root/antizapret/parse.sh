@@ -35,7 +35,9 @@ fi
 awk -F ';' '$1 ~ /\// {print $1}' temp/list.csv | egrep -o '([0-9]{1,3}\.){3}[0-9]{1,3}\/[0-9]{1,2}' | sort -u > result/blocked-ranges.txt
 sort -u temp/include-ips.txt result/blocked-ranges.txt > result/blocked-ranges-with-include.txt
 
-echo "$DOCKER_SUBNET" >> result/blocked-ranges-with-include.txt
+if [ ! -z "$DOCKER_SUBNET" ]; then
+    echo "$DOCKER_SUBNET" >> result/blocked-ranges-with-include.txt
+fi
 
 # Generate OpenVPN route file
 echo -n > result/openvpn-blocked-ranges.txt
