@@ -92,7 +92,7 @@ services:
    docker compose build
    docker compose up -d
 ```
-4. Admin panels started at following ports at your host (with proxy container):
+4. Admin panels started as HTTPS at following ports at your host (with proxy container):
 - dashboard: 433
 - adguard: 1443
 - filebrowser: 2443
