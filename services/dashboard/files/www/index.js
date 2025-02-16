@@ -63,9 +63,9 @@ fetch(servicesUrl)
     .then(response => response.json())
     .then(data => {
         data.forEach(service => {
-            serviceHashes.push(service.hash);
-            let url = `https://${currentHost}:${service.port}`;
-            createTab(service.name, url, service.hash);
+            serviceHashes.push(service.internalHostname);
+            let url = `https://${currentHost}:${service.externalPort}`;
+            createTab(service.name, url, service.internalHostname);
         });
 
         tryActivateTabFromHash();

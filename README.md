@@ -25,6 +25,7 @@ https://t.me/antizapret_support
 - Adguard as main DNS resolver
 - filebrowser as web viewer & editor for `*-custom.txt` files
 - Unified dashboard
+- Optional built-in reverse proxy based on caddy
 
 
 # Installation
@@ -75,6 +76,15 @@ services:
     extends:
       file: docker-compose.wireguard-amnezia.yml
       service: wireguard-amnezia
+  proxy:
+  extends:
+    file: services/proxy/docker-compose.yml
+    service: proxy
+  environment:
+    # If not set, will be created and used self-signed certificate
+    - PROXY_DOMAIN=
+    # If not set, will be created and used self-signed certificate
+    - PROXY_EMAIL=
 ```
 3. Start services:
 ```shell
@@ -82,13 +92,13 @@ services:
    docker compose build
    docker compose up -d
 ```
-4. Admin panels started at following ports at your host:
-- dashboard: 1433
-- adguard: 2443
-- filebrowser: 3443
-- openvpn: 4443
-- wireguard: 5443
-- wireguard-amnezia: 6443
+4. Admin panels started at following ports at your host (with proxy container):
+- dashboard: 433
+- adguard: 1443
+- filebrowser: 2443
+- openvpn: 3443
+- wireguard: 4443
+- wireguard-amnezia: 5443
 
 
 ## Update
@@ -310,5 +320,6 @@ For example **Apple** devices **will not** be able **to connect** to this server
 - [IPsec VPN](https://github.com/hwdsl2/docker-ipsec-vpn-server) — used for IPsec integration
 - [AdGuardHome](https://github.com/AdguardTeam/AdGuardHome) - DNS resolver
 - [filebrowser](https://github.com/filebrowser/filebrowser) - web file browser & editor
-- [nginx](https://github.com/nginx/nginx) - web server for unified dashboard
+- [lighttpd](https://github.com/lighttpd/lighttpd1.4) - web server for unified dashboard
+- [caddy](https://github.com/caddyserver/caddy) - reverser proxy
 - [No Thought Is a Crime](https://ntc.party) — a forum about technical, political and economical aspects of internet censorship in different countries
