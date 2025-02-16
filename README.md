@@ -152,7 +152,7 @@ Antizapret:
 - `DNS=1.1.1.1` - Upstream DNS for resolving blocked sites
 - `ROUTES` - list of VPN containers and their virtual addresses. Needed for uniq client addresses in adguard logs 
 - `LISTS` - list of urls to get blocked domains lists
-- `IP_LIST` - one url to get list of blocked ips and domains
+- `IP_LIST` - main url to get list of blocked ips and domains. Override with blank value to disable download of this list.
 
 Filebrowser:
 - `FILEBROWSER_PORT=admin`

@@ -1,9 +1,11 @@
 #!/bin/bash -e
 
-
 HERE="$(dirname "$(readlink -f "${0}")")"
 cd "$HERE"
 
+if [ -s  /etc/default/antizapret ]; then
+    source /etc/default/antizapret
+fi
 
 FORCE=${FORCE:-false}
 

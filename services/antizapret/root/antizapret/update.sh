@@ -13,11 +13,12 @@ fi
 
 echo -n > temp/list.csv
 if [ -n "$IP_LIST" ]; then
-   timeout 30 curl -f --fail-early --compressed -o temp/list.csv.gz "$IP_LIST" || exit 1
-   LISTSIZE="$(timeout 30 curl -sI "$IP_LIST"| awk 'BEGIN {IGNORECASE=1;} /content-length/ {sub(/[ \t\r\n]+$/, "", $2); print $2}')"
-   [[ "$LISTSIZE" != "$(stat -c '%s' temp/list.csv.gz)" ]] && echo "List 1 size differs" && exit 2
-   gunzip -fd temp/list.csv.gz || exit 3
-   iconv -f cp1251 -t utf8 temp/list.csv | sponge temp/list.csv
+    echo "Downloading ip list from $IP_LIST"
+    timeout 30 curl -f --fail-early --compressed -o temp/list.csv.gz "$IP_LIST" || exit 1
+    LISTSIZE="$(timeout 30 curl -sI "$IP_LIST"| awk 'BEGIN {IGNORECASE=1;} /content-length/ {sub(/[ \t\r\n]+$/, "", $2); print $2}')"
+    [[ "$LISTSIZE" != "$(stat -c '%s' temp/list.csv.gz)" ]] && echo "List 1 size differs" && exit 2
+    gunzip -fd temp/list.csv.gz || exit 3
+    iconv -f cp1251 -t utf8 temp/list.csv | sponge temp/list.csv
 fi
 
 echo -n > temp/nxdomain.txt

@@ -12,7 +12,7 @@ echo "Size of temp/nxdomain.txt: $(cat temp/nxdomain.txt | wc -l) lines"
 if [[ "$SKIP_UPDATE_FROM_ZAPRET" == false ]] && [ -s temp/list.csv ]; then
    awk -F ';' '{print $2}' temp/list.csv | sort -u | awk '/^$/ {next} /\\/ {next} /^[а-яА-Яa-zA-Z0-9\-_\.\*]*+$/ {gsub(/\*\./, ""); gsub(/\.$/, ""); print}' | grep -Fv 'bеllonа' | CHARSET=UTF-8 idn --no-tld | grep -Fv 'xn--' > result/hostlist_original.txt
 else
-   echo -e "\n" > result/hostlist_original.txt
+   echo -n > result/hostlist_original.txt
 fi
 
 if [ -s temp/nxdomain.txt ]; then
