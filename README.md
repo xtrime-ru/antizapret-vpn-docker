@@ -320,5 +320,5 @@ For example **Apple** devices **will not** be able **to connect** to this server
 - [AdGuardHome](https://github.com/AdguardTeam/AdGuardHome) - DNS resolver
 - [filebrowser](https://github.com/filebrowser/filebrowser) - web file browser & editor
 - [lighttpd](https://github.com/lighttpd/lighttpd1.4) - web server for unified dashboard
-- [caddy](https://github.com/caddyserver/caddy) - reverser proxy
+- [caddy](https://github.com/caddyserver/caddy) - reverse proxy
 - [No Thought Is a Crime](https://ntc.party) — a forum about technical, political and economical aspects of internet censorship in different countries
