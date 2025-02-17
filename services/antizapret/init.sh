@@ -39,7 +39,7 @@ LIST='${LISTS:-""}'
 ADGUARDHOME_PORT=${ADGUARDHOME_PORT:-"3000"}
 ADGUARDHOME_USERNAME='${ADGUARDHOME_USERNAME}'
 ADGUARDHOME_PASSWORD_HASH='${ADGUARDHOME_PASSWORD_HASH}'
-DNS=${DNS:-"1.1.1.1"}
+DNS=${DNS:-"8.8.8.8"}
 EOF
 source /etc/default/antizapret
 # autoload vars when logging in into shell with 'bash -l'
