@@ -16,12 +16,12 @@ services:
       # If not set, will be created and used self-signed certificate
       - PROXY_EMAIL=
       # PROXY_SERVICE_N=external_port:internal_hostname:internal_port
-      - PROXY_SERVICE_1=Dashboard:443:dashboard:80
-      - PROXY_SERVICE_2=AdGuard:1443:antizapret:3000
-      - PROXY_SERVICE_3=File Browser:2443:filebrowser:80
-      - PROXY_SERVICE_4=OpenVPN UI:3443:openvpn-ui:8080
-      - PROXY_SERVICE_5=WireGuard:4443:wireguard:51821
-      - PROXY_SERVICE_6=WireGuard Amnezia:5443:wireguard-amnezia:51821
+      - PROXY_SERVICE_1=Dashboard:443:dashboard.antizapret:80
+      - PROXY_SERVICE_2=AdGuard:1443:core.antizapret:3000
+      - PROXY_SERVICE_3=File Browser:2443:filebrowser.antizapret:80
+      - PROXY_SERVICE_4=OpenVPN UI:3443:openvpn-ui.antizapret:8080
+      - PROXY_SERVICE_5=WireGuard:4443:wireguard.antizapret:51821
+      - PROXY_SERVICE_6=WireGuard Amnezia:5443:wireguard-amnezia.antizapret:51821
     volumes:
       - ./caddy_data:/data
       - ./caddy_config:/config

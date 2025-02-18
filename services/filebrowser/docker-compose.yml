@@ -1,6 +1,6 @@
 services:
   filebrowser:
-    hostname: filebrowser
+    hostname: filebrowser.antizapret
     restart: unless-stopped
     build: .
     logging:

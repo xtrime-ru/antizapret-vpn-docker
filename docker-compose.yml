@@ -1,11 +1,10 @@
-# networks:
-#   antizapret:
-#     name: antizapret
-#     driver: bridge
-#     ipam:
-#       config:
-#         - subnet: 10.0.0.0/24
-#           gateway: 10.0.0.1
+networks:
+  default:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.200.0.0/24
+          gateway: 10.200.0.1
 
 services:
   antizapret:
