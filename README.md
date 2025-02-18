@@ -77,14 +77,14 @@ services:
       file: docker-compose.wireguard-amnezia.yml
       service: wireguard-amnezia
   proxy:
-  extends:
-    file: services/proxy/docker-compose.yml
-    service: proxy
-  environment:
-    # If not set, will be created and used self-signed certificate
-    - PROXY_DOMAIN=
-    # If not set, will be created and used self-signed certificate
-    - PROXY_EMAIL=
+    extends:
+      file: services/proxy/docker-compose.yml
+      service: proxy
+    environment:
+      # If not set, will be created and used self-signed certificate
+      - PROXY_DOMAIN=
+      # If not set, will be created and used self-signed certificate
+      - PROXY_EMAIL=
 ```
 3. Start services:
 ```shell
