@@ -30,7 +30,7 @@ fi
 cat << EOF | sponge /etc/default/antizapret
 PYTHONUNBUFFERED=1
 SELF_IP=$(hostname -i)
-DOCKER_SUBNET=$(ip route | grep -oEh "^10.200.*\/[[:digit:]]{1,2}")
+DOCKER_SUBNET=$(ip route | awk '/default/ {dev=$5} /proto kernel/ && $0 ~ dev {print $1; exit}')
 SKIP_UPDATE_FROM_ZAPRET=${SKIP_UPDATE_FROM_ZAPRET:-false}
 UPDATE_TIMER=${UPDATE_TIMER:-"6h"}
 ROUTES='${ROUTES:-""}'
