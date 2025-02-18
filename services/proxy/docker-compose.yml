@@ -23,8 +23,9 @@ services:
       - PROXY_SERVICE_5=WireGuard:4443:wireguard.antizapret:51821
       - PROXY_SERVICE_6=WireGuard Amnezia:5443:wireguard-amnezia.antizapret:51821
     volumes:
-      - ./caddy_data:/data
-      - ./caddy_config:/config
+      - /etc/timezone:/etc/timezone:ro
+      - $PWD/config/caddy/data:/data
+      - $PWD/config/caddy/config:/config
     depends_on:
       - dashboard
       - antizapret

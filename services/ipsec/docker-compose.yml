@@ -9,6 +9,8 @@ services:
       options:
         max-size: 100k
         max-file: 2
+    volumes:
+      - /etc/timezone:/etc/timezone:ro
     ports:
       - 500:500/udp
       - 4500:4500/udp
