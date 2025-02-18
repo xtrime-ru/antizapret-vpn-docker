@@ -3,6 +3,8 @@ services:
     hostname: dashboard.antizapret
     restart: unless-stopped
     build: .
+    volumes:
+      - /etc/timezone:/etc/timezone:ro
     environment:
       - DASHBOARD_USERNAME=admin
       - DASHBOARD_PASSWORD=password
