@@ -10,6 +10,7 @@ services:
       timeout: 10s
       retries: 1
     volumes:
+      - /etc/timezone:/etc/timezone:ro
       - $PWD/config/openvpn:/etc/openvpn
       - $PWD/config/antizapret/result:/opt/antizapret/result
     ports:
@@ -28,6 +29,7 @@ services:
       context: .
       dockerfile: Dockerfile.ui
     volumes:
+      - /etc/timezone:/etc/timezone:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - $PWD/config/openvpn/db:/opt/openvpn-ui/db
       - $PWD/config/openvpn/pki:/usr/share/easy-rsa/pki
