@@ -1,5 +1,6 @@
 services:
   openvpn:
+    hostname: openvpn.antizapret
     restart: unless-stopped
     privileged: true
     build: .
@@ -20,6 +21,7 @@ services:
       - OBFUSCATE_TYPE=0
 
   openvpn-ui:
+    hostname: openvpn-ui.antizapret
     restart: unless-stopped
     privileged: true
     build:

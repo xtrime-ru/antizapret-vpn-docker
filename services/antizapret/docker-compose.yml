@@ -1,6 +1,7 @@
 services:
   antizapret:
     image: xtrime/antizapret-vpn
+    hostname: core.antizapret
     restart: unless-stopped
     stop_signal: SIGRTMIN+4
     privileged: true

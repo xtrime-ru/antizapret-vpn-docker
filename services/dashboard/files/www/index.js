@@ -1,4 +1,4 @@
-const servicesUrl= "/services.json"
+const servicesUrl= "/config.json"
 
 let currentHost = window.location.hostname;
 let tabContainer = document.getElementById('tabContainer');
@@ -61,12 +61,24 @@ function tryActivateTabFromHash() {
 
 fetch(servicesUrl)
     .then(response => response.json())
-    .then(data => {
-        data.forEach(service => {
-            serviceHashes.push(service.internalHostname);
-            let url = `https://${currentHost}:${service.externalPort}`;
-            createTab(service.name, url, service.internalHostname);
-        });
+    .then(config => {
+        let internalHostname = config.internalHostname;
+        let services = config.services;
+
+        if (internalHostname === currentHost){
+            services.forEach(service => {
+                serviceHashes.push(service.internalHostname);
+                let url = `http://${service.internalHostname}:${service.internalPort}`;
+                createTab(service.name, url, service.internalHostname);
+            });
+        }
+        else {
+            services.forEach(service => {
+                serviceHashes.push(service.internalHostname);
+                let url = `https://${currentHost}:${service.externalPort}`;
+                createTab(service.name, url, service.internalHostname);
+            });
+        }
 
         tryActivateTabFromHash();
     })

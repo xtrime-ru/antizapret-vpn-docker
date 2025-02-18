@@ -30,6 +30,7 @@ x-common: &common
 services:
   wireguard:
     <<: *common
+    hostname: wireguard.antizapret
     build:
       context: .
       args:
@@ -41,6 +42,7 @@ services:
 
   wireguard-amnezia: 
     <<: *common
+    hostname: wireguard-amnezia.antizapret
     build:
       context: .
       args:

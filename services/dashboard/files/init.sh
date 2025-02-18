@@ -5,7 +5,7 @@ if [ -z "${SERVER_ROOT:-}" ]; then
     exit 1
 fi
 
-SERVICES_JSON="$SERVER_ROOT/services.json"
+CONFIG_JSON="$SERVER_ROOT/config.json"
 HTPASSWD_FILE="/etc/lighttpd/.htpasswd"
 AUTH_CONF_FILE="/etc/lighttpd/conf.d/010-auth.conf"
 MIME_ASSIGN_FILE="/etc/lighttpd/conf.d/000-mime.conf"
@@ -89,8 +89,13 @@ create_services_json() {
         COUNTER=$((COUNTER + 1))
     done
 
-    echo "[$services]" | jq '.' > "$SERVICES_JSON"
-    echo "[INFO] JSON file has been successfully created at: $SERVICES_JSON"
+    config=$(jq -n \
+        --arg internalHostname "$(hostname)" \
+        --argjson services "[$services]" \
+        '{services: $services, internalHostname: $internalHostname}')
+
+    echo "$config" > "$CONFIG_JSON"
+    echo "[INFO] JSON file has been successfully created at: $CONFIG_JSON"
 }
 
 add_json_mimetype
