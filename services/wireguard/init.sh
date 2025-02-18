@@ -28,7 +28,7 @@ if [ -z "$WG_ALLOWED_IPS" ]; then
     fi
 fi
 
-export DOCKER_SUBNET=$(ip route | awk '/default/ {dev=$5} /proto kernel/ && $0 ~ dev {print $1; exit}')
+export DOCKER_SUBNET=$(ip r | awk '/default/ {dev=$5} !/default/ && $0 ~ dev {print $1}')
 export AZ_HOST=$(dig +short antizapret)
 
 export WG_POST_UP=$(tr '\n' ' ' << EOF
