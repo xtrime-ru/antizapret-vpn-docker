@@ -50,17 +50,17 @@ services:
     environment:
       - DASHBOARD_PASSWORD=somestrongpassword
     extends:
-      file: docker-compose.dashboard.yml
+      file: services/dashboard/docker-compose.yml
       service: dashboard
   filebrowser:
     environment:
       - FILEBROWSER_PASSWORD=somestrongpassword
     extends:
-      file: docker-compose.filebrowser.yml
+      file: services/filebrowser/docker-compose.yml
       service: filebrowser
   openvpn:
     extends:
-      file: docker-compose.openvpn.yml
+      file: services/openvpn/docker-compose.yml
       service: openvpn
     environment:
       - OBFUSCATE_TYPE=2
@@ -68,13 +68,24 @@ services:
     environment:
       - OPENVPN_ADMIN_PASSWORD=somestrongpassword
     extends:
-      file: docker-compose.openvpn.yml
+      file: services/openvpn/docker-compose.yml
       service: openvpn-ui
-  wireguard-amnezia:
+  wireguard:
     environment:
       - WIREGUARD_PASSWORD=somestrongpassword
     extends:
-      file: docker-compose.wireguard-amnezia.yml
+      file: services/wireguard/docker-compose.yml
+      service: wireguard-amnezia
+  wireguard-amnezia:
+    environment:
+      - WIREGUARD_PASSWORD=somestrongpassword
+      - PORT=51831
+      - WG_PORT=51830
+    ports: !override
+      - 51830:51830/udp
+      - 51831:51831/tcp
+    extends:
+      file: services/wireguard/docker-compose.yml
       service: wireguard-amnezia
   proxy:
     extends:

@@ -42,19 +42,25 @@ services:
     environment:
       - OPENVPN_ADMIN_PASSWORD=password
 
-  # wireguard:
-  #   extends:
-  #     file: services/wireguard/docker-compose.yml
-  #     service: wireguard
-  #   environment:
-  #     - WIREGUARD_PASSWORD=password
+  wireguard:
+     extends:
+       file: services/wireguard/docker-compose.yml
+       service: wireguard
+     environment:
+       - WIREGUARD_PASSWORD=password
 
   wireguard-amnezia:
     extends:
       file: services/wireguard/docker-compose.yml
       service: wireguard-amnezia
+    ports: !override
+      - 51830:51830/udp
+      - 51831:51831/tcp
     environment:
       - WIREGUARD_PASSWORD=password
+      - PORT=51831
+      - WG_PORT=51830
+
 
   proxy:
     extends:
