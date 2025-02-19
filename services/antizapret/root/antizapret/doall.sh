@@ -4,10 +4,10 @@ HERE="$(dirname "$(readlink -f "${0}")")"
 cd "$HERE"
 
 if [ -s  /etc/default/antizapret ]; then
+    set -a
     source /etc/default/antizapret
+    set +a
 fi
-
-export DOCKER_SUBNET
 
 FORCE=${FORCE:-false}
 
