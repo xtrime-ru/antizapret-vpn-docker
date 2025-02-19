@@ -7,6 +7,8 @@ if [ -s  /etc/default/antizapret ]; then
     source /etc/default/antizapret
 fi
 
+export DOCKER_SUBNET
+
 FORCE=${FORCE:-false}
 
 STAGE_1=${STAGE_1:-false}

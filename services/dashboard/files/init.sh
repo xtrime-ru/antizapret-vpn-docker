@@ -11,7 +11,7 @@ AUTH_CONF_FILE="/etc/lighttpd/conf.d/010-auth.conf"
 MIME_ASSIGN_FILE="/etc/lighttpd/conf.d/000-mime.conf"
 
 add_json_mimetype(){
-    sed -i "/mimetype\.assign\s*=\s*(/a \    \".json\"         =>      \"application/json\"," "$MIME_ASSIGN_FILE"
+    sed -i "/mimetype\.assign\s*=\s*(/a \  \".json\"         =>      \"application/json\"," "$MIME_ASSIGN_FILE"
 }
 
 create_auth() {
