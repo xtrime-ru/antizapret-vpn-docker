@@ -16,6 +16,8 @@ services:
     environment:
       - DASHBOARD_USERNAME=admin
       - DASHBOARD_PASSWORD=password
+    depends_on:
+      - antizapret
 
   filebrowser:
     extends:
@@ -24,6 +26,8 @@ services:
     environment:
       - FILEBROWSER_USERNAME=admin
       - FILEBROWSER_PASSWORD=password
+    depends_on:
+      - antizapret
 
   # ipsec:
   #   extends:
@@ -34,6 +38,8 @@ services:
     extends:
       file: services/openvpn/docker-compose.yml
       service: openvpn
+    depends_on:
+      - openvpn-ui
 
   openvpn-ui:
     extends:
@@ -41,6 +47,8 @@ services:
       service: openvpn-ui
     environment:
       - OPENVPN_ADMIN_PASSWORD=password
+    depends_on:
+      - antizapret
 
   wireguard:
      extends:
@@ -48,6 +56,8 @@ services:
        service: wireguard
      environment:
        - WIREGUARD_PASSWORD=password
+     depends_on:
+       - antizapret
 
   wireguard-amnezia:
     extends:
@@ -60,6 +70,8 @@ services:
       - WIREGUARD_PASSWORD=password
       - PORT=51831
       - WG_PORT=51830
+    depends_on:
+      - antizapret
 
 
   proxy:

@@ -52,6 +52,8 @@ services:
     extends:
       file: services/dashboard/docker-compose.yml
       service: dashboard
+    depends_on:
+       - antizapret
   filebrowser:
     environment:
       - FILEBROWSER_PASSWORD=somestrongpassword
@@ -64,18 +66,24 @@ services:
       service: openvpn
     environment:
       - OBFUSCATE_TYPE=2
+    depends_on:
+       - openvpn-ui
   openvpn-ui:
     environment:
       - OPENVPN_ADMIN_PASSWORD=somestrongpassword
     extends:
       file: services/openvpn/docker-compose.yml
       service: openvpn-ui
+    depends_on:
+       - antizapret
   wireguard:
     environment:
       - WIREGUARD_PASSWORD=somestrongpassword
     extends:
       file: services/wireguard/docker-compose.yml
       service: wireguard-amnezia
+    depends_on:
+       - antizapret
   wireguard-amnezia:
     environment:
       - WIREGUARD_PASSWORD=somestrongpassword
@@ -87,6 +95,8 @@ services:
     extends:
       file: services/wireguard/docker-compose.yml
       service: wireguard-amnezia
+    depends_on:
+      - antizapret
   proxy:
     extends:
       file: services/proxy/docker-compose.yml
@@ -164,7 +174,7 @@ You can define these variables in docker-compose.override.yml file for your need
 
 Antizapret:
 - `SKIP_UPDATE_FROM_ZAPRET=true` - do not download and use list of all blocked domains from internet.
-	Will reduce RAM consumption. Need to manually fill domains in `*-custom.txt` files.
+    Will reduce RAM consumption. Need to manually fill domains in `*-custom.txt` files.
 - `UPDATE_TIMER=1d` - blocked domains update interval
 - `ADGUARDHOME_PORT=3000`
 - `ADGUARDHOME_USERNAME=admin`
@@ -297,11 +307,11 @@ apt install -y iptables-persistent
 iperf3 server is included in antizapret-vpn container.
 1. Connect to VPN
 2. Use iperf3 client on your phone or computer to check upload/download speed.
-	Example 10 threads for 10 seconds and report result every second:
-	```shell
-	iperf3 -c 10.224.0.1 -i1 -t10 -P10
-	iperf3 -c 10.224.0.1 -i1 -t10 -P10 -R
-	```
+    Example 10 threads for 10 seconds and report result every second:
+    ```shell
+    iperf3 -c 10.224.0.1 -i1 -t10 -P10
+    iperf3 -c 10.224.0.1 -i1 -t10 -P10 -R
+    ```
 
 ## IPsec/XAuth (Cisco IPsec) server
 **Important notice**: not all clients support tunnel-split (send only part of traffic via VPN).
