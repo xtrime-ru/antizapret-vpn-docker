@@ -27,9 +27,4 @@ services:
       - $PWD/config/caddy/data:/data
       - $PWD/config/caddy/config:/config
     depends_on:
-      - dashboard
       - antizapret
-      - filebrowser
-      - openvpn-ui
-      - wireguard
-      - wireguard-amnezia

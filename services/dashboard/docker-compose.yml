@@ -17,7 +17,3 @@ services:
       - DASHBOARD_SERVICE_5=WireGuard Amnezia:5443:wireguard-amnezia.antizapret:51821
     depends_on:
       - antizapret
-      - filebrowser
-      - openvpn-ui
-      - wireguard
-      - wireguard-amnezia
