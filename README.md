@@ -40,73 +40,23 @@ https://t.me/antizapret_support
    git clone https://github.com/xtrime-ru/antizapret-vpn-docker.git antizapret
    cd antizapret
    ```
-2. Create docker-compose.override.yml with services you need. For example:
+2. Create docker-compose.override.yml with services you need. Minimal example with only wireguard:
 ```yml
 services:
   antizapret:
     environment:
       - ADGUARDHOME_PASSWORD=somestrongpassword
-  dashboard:
-    environment:
-      - DASHBOARD_PASSWORD=somestrongpassword
-    extends:
-      file: services/dashboard/docker-compose.yml
-      service: dashboard
-    depends_on:
-       - antizapret
-  filebrowser:
-    environment:
-      - FILEBROWSER_PASSWORD=somestrongpassword
-    extends:
-      file: services/filebrowser/docker-compose.yml
-      service: filebrowser
-  openvpn:
-    extends:
-      file: services/openvpn/docker-compose.yml
-      service: openvpn
-    environment:
-      - OBFUSCATE_TYPE=2
-    depends_on:
-       - openvpn-ui
-  openvpn-ui:
-    environment:
-      - OPENVPN_ADMIN_PASSWORD=somestrongpassword
-    extends:
-      file: services/openvpn/docker-compose.yml
-      service: openvpn-ui
-    depends_on:
-       - antizapret
   wireguard:
-    environment:
-      - WIREGUARD_PASSWORD=somestrongpassword
-    extends:
-      file: services/wireguard/docker-compose.yml
-      service: wireguard-amnezia
-    depends_on:
-       - antizapret
-  wireguard-amnezia:
-    environment:
-      - WIREGUARD_PASSWORD=somestrongpassword
-      - PORT=51831
-      - WG_PORT=51830
-    ports: !override
-      - 51830:51830/udp
-      - 51831:51831/tcp
-    extends:
-      file: services/wireguard/docker-compose.yml
-      service: wireguard-amnezia
-    depends_on:
-      - antizapret
-  proxy:
-    extends:
-      file: services/proxy/docker-compose.yml
-      service: proxy
-    environment:
-      # If not set, will be created and used self-signed certificate
-      - PROXY_DOMAIN=
-      # If not set, will be created and used self-signed certificate
-      - PROXY_EMAIL=
+     environment:
+        - WIREGUARD_PASSWORD=somestrongpassword
+     extends:
+        file: services/wireguard/docker-compose.yml
+        service: wireguard
+     depends_on:
+        - antizapret
 ```
+Find full example in [docker-compose.override.sample.yml](./docker-compose.override.sample.yml)
+
 3. Start services:
 ```shell
    docker compose pull
