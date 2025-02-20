@@ -76,9 +76,9 @@ RUN <<-"EOF" bash -ex
     rm -frv /tmp/*
 EOF
 
-ARG DIST="0"
+ARG DIST=false
 RUN <<-"EOF" bash -ex
-    [ "$DIST" == "0" ] && exit 0
+    [ "$DIST" == false ] && exit 0
     export IP_LIST=https://raw.githubusercontent.com/zapret-info/z-i/master/dump.csv.gz
     export LISTS='
         https://raw.githubusercontent.com/zapret-info/z-i/master/nxdomain.txt;
