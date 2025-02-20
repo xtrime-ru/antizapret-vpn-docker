@@ -60,7 +60,9 @@ postrun 'until [[ "$(systemctl is-active systemd-journald)" == "active" ]]; do s
 
 # AdGuard initialization
 /bin/cp --update=none /root/adguardhome/* /opt/adguardhome/conf/
-/bin/cp --update=none /root/antizapret/result_dist/* /root/antizapret/result/
+if [ -d /root/antizapret/result_dist ]; then
+    /bin/cp --update=none /root/antizapret/result_dist/* /root/antizapret/result/
+fi
 /bin/cp --update=none /root/antizapret/result/adguard_upstream_dns_file /opt/adguardhome/conf/upstream_dns_file
 
 yq -i '
