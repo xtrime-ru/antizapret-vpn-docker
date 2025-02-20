@@ -3,7 +3,7 @@
 HERE="$(dirname "$(readlink -f "${0}")")"
 cd "$HERE"
 
-if [ -s  /etc/default/antizapret ]; then
+if [ -s /etc/default/antizapret ]; then
     set -a
     source /etc/default/antizapret
     set +a
@@ -14,9 +14,6 @@ FORCE=${FORCE:-false}
 STAGE_1=${STAGE_1:-false}
 STAGE_2=${STAGE_2:-false}
 STAGE_3=${STAGE_3:-false}
-
-SKIP_UPDATE_FROM_ZAPRET=${SKIP_UPDATE_FROM_ZAPRET:-false}
-export SKIP_UPDATE_FROM_ZAPRET
 
 FILES=(
     temp/list.csv

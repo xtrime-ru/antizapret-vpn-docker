@@ -79,11 +79,12 @@ EOF
 ARG DIST=false
 RUN <<-"EOF" bash -ex
     [ "$DIST" == false ] && exit 0
+    export SKIP_UPDATE_FROM_ZAPRET=false
     export IP_LIST=https://raw.githubusercontent.com/zapret-info/z-i/master/dump.csv.gz
     export LISTS='
         https://raw.githubusercontent.com/zapret-info/z-i/master/nxdomain.txt;
         https://raw.githubusercontent.com/dartraiden/no-russia-hosts/master/hosts.txt;
-        https://antifilter.download/list/domains.lst
+        https://antifilter.download/list/domains.lst;
     ';
 
     (STAGE_1=true STAGE_2=true STAGE_3=false /root/antizapret/doall.sh)

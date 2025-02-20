@@ -5,6 +5,7 @@ HERE="$(dirname "$(readlink -f "${0}")")"
 cd "$HERE"
 
 if [[ $SKIP_UPDATE_FROM_ZAPRET == true ]]; then
+    echo "Skip download of lists"
     rm -f temp/list.csv temp/nxdomain.txt
     echo -n > temp/list.csv
     echo -n > temp/nxdomain.txt
@@ -12,6 +13,7 @@ if [[ $SKIP_UPDATE_FROM_ZAPRET == true ]]; then
 fi
 
 echo -n > temp/list.csv
+echo "Filling temp/list.csv"
 if [ -n "$IP_LIST" ]; then
     echo "Downloading ip list from $IP_LIST"
     timeout 30 curl -f --fail-early --compressed -o temp/list.csv.gz "$IP_LIST" || exit 1
@@ -21,6 +23,7 @@ if [ -n "$IP_LIST" ]; then
     iconv -f cp1251 -t utf8 temp/list.csv | sponge temp/list.csv
 fi
 
+echo "Filling temp/nxdomain.txt"
 echo -n > temp/nxdomain.txt
 for NXDOMAINLINK in ${LISTS//;/ }; do
     echo "Downloading lists from $NXDOMAINLINK"
