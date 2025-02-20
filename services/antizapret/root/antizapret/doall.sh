@@ -68,12 +68,12 @@ for file in "${FILES[@]}"; do
     if [ -f $file ]; then
         if test "$(find $file -mmin +300)"; then
             echo "$file is outdated!"
-            STAGE_1=true; STAGE_2=true; break
+            STAGE_1=true; STAGE_2=true;
         fi
     else
         echo "$file is missing!"
         [[ $file =~ ^temp/(list.csv|nxdomain.txt)$ ]] && STAGE_1=true
-        STAGE_2=true; break
+        STAGE_2=true;
     fi
 done
 
