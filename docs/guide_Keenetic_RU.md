@@ -25,7 +25,7 @@
 
 ### OpenVPN клиентская часть
 1. [Установить компонент "Клиент и сервер OpenVPN"](https://help.keenetic.com/hc/ru/articles/360000880359-%D0%9A%D0%BB%D0%B8%D0%B5%D0%BD%D1%82-%D0%B8-%D1%81%D0%B5%D1%80%D0%B2%D0%B5%D1%80-OpenVPN)
-2. В файл конфигурации `antizapret-client-tcp.ovpn` или `antizapret-client-udp.ovpn` OpenVPN добавить строки:
+2. В файл конфигурации OpenVPN добавить строки:
     ```
     pull-filter ignore block-outside-dns
     route 77.88.8.8
