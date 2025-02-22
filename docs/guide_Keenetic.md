@@ -25,7 +25,7 @@ No special steps are required, follow [instructions](https://github.com/xtrime-r
 
 ### OpenVPN client part
 1. Install [OpenVPN client](https://help.keenetic.com/hc/en-us/articles/360000632239-OpenVPN-client)
-2. In the `antizapret-client-client-tcp.ovpn` or `antizapret-client-udp.ovpn` OpenVPN configuration file, add the lines:
+2. In the OpenVPN configuration file, add the lines:
     ```
     pull-filter ignore block-outside-dns
     route 77.88.8.8
