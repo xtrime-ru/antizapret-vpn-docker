@@ -252,7 +252,7 @@ apt install -y iptables-persistent
 ## Extra information
 - [OpenWrt setup guide](./docs/guide_OpenWrt.md) - how to setup OpenWrt router with this solution to keep LAN clients happy.
 - [Keenetic setup guide](./docs/guide_Keenetic.md) - instructions for configuring the server and connecting Keenetic routers to it [(на русском языке)](./docs/guide_Keenetic_RU.md)
--
+
 ## Test speed with iperf3
 iperf3 server is included in antizapret-vpn container.
 1. Connect to VPN
