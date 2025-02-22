@@ -11,8 +11,17 @@
     - [IPsec клиентская часть](#ipsec-клиентская-часть)
 
 ## OpenVPN
+
+Это самый удобный и надёжный способ обхода блокировок.
+
+Для более качественной работы OpenVPN рекомендуются новые роутеры Keenetic с быстрыми процессорами (от 1 ГГц) и большим объёмом оперативной памяти (от 256 Мб): Peak (KN-2710), Giga (KN-1012), Hopper (KN-3811/3812), Sprinter (KN-3711/3712), Challenger SE (KN-3911) и Ultra (KN-1811).
+
+Если на старом City KN-1511 скорость канала с контейнером ограничена 6-8 Мбит/с, то на новом Hopper KN-3811 скорость достигает 55-60 Мбит/с
+
+Подробную информацию о различных моделях и скорости работы OpenVPN на них можно найти на [сайте производителя](https://help.keenetic.com/hc/ru/articles/115005342025-Типы-VPN-соединений-в-Keenetic).
+
 ### OpenVPN серверная часть
-Особых действий не требуется, действовать по [инструкции](https://github.com/xtrime-ru/antizapret-vpn-docker?tab=readme-ov-file#installation).
+Особых действий не требуется, действовать по [инструкции](https://github.com/xtrime-ru/antizapret-vpn-docker?tab=readme-ov-file#installation). А так же необходимо [выпустить сертификат](https://github.com/xtrime-ru/antizapret-vpn-docker?tab=readme-ov-file#create-client-certificates).
 
 ### OpenVPN клиентская часть
 1. [Установить компонент "Клиент и сервер OpenVPN"](https://help.keenetic.com/hc/ru/articles/360000880359-%D0%9A%D0%BB%D0%B8%D0%B5%D0%BD%D1%82-%D0%B8-%D1%81%D0%B5%D1%80%D0%B2%D0%B5%D1%80-OpenVPN)
