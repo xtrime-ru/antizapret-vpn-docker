@@ -11,8 +11,17 @@
     - [IPsec client side](#ipsec-client-side)
 
 ## OpenVPN
+
+This is most usable and reliable way to bypass blockings.
+
+For better OpenVPN performance, new Keenetic routers with fast processors (from 1 GHz) and large amounts of RAM (from 256 MB) are recommended: Peak (KN-2710), Giga (KN-1012), Hopper (KN-3811/3812), Sprinter (KN-3711/3712), Challenger SE (KN-3911) и Ultra (KN-1811). **Give attention the model number.**
+
+For example: on old City KN-1511 bandwidth speed through server is limited at 6-8 Mbps, but on new Hopper KN-3811 speed reaches 55-60 Mbit/s
+
+Detailed information about the different models and OpenVPN speeds you can found at [manufacturer's website](https://help.keenetic.com/hc/en-us/articles/115005342025-VPN-types-in-Keenetic-routers).
+
 ### OpenVPN server part
-No special steps are required, follow [instructions](https://github.com/xtrime-ru/antizapret-vpn-docker?tab=readme-ov-file#installation).
+No special steps are required, follow [instructions](https://github.com/xtrime-ru/antizapret-vpn-docker?tab=readme-ov-file#installation). Also, you need [create client certificate](https://github.com/xtrime-ru/antizapret-vpn-docker?tab=readme-ov-file#create-client-certificates).
 
 ### OpenVPN client part
 1. Install [OpenVPN client](https://help.keenetic.com/hc/en-us/articles/360000632239-OpenVPN-client)
