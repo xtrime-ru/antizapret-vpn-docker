@@ -8,11 +8,6 @@ fi
 CONFIG_JSON="$SERVER_ROOT/config.json"
 HTPASSWD_FILE="/etc/lighttpd/.htpasswd"
 AUTH_CONF_FILE="/etc/lighttpd/conf.d/010-auth.conf"
-MIME_ASSIGN_FILE="/etc/lighttpd/conf.d/000-mime.conf"
-
-add_json_mimetype(){
-    sed -i "/mimetype\.assign\s*=\s*(/a \  \".json\"         =>      \"application/json\"," "$MIME_ASSIGN_FILE"
-}
 
 create_auth() {
     if [ -z "$DASHBOARD_USERNAME" ] || [ -z "$DASHBOARD_PASSWORD" ]; then
@@ -98,6 +93,5 @@ create_services_json() {
     echo "[INFO] JSON file has been successfully created at: $CONFIG_JSON"
 }
 
-add_json_mimetype
 create_auth
 create_services_json
