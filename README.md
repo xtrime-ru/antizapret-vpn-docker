@@ -6,7 +6,7 @@ This repo is based on idea from original [AntiZapret LXD image](https://bitbucke
 # Support and discussions group:
 https://t.me/antizapret_support
 
-# How it works?
+# How  works?
 
 1) List of blocked domains downloaded from open registry.
 2) List parsed and rules for dns resolver (adguardhome) created.
@@ -62,6 +62,7 @@ Find full example in [docker-compose.override.sample.yml](./docker-compose.overr
    docker compose pull
    docker compose build
    docker compose up -d
+   docker system prune -f
 ```
 4. Admin panels started as HTTPS at following ports at your host (with proxy container):
 - dashboard: 433

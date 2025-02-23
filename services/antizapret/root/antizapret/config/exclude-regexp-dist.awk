@@ -1,5 +1,3 @@
-/\.bet$/ {next}
-/\.win$/ {next}
 /duckdns/ {next}
 /linode\.com/ {next}
 /upcloud\.com/ {next}
@@ -10,11 +8,8 @@
 /\.traderc\.biz/ {next}
 /\.o-q\.biz/ {next}
 /\.dcge\.biz/ {next}
-/fonbet/ {next}
-/betcity/ {next}
 (/zerkalo/ && !/zerkalo\.io/) {next}
 /zigzag/ {next}
-/zenitbet/ {next}
 /winline/ {next}
 #/ttrcasino/ {next}
 /paripartners/ {next}
@@ -26,7 +21,6 @@
 /azino.*777/ {next}
 /777.*azino/ {next}
 /vulkan/ {next}
-/leonbet/ {next}
 /ru\.leon/ {next}
 /ru\.adleon/ {next}
 /leonaccess/ {next}
@@ -38,10 +32,7 @@
 #/casino\-/ {next}
 /bcity\-/ {next}
 /1x\-/ {next}
-/^1xbet[^.]/ {next}
-/^1xbet-/ {next}
 /1xmob/ {next}
-#/melbet/ {next}
 /bk\-info/ {next}
 /bkinfo/ {next}
 /marathon/ {next}
@@ -64,8 +55,6 @@
 /azart/ {next}
 #/besplatno/ {next}
 /sloty/ {next}
-/bet-boom/ {next}
-/betsbc/ {next}
 /^bk-/ {next}
 /^bkr/ {next}
 /bkinf0/ {next}
@@ -86,7 +75,6 @@
 /^diplom-/ {next}
 /^dosug-/ {next}
 /^dosug[0-9]{2}/ {next}
-/fon-bet/ {next}
 /^hydra[0-9]{2}/ {next}
 /^intim[0-9]{2}/ {next}
 /^livetv[0-9]{2}/ {next}
@@ -101,7 +89,6 @@
 /prostitutki/ {next}
 /spravka/ {next}
 /mossst/ {next}
-/mostbet/ {next}
 /diplom/ {next}
 /pharaon/ {next}
 /fortuna/ {next}
@@ -121,7 +108,6 @@
 /zakladki/ {next}
 /vullcan/ {next}
 /vulslots/ {next}
-/vulwinners/ {next}
 /slots/ {next}
 /traffaccess/ {next}
 /tide24/ {next}
@@ -130,7 +116,6 @@
 /sokol-24/ {next}
 /silmag/ {next}
 /faraon/ {next}
-/marbet/ {next}
 /joycazino/ {next}
 /joy-cazino/ {next}
 /jackpot/ {next}
@@ -145,10 +130,8 @@
 #/casino-x/ {next}
 /kinogb/ {next}
 /vulkanstars/ {next}
-/vulcanwin/ {next}
 /vlk-slots/ {next}
 /rutorg/ {next}
-/leonbets/ {next}
 /parimatch/ {next}
 /azartplay/ {next}
 /bbplay2017/ {next}
@@ -164,33 +147,23 @@
 /svetacdn\.in/ {next}
 /^a[bdfk]-[0-9]{5}/ {next}
 /^azimob[0-9]{5}/ {next}
-/^bets-.{2}-.{5}\./ {next}
-/^betwinner-/ {next}
-#/^gg[0-9]{2,3}\.bet/ {next}
 /^goldfishka[0-9]{2,3}\./ {next}
 /^kinovod[0-9]{2,3}\.cc/ {next}
 /^lite-1x/ {next}
 /^livetv[0-9]{2,3}.me/ {next}
-#/^loot[0-9]{2,3}\.bet/ {next}
-/^melbet-/ {next}
 /^ox-[0-9]{5}/ {next}
 /^partypoker[0-9]{3,5}\.com/ {next}
 /^pin-up[0-9]{2,3}\./ {next}
 /^pinup[0-9]{2,3}\./ {next}
-/^pinupbet[0-9]{2,3}\./ {next}
 /^pinupbk[0-9]{2,3}\./ {next}
 /^zfilm-hd-[0-9]{3,4}\./ {next}
 /appspot\.online/ {next}
 /alko.*[0-9]{2,3}\./ {next}
 /alco.*[0-9]{2,3}\./ {next}
-/x-1xbet-/ {next}
 /wylkan/ {next}
 /wull[kc]an/ {next}
 /wlnstar/ {next}
 /wlnsport/ {next}
-/winmaster/ {next}
-/winbets/ {next}
-/winbetline/ {next}
 /vigronn/ {next}
 /viagravnn/ {next}
 /vegas-grand/ {next}
@@ -229,7 +202,6 @@
 /^omgomgomg5/ {next}
 /^official-/ {next}
 /^livetv[0-9]*\./ {next}
-/^lite-betwin/ {next}
 /^leon-official/ {next}
 /^leon-registration/ {next}
 /^kupit/ {next}
@@ -237,14 +209,11 @@
 /^eldo/ {next}
 /^bkin-/ {next}
 /^bitstar/ {next}
-/^betwinner/ {next}
-/^bet1-x/ {next}
 /^bestpharma/ {next}
 /^balashiha-grand/ {next}
 /^apl[0-9]*\./ {next}
 /dot-xenon-antonym/ {next}
 /^zfilm-/ {next}
-/^1win-/ {next}
 /1-{0,1}xredir/ {next}
 /1-{0,1}slot/ {next}
 /1-{0,1}sport/ {next}
@@ -260,8 +229,6 @@
 /^azimut/ {next}
 /^azino/ {next}
 /^bestseeds-/ {next}
-/^betwinnwer-/ {next}
-/^betwin-/ {next}
 /^bitstarz/ {next}
 /^blacksprut/ {next}
 /^bongacams[0-9]/ {next}
@@ -297,7 +264,6 @@
 /rasta-/ {next}
 /quantum/ {next}
 /^prava/ {next}
-/1xbet/ {next}
 /1-xred/ {next}
 /1xslo/ {next}
 /^202[0123]/ {next}
@@ -310,13 +276,10 @@
 /^bbrrigght/ {next}
 /^beer/ {next}
 /^belochka/ {next}
-/^bet/ {next}
 /^bonus/ {next}
 
 # 25.07.2024
 /^100/ {next}
-/^1win/ {next}
-/^1-win/ {next}
 /^1xb/ {next}
 /^1-xb/ {next}
 /^7k-/ {next}
@@ -361,15 +324,18 @@
 /^klub/ {next}
 /^kraken/ {next}
 /^livetv[0-9]*\.me$/ {next}
-/^maxbet/ {next}
 /^megamarket/ {next}
 /^moskva-prava/ {next}
 /^pinup/ {next}
 /^pin-up/ {next}
 /^ramen/ {next}
-/^riobet/ {next}
 /^salon/ {next}
 /^sam-poehal/ {next}
 /^schetchik/ {next}
+
+/bet/ {next}
+/win/ {next}
+/lordfilm/ {next}
+/webtrader/ {next}
 
 /^[0-9\-]+\./ {next}

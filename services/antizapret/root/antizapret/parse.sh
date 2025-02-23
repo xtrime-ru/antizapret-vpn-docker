@@ -10,32 +10,32 @@ echo "Size of temp/nxdomain.txt: $(cat temp/nxdomain.txt | wc -l) lines"
 
 # Extract domains from list
 if [[ "$SKIP_UPDATE_FROM_ZAPRET" == false ]] && [ -s temp/list.csv ]; then
-   awk -F ';' '{print $2}' temp/list.csv | sort -u | awk '/^$/ {next} /\\/ {next} /^[а-яА-Яa-zA-Z0-9\-_\.\*]*+$/ {gsub(/\*\./, ""); gsub(/\.$/, ""); print}' | grep -Fv 'bеllonа' | CHARSET=UTF-8 idn --no-tld | grep -Fv 'xn--' > result/hostlist_original.txt
+   awk -F ';' '{print $2}' temp/list.csv | sort -u | awk '/^$/ {next} /\\/ {next} /^[а-яА-Яa-zA-Z0-9\-_\.\*]*+$/ {gsub(/\*\./, ""); gsub(/\.$/, ""); print}' | grep -Fv 'bеllonа' | CHARSET=UTF-8 idn --no-tld | grep -Fv 'xn--' > temp/hostlist_original.txt
 else
-   echo -n > result/hostlist_original.txt
+   echo -n > temp/hostlist_original.txt
 fi
 
 if [ -s temp/nxdomain.txt ]; then
-    sort -u temp/nxdomain.txt >> result/hostlist_original.txt
+    sort -u temp/nxdomain.txt >> temp/hostlist_original.txt
 fi
 
 for file in config/custom/{include,exclude}-{hosts,ips}-custom.txt; do
     basename=$(basename $file | sed 's|-custom.txt||')
     sort -u $file config/${basename}-dist.txt | awk 'NF' > temp/${basename}.txt
 done
-sort -u temp/include-hosts.txt result/hostlist_original.txt > temp/hostlist_original_with_include.txt
 
 awk -F ';' '{split($1, a, /\|/); for (i in a) {print a[i]";"$2}}' temp/list.csv | \
  grep -f config/exclude-hosts-by-ips-dist.txt | awk -F ';' '{print $2}' >> temp/exclude-hosts.txt
-
-awk -f scripts/getzones.awk temp/hostlist_original_with_include.txt | grep -v -F -x -f temp/exclude-hosts.txt | sort -u > result/hostlist_zones.txt
 
 if [[ "$RESOLVE_NXDOMAIN" == "yes" ]];
 then
     timeout 2h scripts/resolve-dns-nxdomain.py result/hostlist_zones.txt > temp/nxdomain-exclude-hosts.txt
     cat temp/nxdomain-exclude-hosts.txt >> temp/exclude-hosts.txt
-    awk -f scripts/getzones.awk temp/hostlist_original_with_include.txt | grep -v -F -x -f temp/exclude-hosts.txt | sort -u > result/hostlist_zones.txt
 fi
+
+awk -f scripts/getzones.awk temp/hostlist_original.txt > temp/hostlist_after_awk.txt
+sort -u temp/include-hosts.txt temp/hostlist_after_awk.txt | grep -v -F -x -f temp/exclude-hosts.txt > result/hostlist_zones.txt
+rm temp/hostlist*
 
 awk -F ';' '$1 ~ /\// {print $1}' temp/list.csv | egrep -o '([0-9]{1,3}\.){3}[0-9]{1,3}\/[0-9]{1,2}' | sort -u > result/blocked-ranges.txt
 sort -u temp/include-ips.txt result/blocked-ranges.txt > result/blocked-ranges-with-include.txt
