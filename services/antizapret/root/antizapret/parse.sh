@@ -33,10 +33,6 @@ then
     cat temp/nxdomain-exclude-hosts.txt >> temp/exclude-hosts.txt
 fi
 
-# Remove Windows line endings
-sed -i 's/\r//' temp/include-hosts.txt
-sed -i 's/\r//' temp/exclude-hosts.txt
-
 awk -f scripts/getzones.awk temp/hostlist_original.txt > temp/hostlist_after_awk.txt
 sort -u temp/include-hosts.txt temp/hostlist_after_awk.txt | grep -v -E -f temp/exclude-hosts.txt > result/hostlist_zones.txt
 rm temp/hostlist*
