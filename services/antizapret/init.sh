@@ -54,7 +54,7 @@ for file in $(echo {exclude,include}-{hosts,ips}-custom.txt); do
 done
 
 # add routes from env ROUTES
-postrun '/routes.sh'
+postrun 'while true; do /routes.sh; sleep 10; done'
 
 # output systemd logs to docker logs since container boot
 postrun 'until [[ "$(systemctl is-active systemd-journald)" == "active" ]]; do sleep 1; done; journalctl --boot --follow --lines=all --no-hostname'

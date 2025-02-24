@@ -9,12 +9,15 @@ function resolve () {
     echo "$(ipcalc $1 || echo $2)"
 }
 
+ROUTES_EXISTING=$(ip route)
+
 for route in ${ROUTES//;/ }; do
     host_route=${route%:*}
     gateway=$(resolve $host_route '')
     echo "Checking route: $route;  gateway: $gateway"
 
-    if [ ! -n "$gateway" ]; then continue; fi
+    if [ -z "$gateway" ] || [[ "$ROUTES_EXISTING" == *"$gateway"* ]]; then continue; fi
     subnet=${route#*:};
     ip route add $subnet via $gateway
+    echo "Route add: $subnet via $gateway"
 done
