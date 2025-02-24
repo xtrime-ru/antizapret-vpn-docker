@@ -24,6 +24,6 @@ BEGIN {
 {sub(/^www\./, "", $1)}
 
 # Removing non letter symbols after domain
-{sub(/[^a-zа-я]+$/, "", $1)}
+{sub(/[^а-яА-Яa-zA-Z]+$/, "", $1)}
 
 {print $1}

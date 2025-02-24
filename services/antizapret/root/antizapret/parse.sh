@@ -4,6 +4,7 @@ set -ex
 HERE="$(dirname "$(readlink -f "${0}")")"
 cd "$HERE"
 RESOLVE_NXDOMAIN="no"
+export LC_ALL=C.UTF-8
 
 echo "Size of temp/list.csv: $(cat temp/list.csv | wc -l) lines"
 echo "Size of temp/nxdomain.txt: $(cat temp/nxdomain.txt | wc -l) lines"
@@ -31,7 +32,7 @@ awk -F ';' '{split($1, a, /\|/); for (i in a) {print a[i]";"$2}}' temp/list.csv 
 if [[ "$RESOLVE_NXDOMAIN" == "yes" ]];
 then
     timeout 2h scripts/resolve-dns-nxdomain.py result/hostlist_zones.txt > temp/nxdomain-exclude-hosts.txt
-    cat temp/nxdomain-exclude-hosts.txt >> temp/exclude-hosts.txt
+    sort -o temp/exclude-hosts.txt -u temp/nxdomain-exclude-hosts.txt temp/exclude-hosts.txt
 fi
 
 awk -f scripts/getzones.awk temp/hostlist_original.txt | grep -v -E -f temp/exclude-hosts.txt | CHARSET=UTF-8 idn --no-tld  > result/hostlist_zones.txt
