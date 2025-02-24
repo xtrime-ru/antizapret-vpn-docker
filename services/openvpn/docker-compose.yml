@@ -18,6 +18,7 @@ services:
       - "1194:1194/udp"
     depends_on:
       - openvpn-ui
+      - antizapret
     environment:
       - OBFUSCATE_TYPE=0
 
@@ -39,3 +40,5 @@ services:
     environment:
       - OPENVPN_ADMIN_USERNAME=admin
       - OPENVPN_ADMIN_PASSWORD=gagaZush
+    depends_on:
+      - antizapret
