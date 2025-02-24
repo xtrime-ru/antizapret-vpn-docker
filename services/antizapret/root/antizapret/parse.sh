@@ -4,6 +4,7 @@ set -ex
 HERE="$(dirname "$(readlink -f "${0}")")"
 cd "$HERE"
 RESOLVE_NXDOMAIN="no"
+export LC_ALL=C.UTF-8
 
 echo "Size of temp/list.csv: $(cat temp/list.csv | wc -l) lines"
 echo "Size of temp/nxdomain.txt: $(cat temp/nxdomain.txt | wc -l) lines"
@@ -31,10 +32,10 @@ awk -F ';' '{split($1, a, /\|/); for (i in a) {print a[i]";"$2}}' temp/list.csv 
 if [[ "$RESOLVE_NXDOMAIN" == "yes" ]];
 then
     timeout 2h scripts/resolve-dns-nxdomain.py result/hostlist_zones.txt > temp/nxdomain-exclude-hosts.txt
-    cat temp/nxdomain-exclude-hosts.txt >> temp/exclude-hosts.txt
+    sort -o temp/exclude-hosts.txt -u temp/nxdomain-exclude-hosts.txt temp/exclude-hosts.txt
 fi
 
-awk -f scripts/getzones.awk temp/hostlist_original.txt | grep -v -F -x -f temp/exclude-hosts.txt | CHARSET=UTF-8 idn --no-tld  > result/hostlist_zones.txt
+awk -f scripts/getzones.awk temp/hostlist_original.txt | grep -v -F -x -f temp/exclude-hosts.txt | CHARSET=UTF-8 idn --no-tld > result/hostlist_zones.txt
 
 awk -F ';' '$1 ~ /\// {print $1}' temp/list.csv | egrep -o '([0-9]{1,3}\.){3}[0-9]{1,3}\/[0-9]{1,2}' > result/blocked-ranges.txt
 sort -o result/blocked-ranges-with-include.txt -u temp/include-ips.txt result/blocked-ranges.txt
