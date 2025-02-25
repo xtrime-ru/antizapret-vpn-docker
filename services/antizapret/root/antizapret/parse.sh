@@ -37,7 +37,7 @@ fi
 
 awk -f scripts/getzones.awk temp/hostlist_original.txt | grep -v -F -x -f temp/exclude-hosts.txt | CHARSET=UTF-8 idn --no-tld > result/hostlist_zones.txt
 
-awk -F ';' '$1 ~ /\// {print $1}' temp/list.csv | egrep -o '([0-9]{1,3}\.){3}[0-9]{1,3}\/[0-9]{1,2}' > result/blocked-ranges.txt
+awk -F ';' '$1 ~ /\// {print $1}' temp/list.csv | (egrep -o '([0-9]{1,3}\.){3}[0-9]{1,3}\/[0-9]{1,2}' || echo -n) > result/blocked-ranges.txt
 sort -o result/blocked-ranges-with-include.txt -u temp/include-ips.txt result/blocked-ranges.txt
 
 if [ -n "$DOCKER_SUBNET" ]; then
