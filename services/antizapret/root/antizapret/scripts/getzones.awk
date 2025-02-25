@@ -15,8 +15,6 @@ BEGIN {
 # Skipping empty strings
 (!$1) {next}
 
-@include "config/exclude-regexp-dist.awk"
-
 # Skipping IP addresses
 (/^([0-9]{1,3}\.){3}[0-9]{1,3}$/) {next}
 

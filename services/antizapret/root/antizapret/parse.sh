@@ -20,9 +20,10 @@ if [ -s temp/nxdomain.txt ]; then
     sort -o temp/hostlist_original.txt -u temp/hostlist_original.txt temp/nxdomain.txt
 fi
 
-for file in config/custom/{include,exclude}-{hosts,ips}-custom.txt; do
+for file in config/custom/{include,exclude}-{hosts,ips,regexp}-custom.txt; do
+    [ ! -f "$file" ] && continue
     basename=$(basename $file | sed 's|-custom.txt||')
-    cat $file config/${basename}-dist.txt | awk 'NF' > temp/${basename}.txt
+    (cat "$file"; echo ""; cat "config/${basename}-dist.txt") | awk -f scripts/sanitize-lists.awk > temp/${basename}.txt
 done
 sort -o temp/hostlist_original.txt -u temp/include-hosts.txt temp/hostlist_original.txt
 
@@ -35,7 +36,7 @@ then
     sort -o temp/exclude-hosts.txt -u temp/nxdomain-exclude-hosts.txt temp/exclude-hosts.txt
 fi
 
-awk -f scripts/getzones.awk temp/hostlist_original.txt | grep -v -F -x -f temp/exclude-hosts.txt | CHARSET=UTF-8 idn --no-tld > result/hostlist_zones.txt
+awk -f scripts/getzones.awk temp/hostlist_original.txt | grep -v -F -x -f temp/exclude-hosts.txt | grep -v -E -f  temp/exclude-regexp.txt | CHARSET=UTF-8 idn --no-tld > result/hostlist_zones.txt
 
 awk -F ';' '$1 ~ /\// {print $1}' temp/list.csv | (egrep -o '([0-9]{1,3}\.){3}[0-9]{1,3}\/[0-9]{1,2}' || echo -n) > result/blocked-ranges.txt
 sort -o result/blocked-ranges-with-include.txt -u temp/include-ips.txt result/blocked-ranges.txt
