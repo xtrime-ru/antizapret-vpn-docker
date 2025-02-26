@@ -86,15 +86,17 @@ tls:
   strict_sni_check: false
 querylog:
   dir_path: ""
-  ignored: []
+  ignored:
+    - cloud.mikrotik.com
   interval: 2160h
   size_memory: 1000
   enabled: true
   file_enabled: true
 statistics:
   dir_path: ""
-  ignored: []
-  interval: 24h
+  ignored:
+    - cloud.mikrotik.com
+  interval: 2160h
   enabled: true
 filters:
   - enabled: true
@@ -105,7 +107,47 @@ filters:
     url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_2.txt
     name: AdAway Default Blocklist
     id: 2
-whitelist_filters: []
+  - enabled: true
+    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_30.txt
+    name: Phishing URL Blocklist (PhishTank and OpenPhish)
+    id: 1725134860
+  - enabled: true
+    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_12.txt
+    name: Dandelion Sprout's Anti-Malware List
+    id: 1725134866
+  - enabled: true
+    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_10.txt
+    name: Scam Blocklist by DurableNapkin
+    id: 1725134867
+  - enabled: true
+    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_18.txt
+    name: Phishing Army
+    id: 1725134868
+  - enabled: true
+    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_23.txt
+    name: WindowsSpyBlocker - Hosts spy rules
+    id: 1725134869
+  - enabled: true
+    url: https://osint.digitalside.it/Threat-Intel/lists/latestdomains.txt
+    name: Firebog OSINT.digitalside.it
+    id: 1726833723
+  - enabled: true
+    url: https://raw.githubusercontent.com/AdguardTeam/HostlistsRegistry/refs/heads/main/filters/security/filter_9_TheBigListOfHackedMalwareWebSites/filter.txt
+    name: The Big List of Hacked Malware Web Sites
+    id: 1728413110
+  - enabled: true
+    url: https://raw.githubusercontent.com/AdguardTeam/HostlistsRegistry/refs/heads/main/filters/security/filter_8_NoCoin/filter.txt
+    name: NoCoin Filter List
+    id: 1728413111
+whitelist_filters:
+  - enabled: true
+    url: https://raw.githubusercontent.com/anudeepND/whitelist/master/domains/whitelist.txt
+    name: anudeepND whitelist
+    id: 1726822499
+  - enabled: true
+    url: https://raw.githubusercontent.com/jumpsmm7/GeneratedAdblock/master/Allowed.list
+    name: umpsmm7
+    id: 1726834745
 user_rules:
   - '#||*^$dnstype=HTTPS'
 dhcp:
