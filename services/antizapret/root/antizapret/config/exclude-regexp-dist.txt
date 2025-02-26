@@ -43,6 +43,7 @@ depozit
 kazino
 #/777
 casino
+cassino
 cazino
 admiral
 zerkala
