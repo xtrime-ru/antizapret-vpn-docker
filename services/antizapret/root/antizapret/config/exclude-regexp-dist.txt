@@ -44,6 +44,7 @@ kazino
 #/777
 casino
 cassino
+caseno
 cazino
 admiral
 zerkala
