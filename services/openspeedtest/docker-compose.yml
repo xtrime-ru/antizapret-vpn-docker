@@ -13,6 +13,8 @@ services:
       # - '443:3001'
 #      - '85:3000'
     image: openspeedtest/latest
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
 #    dns:
 #      - 10.222.0.100 # Points to pihole
 #      - 10.222.0.200 # Points to unbound
