@@ -1,0 +1,33 @@
+services:
+  vnstat:
+#    cpus: "0.3"
+#    mem_limit: 50m
+    image: vergoh/vnstat:latest
+    container_name: vnstat
+    restart: unless-stopped
+    network_mode: "host"
+    volumes:
+      # - vnstatdb:/var/lib/vnstat
+      - /etc/localtime:/etc/localtime:ro
+      - $PWD/config/vnstatdb:/var/lib/vnstat
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - TZ=Europe/Moscow
+      - HTTP_PORT=8685
+#      - HTTP_BIND=*
+#      - HTTP_BIND=10.219.0.1
+#      - HTTP_BIND=10.219.0.1
+      - HTTP_LOG=/dev/stdout
+      - LARGE_FONTS=0
+      - CACHE_TIME=1
+      - DARK_MODE=0
+      - PAGE_REFRESH=0
+      - INDEX_IMAGES_PER_ROW=1
+      - INDEX_IMAGE_OUTPUT=hs
+      - VNSTAT_RateUnit=1
+      - VNSTAT_InterfaceOrder=0
+      - VNSTAT_QueryMode=0
+      - EXCLUDE_PATTERN=^docker|^veth|^br-|^lxc
+
+# volumes:
+#   vnstatdb:
