@@ -1,0 +1,33 @@
+services:
+  portainer:
+#    cpus: "0.3"
+#    mem_limit: 150m
+#    image: portainer/portainer-ce:latest
+    image: cr.portainer.io/portainer/portainer-ee:latest
+#    container_name: portainer
+#    hostname: portainer
+    ports: []
+#      - 10.219.0.10:9443:9443
+#      - 10.219.0.1:9443:9443
+#      - 9443:9443
+    volumes:
+      # - ./data:/data
+      - /etc/localtime:/etc/localtime:ro
+      - $PWD/config/portainer:/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+#     networks:
+#       dmz_network:
+# #        ipv4_address: 10.219.0.10
+
+# volumes:
+#   data:
+
+# networks:
+#   # private_network:
+#     # external: true
+#     # name: wirehole_private_network
+
+#   dmz_network:
+#     external: true
+#     name: npm_dmz_network
