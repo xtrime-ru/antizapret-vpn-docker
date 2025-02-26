@@ -6,7 +6,7 @@ services:
     container_name: openspeedtest
 #    network_mode: host
     hostname: openspeedtest
-    ports:
+    ports: []
 #      - '127.0.0.1:3030:3000'
 #      - '127.0.0.1:3031:3001'
       # - '80:3000'
