@@ -18,7 +18,7 @@ x-common: &common
     - net.ipv4.conf.all.src_valid_mark=1
   ports:
     - 51820:51820/udp
-    - 51821:51821/tcp
+#    - 51821:51821/tcp
   depends_on:
     - antizapret
   environment:

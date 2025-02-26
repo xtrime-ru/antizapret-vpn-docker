@@ -19,8 +19,8 @@ services:
       - $PWD/config/adguard/work:/opt/adguardhome/work
 #    dns:
 #      - 8.8.8.8
-    ports:
-      - 3000:3000/tcp
+    ports: []
+      # - 3000:3000/tcp
     environment:
       - |
         ROUTES=

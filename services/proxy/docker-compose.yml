@@ -2,14 +2,14 @@ services:
   proxy:
     restart: unless-stopped
     build: .
-    ports:
-      - "80:80"
-      - "443:443"
-      - "1443:1443"
-      - "2443:2443"
-      - "3443:3443"
-      - "4443:4443"
-      - "5443:5443"
+    ports: []
+      # - "80:80"
+      # - "443:443"
+      # - "1443:1443"
+      # - "2443:2443"
+      # - "3443:3443"
+      # - "4443:4443"
+      # - "5443:5443"
     environment:
       # If not set, will be created and used self-signed certificate
       - PROXY_DOMAIN=
