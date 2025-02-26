@@ -206,6 +206,38 @@ whitelist_filters:
     id: 1726834745
 user_rules:
   - '#||*^$dnstype=HTTPS'
+  - '#@@||api.passport.yandex.com^'
+  - '#@@||oauth.yandex.com^'
+  - '#@@||cloud-api.yandex.net^'
+  - '#@@||kp.yandex.net^'
+  - '#@@||favicon.yandex.net^'
+  - '#@@||passport.yandex.net^'
+  - '#@@||api.disk.yandex.net^'
+  - '# @@||api.messenger.yandex.net^'
+  - pornhub.com##div[id*=age-verification-wrapper]
+  - pornhub.com##div[id*=age-verification-container]
+  - '# @@||pornhub.com^'
+  - '@@sdkconfig.ad.rus.xiaomi.com'
+  - '@@||xiaomi.com^'
+  - '||api.miwifi.com^'
+  - '# pornhub.com##div[id*=age-verification-wrapper]'
+  - '# pornhub.com##div[id*=age-verification-container]'
+  - '# @@||yastatic.net^$important'
+  - '# @@||yastatic.net^'
+  - /^(.+[_.-])?adse?rv(er?|ice)?s?[0-9]*[_.-]/
+  - /^(.+[_.-])?telemetry[_.-]/
+  - /^ad([sxv]?[0-9]*|system)[_.-]([^.[:space:]]+\.){1,}|[_.-]ad([sxv]?[0-9]*|system)[_.-]/
+  - /^adim(age|g)s?[0-9]*[_.-]/
+  - /^adtrack(er|ing)?[0-9]*[_.-]/
+  - /^advert(s|is(ing|ements?))?[0-9]*[_.-]/
+  - /^aff(iliat(es?|ion))?[_.-]/
+  - /^analytics?[_.-]/
+  - /^banners?[_.-]/
+  - /^beacons?[0-9]*[_.-]/
+  - /^count(ers?)?[0-9]*[_.-]/
+  - /^mads\./
+  - /^pixels?[-.]/
+  - /^stat(s|istics)?[0-9]*[_.-]/
 dhcp:
   enabled: false
   interface_name: ""

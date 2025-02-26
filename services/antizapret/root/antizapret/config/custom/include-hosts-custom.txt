@@ -1,0 +1,703 @@
+#test
+# google.com
+
+jaspersoft.com
+
+#facebook
+t.co
+twimg.com
+fbcdn.net
+cdninstagram.com
+fb.com
+messenger.com
+theins.ru
+abs.twimg.com
+#speed.vps-ee-1.20x40.ru
+
+instagram.frix7-1.fna.fbcdn.net
+scontent.cdninstagram.com
+
+instagram.com
+
+
+# *** PORN ***
+pornhub.com
+ei.phncdn.com
+phncdn.com
+livehdcams.com
+xvideos.com
+youporn.com
+
+# ************
+
+gusar.su
+
+ip.me
+
+intercomcdn.com
+oaistatic.com
+cdn.oaistatic.com
+oaiusercontent.com
+chat.openai.com
+openai.com
+copilot.microsoft.com
+gemini.google.com
+
+habr.com
+nvidia.com
+
+
+cloudflare.net
+chatgpt.com
+intercomcdn.com
+intercom.io
+azureedge.net
+launchdarkly.com
+fastly.net
+arkoselabs.com
+cloudfront.net
+
+
+
+
+
+# root domains
+com.ua
+ua
+
+
+# global
+acf.international
+adguard.com
+amazfitwatchfaces.com
+bbci.co.uk
+buymeacoffee.com
+cdninstagram.com
+chatgpt.com
+cloudflare.com
+deezer.com
+digitalocean.com
+fanatical.com
+game-debate.com
+getoutline.com
+intercomcdn.com
+lib.ru
+licdn.com
+lostfilm.tv
+pravdabeslana.ru
+radiojar.com
+readybot.io
+rebrand.ly
+redgifs.com
+seekvectorlogo.net
+simsync.io
+spotify.com
+strava.com
+swagger.io
+theins.ru
+wixmp.com
+
+
+# youtube
+youtube.com
+youtu.be
+ytimg.com
+ggpht.com
+googleusercontent.com
+googlevideo.com
+
+
+# google
+play.google.com
+news.google.com
+#google.com
+#google.ru
+#gmail.com
+
+
+# microsoft 
+bing.com
+bing.net
+microsoft.com
+msn.com
+live.com
+microsoftonline.com
+bingapis.com
+cloud.microsoft
+office.com
+xbox.com
+zendesk.com
+
+
+# facebook
+fbcdn.net
+messenger.com
+fb.com
+
+
+# twitter
+t.co
+twimg.com
+x.com
+
+
+# signal
+chat.signal.org
+cdn2.signal.org
+storage.signal.org
+sfu.voip.signal.org
+updates2.signal.org
+uptime.signal.org
+
+
+# smartbear
+smartbear.co
+smartbear.com
+
+
+# openai
+chatgpt.com
+oaistatic.com
+oaiusercontent.com
+openai.com
+
+
+# rutracker
+t-ru.org
+rutracker.cc
+rutrk.org
+
+
+# nnmclub
+nnm-club.ws
+nnmclub.ch
+
+# developer tools
+docker.com
+mongodb.com
+mongodb.net
+
+#==
+roskomsvoboda.org
+bestchange.ru
+binance.com
+
+# non Russia
+# https://github.com/dartraiden/no-russia-hosts/blob/master/hosts.txt
+
+# https://4pda.to/forum/index.php?showforum=1192
+4pda.to
+
+# platform.activestate.com
+activestate.com
+
+# gaming.amazon.com
+amazon.com
+
+# login.amd.com
+amd.com
+
+# itunes.apple.com/search
+apple.com
+
+# bits.avcdn.net
+avcdn.net
+
+# bing.com/chat
+bing.com
+
+# portal.bgpmon.net
+bgpmon.net
+
+# game.brawlstarsgame.com blocks access to the game on mobile devices
+brawlstarsgame.com
+
+# login.broadcom.com
+broadcom.com
+
+# forums.chaos.com
+# try.chaos.com
+chaos.com
+
+# community.cisco.com
+# id.cisco.com
+# secure-web.cisco.com
+# tools.cisco.com
+cisco.com
+
+# database.clamav.net
+clamav.net
+
+# dl.dell.com
+dell.com
+
+# afcs.dellcdn.com
+dellcdn.com
+
+# artifacts.elastic.co
+elastic.co
+
+# some giveaways from store.epicgames.com are not available
+epicgames.com
+
+# sites.fastspring.com
+fastspring.com
+
+# d.furaffinity.net/art/targso/1574791654/1574791654.targso_бассеин2.png
+furaffinity.net
+
+# support.ts.fujitsu.com
+fujitsu.com
+
+# Gemini
+gemini.google.com
+googleapis.com
+
+# Github Copilot
+github.com
+
+# https://packages.gitlab.com/gitlab/gitlab-ee/
+gitlab.com
+
+# gllto.glpals.com
+glpals.com
+
+# mviskarada.gov.ua
+gov.ua
+
+# apt.grafana.com
+# dl.grafana.com
+# rpm.grafana.com
+grafana.com
+
+# auth.grazie.ai
+grazie.ai
+
+# Groupon
+groupon.com
+# https://img.grouponcdn.com/pdf_assets/MEtai2WzBuZ63ubdaqHG/Fz
+grouponcdn.com
+
+# releases.hashicorp.com
+hashicorp.com
+
+# hex-rays.com/vulnfix/
+hex-rays.com
+
+# www.imagecache365.com
+imagecache365.com
+
+# community.infineon.com
+infineon.com
+
+# download.jetbrains.com
+jetbrains.com
+
+# https://joyreactor.cc/search?q=путин
+joyreactor.cc
+
+# documentation.meraki.com
+meraki.com
+
+# copilot.microsoft.com
+# software-static.download.prss.microsoft.com
+microsoft.com
+
+# account.mongodb.com
+# cloud.mongodb.com
+mongodb.com
+
+# files.oaiusercontent.com
+oaiusercontent.com
+
+# api.openai.com
+# auth0.openai.com
+# chat.openai.com
+openai.com
+
+# cloud.oracle.com (oraclecloud.com blocks login attempts from Russia)
+oracle.com
+oraclecloud.com
+
+# app.paraswap.io
+paraswap.io
+
+# builds.parsec.app
+parsec.app
+
+# download.qt.io
+# master.qt.io
+qt.io
+
+# support.ruckuswireless.com
+ruckuswireless.com
+
+# 3dwarehouse.sketchup.com
+sketchup.com
+
+# radarr.servarr.com
+servarr.com
+
+# community.sophos.com
+sophos.com
+
+# pkgs.tailscale.com
+tailscale.com
+
+# account.templatemonster.com
+templatemonster.com
+
+# app.terraform.io
+terraform.io
+
+# api.themoviedb.org
+themoviedb.org
+
+# images.tmdb.org
+tmdb.org
+
+# downloads.ultraedit.com
+ultraedit.com
+
+# csdlcdn.vaio.com
+vaio.com
+
+# viperatech.com/tickets
+viperatech.com
+
+# cart.webex.com
+webex.com
+
+# www.support.xerox.com
+xerox.com
+
+# gallery.zetalliance.org
+zetalliance.org
+
+# Other
+adafruit.com
+agar.io
+airbrake.io
+alberta.ca
+alltrails.com
+analog.com
+angryemailtranslator.com
+annimon.com
+aplawrence.com
+bard.google.com
+bestbuy.com
+blizzardwatch.com
+bluesky-soft.com
+boosteroid.com
+bradyid.com
+cambiumnetworks.com
+canva.com
+certifytheweb.com
+chatgpt.com
+citrix.com
+claude.ai
+clevelandclinic.org
+cmems-du.eu
+copernicus.eu
+cpu-monkey.com
+crowdstrike.com
+crunchbase.com
+crunchyroll.com
+cybersecurity-help.cz
+daz3d.com
+deezer.com
+designify.com
+devart.com
+devops.com
+dickssportinggoods.com
+diffblue.com
+digikey.com
+disctech.com
+dnb.com
+docker.io
+dumpforums.to
+fanatical.com
+findagrave.com
+flexpool.io
+fls.guru
+fluke.com
+formula1.com
+fotoforensics.com
+futurelearn.com
+gambody.com
+ghidra-sre.org
+grammarly.com
+guilded.gg
+habr.com
+healthline.com
+hybrid-analysis.com
+icd10data.com
+# intel.com
+joesandbox.com
+jsfiddle.net
+keepgrowing.in
+keepsolid.com
+kroger.com
+ldoceonline.com
+letyshops.com
+linuxiac.com
+lipstickalley.com
+liquidsky.com
+lowes.com
+m3u.in
+macvendors.com
+malwarebytes.org
+mattermost.com
+maximintegrated.com
+mbed.com
+megogo.net
+microchip.com
+mouser.com
+netflix.com
+nordvpn.com
+nxp.com
+oaistatic.com
+oasis.app
+oclc.org
+pandasecurity.com
+perforce.com
+pluralsight.com
+phishtank.com
+qcad.org
+qualcomm.com
+radarr.video
+ratatype.com
+readdle.com
+redis.com
+refinitiv.com
+remove.bg
+resp.app
+samsclub.com
+securitytrails.com
+sendy.jp
+setapp.com
+slideshare.net
+smartbear.com
+snort.org
+soapui.org
+solarwinds.com
+spotify.com
+st.com
+steganos.com
+stockx.com
+strava.com
+stuff.co.nz
+sysdig.com
+systemtek.co.uk
+tableau.com
+thesassway.com
+thinkpads.com
+thomas-krenn.com
+ti.com
+timberland.com
+tria.ge
+truthsocial.com
+unscreen.com
+vagrantcloud.com
+veeam.com
+veritas.com
+vpnunlimited.com
+vyos.io
+wakanim.tv
+walletconnect.com
+watchguard.com
+weather.com
+windguru.cz
+wonderclub.com
+wunderground.com
+yourdictionary.com
+zoosk.com
+
+
+# *** VALVE ***
+deathmatchclassic.com
+modexpo.com
+poweredbysteam.net
+steamcommunity.com
+steamdevdays.com
+steamgames.com
+steamgames.net
+steampowered.com
+steampoweredgames.com
+steamserver.net
+steamstatic.com
+steamusers.com
+steamusers.net
+valve.net
+valvecorporation.com
+valvesoftware.com
+
+#Dec2016Update
+steam.net
+steamcontent.com
+steamcybercafe.com
+steammovies.org
+steampowered.co.nz
+steampowered.us
+steampoweredgames.net
+steampoweredgames.org
+steamusercontent.com
+steamvr.com
+valve.org
+valvecorp.net
+valvecorp.org
+valvecorporate.com
+valvessoftwares.com
+#MoreValveDomains, possibily unrelated to Steam use
+3games1box.com
+5games1box.com
+aheadofthegamemovie.com
+aheadofthegamethemovie.com
+aperturelaboratories.com
+aperturelabratories.com
+aperturescience.com
+as32590.net
+counterstrike.com.tw
+counter-strike.com.tw
+counter-strike.net
+counterstrike.tw
+counterstrike3.com
+counterstrike3.net
+counter-strike3.net
+counterstrike4.com
+counter-strike4.com
+counterstrike4.net
+counter-strike4.net
+counterstrike5.com
+counter-strike5.com
+counterstrike5.net
+counter-strike5.net
+counterstriketv.com
+cs-conditionzero.com
+csonline.com.tr
+csonline.com.tw
+csoturkey.com.tr
+csoturkey.info
+csoturkey.net
+dayofdefeat.com
+dayofdefeat1.com
+dayofdefeat1.net
+dayofdefeat2.com
+dayofdefeat2.net
+dayofdefeat3.com
+dayofdefeat3.net
+dayofdefeatmod.com
+dayofdefeattv.com
+dod1.net
+dod2.com
+dod2.net
+dod3.com
+dod3.net
+dota2.com
+freetoplaythemovie.com
+gamerlifemovie.com
+gamerlifethemovie.com
+getinsidetheorangebox.com
+half-life.com
+halflife.net
+half-life2.com
+halflife2movie.com
+half-life2movie.com
+halflife2portal.com
+half-life2portal.com
+halflife2portal.net
+half-life2portal.net
+halflife2sucks.com
+half-life2sucks.com
+halflife2themovie.com
+half-life3.com
+halflife3.net
+half-life3.net
+halflife3.org
+half-life3.org
+halflife3movie.com
+half-life3movie.com
+halflife3themovie.com
+halflifemac.com
+halflifeminerva.com
+half-lifeminerva.com
+half-lifemovie.com
+half-lifeportal.com
+halflifeportal.net
+half-lifeportal.net
+halflifethemovie.com
+hl2.org
+hl2portal.com
+hl2portal.net
+hl2sucks.com
+hlauth.net
+l4d.com
+l4d2.com.cn
+learningwithportals.com
+learnwithportals.com
+leftfourdead.com
+leftfourdead.net
+midnight-riders.com
+midnight-riders.net
+minervametastasis.com
+opposingforce.com
+opposing-force.com
+opposing-force.net
+opposing-force.org
+portal2-game.com
+portal2game.net
+portal2thegame.com
+portal2-thegame.com
+shopatvalve.com
+sourcefilmmaker.com
+steammoves.com
+teachwithportals.com
+teamfortress.com
+team-fortress.com
+team-fortress2.com
+teamfortressclassic.com
+teamfortressii.com
+team-fortressii.com
+teamfortresstv.com
+tf2.com
+tf-2.com
+tf-c.com
+tfclassic.org
+tfii.com
+tf-source.com
+tfsource.net
+tf-source.net
+theheartofracing.org
+thinkwithportals.com
+thinkwithportals.com
+valvestore.net
+valvesucks.com
+whatistheorangebox.com
+whatsinsidetheorangebox.com
+# ********
+
+steamcommunity.com
+
+# ********Kablag*******
+onshape.com
+# ********
+
+coyotle.ru
+broadcom.com
+vmware.com
+
+saashub.com
+
+truenas.com
+freenas.com
+freenas.org
+ixsystems.com
+link.storjshare.io
+
+glif.app
+klingai.com
+jan.ai
+lmstudio.ai
+
+dynfi.com
+
