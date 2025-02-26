@@ -103,34 +103,14 @@ filters:
     url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt
     name: AdGuard DNS filter
     id: 1
-  - enabled: true
+  - enabled: false
     url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_2.txt
     name: AdAway Default Blocklist
     id: 2
   - enabled: true
-    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_59.txt
-    name: AdGuard DNS Popup Hosts filter
-    id: 1725134859
-  - enabled: true
     url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_30.txt
     name: Phishing URL Blocklist (PhishTank and OpenPhish)
     id: 1725134860
-  - enabled: true
-    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_53.txt
-    name: AWAvenue Ads Rule
-    id: 1725134861
-  - enabled: true
-    url: https://github.com/alexsannikov/adguardhome-filters/raw/master/gambling.txt
-    name: alexsannikov gambling
-    id: 1725134863
-  - enabled: false
-    url: https://github.com/alexsannikov/adguardhome-filters/raw/master/rueasylist.txt
-    name: alexsannikov rueasylist
-    id: 1725134864
-  - enabled: false
-    url: https://github.com/alexsannikov/adguardhome-filters/raw/master/admalware.txt
-    name: alexsannikov admalware
-    id: 1725134865
   - enabled: true
     url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_12.txt
     name: Dandelion Sprout's Anti-Malware List
@@ -148,37 +128,9 @@ filters:
     name: WindowsSpyBlocker - Hosts spy rules
     id: 1725134869
   - enabled: true
-    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_39.txt
-    name: Dandelion Sprout's Anti Push Notifications
-    id: 1725134870
-  - enabled: true
-    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_3.txt
-    name: Peter Lowe's Blocklist
-    id: 1725302369
-  - enabled: true
-    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_4.txt
-    name: Dan Pollock's List
-    id: 1725302370
-  - enabled: true
     url: https://osint.digitalside.it/Threat-Intel/lists/latestdomains.txt
     name: Firebog OSINT.digitalside.it
     id: 1726833723
-  - enabled: false
-    url: https://www.github.developerdan.com/hosts/lists/facebook-extended.txt
-    name: Lightswitch05's facebook-extended
-    id: 1726833839
-  - enabled: false
-    url: https://www.github.developerdan.com/hosts/lists/amp-hosts-extended.txt
-    name: Lightswitch05's amp-hosts-extended
-    id: 1726834206
-  - enabled: true
-    url: https://raw.githubusercontent.com/Ruddernation-Designs/Adobe-URL-Block-List/f9b9cdc4e41d8d83eff124e2f3aa1b97e4a659e1/hosts
-    name: Adobe Activation
-    id: 1728413108
-  - enabled: true
-    url: https://raw.githubusercontent.com/AdguardTeam/HostlistsRegistry/refs/heads/main/filters/other/filter_7_SmartTVBlocklist/filter.txt
-    name: List for preventing smart TVs from sending metadata to the vendor, and for blocking ads in apps and movie services
-    id: 1728413109
   - enabled: true
     url: https://raw.githubusercontent.com/AdguardTeam/HostlistsRegistry/refs/heads/main/filters/security/filter_9_TheBigListOfHackedMalwareWebSites/filter.txt
     name: The Big List of Hacked Malware Web Sites
@@ -187,14 +139,6 @@ filters:
     url: https://raw.githubusercontent.com/AdguardTeam/HostlistsRegistry/refs/heads/main/filters/security/filter_8_NoCoin/filter.txt
     name: NoCoin Filter List
     id: 1728413111
-  - enabled: true
-    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_33.txt
-    name: Steven Black's List
-    id: 1736585234
-  - enabled: true
-    url: https://github.com/alexsannikov/adguardhome-filters/raw/refs/heads/master/fakenews.txt
-    name: Alexsannikov fakenews
-    id: 1736585235
 whitelist_filters:
   - enabled: true
     url: https://raw.githubusercontent.com/anudeepND/whitelist/master/domains/whitelist.txt
