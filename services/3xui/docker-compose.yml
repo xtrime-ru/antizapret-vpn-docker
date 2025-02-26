@@ -1,0 +1,49 @@
+services:
+  3x-ui:
+#    cpus: "0.4"
+#    mem_limit: 250m
+    image: ghcr.io/mhsanaei/3x-ui:latest
+    container_name: 3x-ui
+    hostname: 3x-ui
+    volumes:
+      # - $PWD/db/:/etc/x-ui/
+      # - $PWD/cert/:/root/cert/
+      # - ./db/:/etc/x-ui/
+      # - ./cert/:/root/cert/
+      - /etc/localtime:/etc/localtime:ro
+      - $PWD/config/3x-ui/db:/etc/x-ui/
+      - $PWD/config/3x-ui/cert:/root/cert/
+    environment:
+      XRAY_VMESS_AEAD_FORCED: "false"
+      X_UI_ENABLE_FAIL2BAN: "true"
+    tty: true
+    network_mode: host
+    restart: unless-stopped
+#    networks:
+      # private_network:
+        # ipv4_address: 10.222.0.164
+#      host:
+#      host_bridge:
+#      dmz_network:
+#        ipv4_address: 10.219.0.9
+
+
+# networks:
+  # # private_network:
+    # # external: true
+    # # name: wirehole_private_network
+
+  # dmz_network:
+    # external: true
+    # name: npm_dmz_network
+
+
+
+
+#networks:
+#  bridge_network:
+#    driver: bridge
+#  host:
+#    external: true
+
+
