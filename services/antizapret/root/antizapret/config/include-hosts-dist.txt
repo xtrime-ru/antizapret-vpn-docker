@@ -9,7 +9,6 @@ adguard.com
 amazfitwatchfaces.com
 bbci.co.uk
 buymeacoffee.com
-cdninstagram.com
 cloudflare.com
 cloudfront.net
 deezer.com
@@ -34,6 +33,13 @@ theins.ru
 wixmp.com
 reverb.com
 viber.com
+onshape.com
+coyotle.ru
+roskomsvoboda.org
+bestchange.ru
+binance.com
+dynfi.com
+
 
 # youtube
 youtube.com
@@ -48,6 +54,7 @@ youtubei.googleapis.com
 # google
 news.google.com
 chrome.google.com
+gemini.google.com
 
 
 # google play and android
@@ -82,12 +89,16 @@ microsoftonline.com
 bingapis.com
 cloud.microsoft
 office.com
+xbox.com
+zendesk.com
 
 
 # facebook
 fbcdn.net
 messenger.com
 fb.com
+cdninstagram.com
+instagram.com
 
 
 # twitter
@@ -154,6 +165,11 @@ mouser.com
 qualcomm.com
 usablenet.com
 recraft.ai
+jaspersoft.com
+glif.app
+klingai.com
+jan.ai
+lmstudio.ai
 
 #discord
 discord.com
@@ -162,3 +178,176 @@ discordapp.net
 discordapp.com
 discord.media
 discord-attachments-uploads-prd.storage.googleapis.com
+
+#pornhub -- disable vk authorization
+pornhub.com
+phncdn.com
+livehdcams.com
+
+#valve & steam
+deathmatchclassic.com
+modexpo.com
+poweredbysteam.net
+steamcommunity.com
+steamdevdays.com
+steamgames.com
+steamgames.net
+steampowered.com
+steampoweredgames.com
+steamserver.net
+steamstatic.com
+steamusers.com
+steamusers.net
+valve.net
+valvecorporation.com
+valvesoftware.com
+steam.net
+steamcontent.com
+steamcybercafe.com
+steammovies.org
+steampowered.co.nz
+steampowered.us
+steampoweredgames.net
+steampoweredgames.org
+steamusercontent.com
+steamvr.com
+valve.org
+valvecorp.net
+valvecorp.org
+valvecorporate.com
+valvessoftwares.com
+#MoreValveDomains, possibily unrelated to Steam use
+3games1box.com
+5games1box.com
+aheadofthegamemovie.com
+aheadofthegamethemovie.com
+aperturelaboratories.com
+aperturelabratories.com
+aperturescience.com
+as32590.net
+counterstrike.com.tw
+counter-strike.com.tw
+counter-strike.net
+counterstrike.tw
+counterstrike3.com
+counterstrike3.net
+counter-strike3.net
+counterstrike4.com
+counter-strike4.com
+counterstrike4.net
+counter-strike4.net
+counterstrike5.com
+counter-strike5.com
+counterstrike5.net
+counter-strike5.net
+counterstriketv.com
+cs-conditionzero.com
+csonline.com.tr
+csonline.com.tw
+csoturkey.com.tr
+csoturkey.info
+csoturkey.net
+dayofdefeat.com
+dayofdefeat1.com
+dayofdefeat1.net
+dayofdefeat2.com
+dayofdefeat2.net
+dayofdefeat3.com
+dayofdefeat3.net
+dayofdefeatmod.com
+dayofdefeattv.com
+dod1.net
+dod2.com
+dod2.net
+dod3.com
+dod3.net
+dota2.com
+freetoplaythemovie.com
+gamerlifemovie.com
+gamerlifethemovie.com
+getinsidetheorangebox.com
+half-life.com
+halflife.net
+half-life2.com
+halflife2movie.com
+half-life2movie.com
+halflife2portal.com
+half-life2portal.com
+halflife2portal.net
+half-life2portal.net
+halflife2sucks.com
+half-life2sucks.com
+halflife2themovie.com
+half-life3.com
+halflife3.net
+half-life3.net
+halflife3.org
+half-life3.org
+halflife3movie.com
+half-life3movie.com
+halflife3themovie.com
+halflifemac.com
+halflifeminerva.com
+half-lifeminerva.com
+half-lifemovie.com
+half-lifeportal.com
+halflifeportal.net
+half-lifeportal.net
+halflifethemovie.com
+hl2.org
+hl2portal.com
+hl2portal.net
+hl2sucks.com
+hlauth.net
+l4d.com
+l4d2.com.cn
+learningwithportals.com
+learnwithportals.com
+leftfourdead.com
+leftfourdead.net
+midnight-riders.com
+midnight-riders.net
+minervametastasis.com
+opposingforce.com
+opposing-force.com
+opposing-force.net
+opposing-force.org
+portal2-game.com
+portal2game.net
+portal2thegame.com
+portal2-thegame.com
+shopatvalve.com
+sourcefilmmaker.com
+steammoves.com
+teachwithportals.com
+teamfortress.com
+team-fortress.com
+team-fortress2.com
+teamfortressclassic.com
+teamfortressii.com
+team-fortressii.com
+teamfortresstv.com
+tf2.com
+tf-2.com
+tf-c.com
+tfclassic.org
+tfii.com
+tf-source.com
+tfsource.net
+tf-source.net
+theheartofracing.org
+thinkwithportals.com
+thinkwithportals.com
+valvestore.net
+valvesucks.com
+whatistheorangebox.com
+whatsinsidetheorangebox.com
+
+#vmware
+broadcom.com
+vmware.com
+
+#unlock all content
+habr.com
+nvidia.com
+4pda.to
