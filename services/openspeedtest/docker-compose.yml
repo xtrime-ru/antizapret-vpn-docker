@@ -1,0 +1,50 @@
+services:
+  openspeedtest:
+#    cpus: "0.3"
+#    mem_limit: 40m
+    restart: unless-stopped
+    container_name: openspeedtest
+#    network_mode: host
+    hostname: openspeedtest
+    ports:
+#      - '127.0.0.1:3030:3000'
+#      - '127.0.0.1:3031:3001'
+      # - '80:3000'
+      # - '443:3001'
+#      - '85:3000'
+    image: openspeedtest/latest
+#    dns:
+#      - 10.222.0.100 # Points to pihole
+#      - 10.222.0.200 # Points to unbound
+    # networks:
+      # private_network:
+        # ipv4_address: 10.222.0.150
+    # networks:
+    #   dmz_network:
+    #     # ipv4_address: 10.219.0.5
+
+
+
+
+# networks:
+#   # dmz_network:
+#     # ipam:
+#       # driver: default
+#       # config:
+#         # - subnet: 10.219.0.0/24
+#     # name: npm_dmz_network
+#   # antizapret4_default:
+#     # external: true
+# # #    name: 
+#   dmz_network:
+#     external: true
+#     name: npm_dmz_network
+
+
+
+# networks:
+  # private_network:
+    # external: true
+    # name: wirehole_private_network
+
+
