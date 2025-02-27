@@ -30,6 +30,11 @@ fi
 
 export DOCKER_SUBNET=$(ip r | awk '/default/ {dev=$5} !/default/ && $0 ~ dev {print $1}')
 export AZ_HOST=$(dig +short antizapret)
+while [ -z "${AZ_HOST}" ]; do
+    echo "No route to antizapret container. Retrying..."
+    export AZ_HOST=$(dig +short antizapret)
+    sleep 1;
+done;
 
 export WG_POST_UP=$(tr '\n' ' ' << EOF
 iptables -t nat -N masq_not_local;
