@@ -162,3 +162,5 @@ discordapp.net
 discordapp.com
 discord.media
 discord-attachments-uploads-prd.storage.googleapis.com
+
+netflix.com
