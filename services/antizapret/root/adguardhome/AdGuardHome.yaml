@@ -31,7 +31,10 @@ dns:
     - 149.112.112.10
     - 2620:fe::10
     - 2620:fe::fe:10
-  fallback_dns: []
+  fallback_dns:
+    - tcp://77.88.8.8
+    - tcp://8.8.8.8
+    - tcp://1.1.1.1
   upstream_mode: load_balance
   fastest_timeout: 1s
   allowed_clients: []
@@ -46,7 +49,7 @@ dns:
   cache_size: 4194304
   cache_ttl_min: 0
   cache_ttl_max: 0
-  cache_optimistic: false
+  cache_optimistic: true
   bogus_nxdomain: []
   aaaa_disabled: true
   enable_dnssec: false
@@ -59,7 +62,7 @@ dns:
   ipset: []
   ipset_file: ""
   bootstrap_prefer_ipv6: false
-  upstream_timeout: 10s
+  upstream_timeout: 1s
   private_networks: []
   use_private_ptr_resolvers: false
   local_ptr_upstreams: []
