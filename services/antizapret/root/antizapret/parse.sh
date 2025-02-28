@@ -38,7 +38,7 @@ fi
 
 awk -f scripts/getzones.awk temp/hostlist_original.txt | grep -v -F -x -f temp/exclude-hosts.txt | grep -v -E -f  temp/exclude-regexp.txt | CHARSET=UTF-8 idn --no-tld > temp/hostlist_zones.txt
 grep -E '^[^\.]+\.[^\.]+$' temp/hostlist_zones.txt > temp/hostlist_zones_2_level.txt
-grep -v -F -f temp/hostlist_zones_2_level.txt result/hostlist_zones.txt > temp/hostlist_zones_without_2+_level.txt
+grep -v -F -f temp/hostlist_zones_2_level.txt temp/hostlist_zones.txt > temp/hostlist_zones_without_2+_level.txt
 sort -u temp/hostlist_zones_2_level.txt temp/hostlist_zones_without_2+_level.txt > result/hostlist_zones.txt
 
 awk -F ';' '$1 ~ /\// {print $1}' temp/list.csv | (egrep -o '([0-9]{1,3}\.){3}[0-9]{1,3}\/[0-9]{1,2}' || echo -n) > result/blocked-ranges.txt
