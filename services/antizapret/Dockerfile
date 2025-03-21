@@ -47,7 +47,7 @@ EOT
 COPY . /
 
 COPY --from=mikefarah/yq:4.45.1 /usr/bin/yq /usr/bin/yq
-COPY --from=adguard/adguardhome:v0.107.57 /opt/adguardhome /opt/adguardhome
+COPY --from=adguard/adguardhome:v0.107.59 /opt/adguardhome /opt/adguardhome
 COPY --from=builder-api /app/app /opt/api/app
 
 RUN <<-"EOF" bash -ex
@@ -83,7 +83,6 @@ RUN <<-"EOF" bash -ex
     export IP_LIST=https://raw.githubusercontent.com/zapret-info/z-i/master/dump.csv.gz
     export LISTS='
         https://raw.githubusercontent.com/zapret-info/z-i/master/nxdomain.txt;
-        https://raw.githubusercontent.com/dartraiden/no-russia-hosts/master/hosts.txt;
         https://antifilter.download/list/domains.lst;
     ';
 
