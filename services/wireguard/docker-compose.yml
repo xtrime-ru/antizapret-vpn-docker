@@ -46,7 +46,7 @@ services:
     build:
       context: .
       args:
-        - IMAGE=ghcr.io/w0rng/amnezia-wg-easy:14
+        - IMAGE=xtrime/amnezia-wg-easy:latest
     devices:
       - /dev/net/tun:/dev/net/tun
     volumes:

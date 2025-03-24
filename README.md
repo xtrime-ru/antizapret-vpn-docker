@@ -218,6 +218,18 @@ wget http://archive.ubuntu.com/ubuntu/pool/universe/o/openvpn-dco-dkms/$deb
 sudo dpkg -i $deb
 ```
 
+### Enable Amnezia Wireguard Kernel Extension
+
+https://github.com/amnezia-vpn/amneziawg-linux-kernel-module?tab=readme-ov-file#ubuntu
+
+1. Edit  `vi /etc/apt/sources.list` and uncomment `deb-src http://archive.ubuntu.com/ubuntu ... main restricted`
+2. `sudo apt update`
+3. `sudo apt install -y software-properties-common python3-launchpadlib gnupg2 linux-headers-$(uname -r)`
+4. install source for kernel `sudo apt-get source linux-image-$(uname -r)`
+5. `sudo add-apt-repository ppa:amnezia/ppa`
+6. `sudo apt-get install -y amneziawg`
+7. restart server or `docker compose restart wireguard-amnezia`
+
 ### Legacy clients support
 If your clients do not have GCM ciphers support you can use legacy CBC ciphers.
 DCO is incompatible with legacy ciphers and will be disabled. This is also increase CPU load.
