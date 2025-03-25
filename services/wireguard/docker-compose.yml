@@ -47,6 +47,8 @@ services:
       context: .
       args:
         - IMAGE=xtrime/amnezia-wg-easy:0.2.15
+    environment:
+      - WG_DEFAULT_ADDRESS=10.1.167.x
     devices:
       - /dev/net/tun:/dev/net/tun
     volumes:
