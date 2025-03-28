@@ -175,6 +175,14 @@ Cloudflare DNS do not support ECS and is not recommended for use.
 Source code: [Adguard upstream DNS](./antizapret/root/adguardhome/upstream_dns_file_basis)
 After container is started working copy is located here: `./config/adguard/conf/upstream_dns_file_basis`
 
+### Access containers from local network
+When you connected to VPN, you can access containers without exposing ports to internet.
+Url examples:
+ - http://core.antizapret:3000
+ - http://wireguard-amnezia.antizapret:51821
+ - http://wireguard.antizapret:51821
+ - http://openvpn-ui.antizapret:8080
+ - http://filebrowser.antizapret:80
 
 ### CDN + ECS
 Some domains can resolve differently, depending on subnet (geoip) of client. In this case using of DNS located on remote server will break some services.
@@ -182,6 +190,8 @@ ECS allow to provide client IP in DNS requests to upstream server and get correc
 Its enabled by default in Adguard and client ip is pointed to Moscow (Yandex Subnet).
 
 If you located in other region, you need to replace `77.88.8.8` with your real ip address on this page `http://your-server-ip:3000/#dns`
+
+
 
 ## OpenVpn
 ### Create client certificates:
