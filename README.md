@@ -64,7 +64,41 @@ Find full example in [docker-compose.override.sample.yml](./docker-compose.overr
    docker compose up -d
    docker system prune -f
 ```
-4. Admin panels started as HTTPS at following ports at your host (with proxy container):
+
+## Access admin panels:
+
+### HTTP: 
+By default panels have following http ports exposed to internet:
+- dashboard: no exposed port
+- adguard: 3000
+- filebrowser: 2000
+- openvpn: 8080
+- wireguard: 51821
+- wireguard-amnezia: 51831
+
+If you do not wish to expose ports to internet override them in `docker-compose.override.yml`.
+In this example adguard and wireguard admin panels are removed from internet, and wireguard udp server is exposed: 
+```yml
+services:
+   antizapret:
+      environment:
+         - ADGUARDHOME_USERNAME=admin
+         - ADGUARDHOME_PASSWORD=password
+      ports: !reset []
+
+   wireguard:
+      extends:
+         file: services/wireguard/docker-compose.yml
+         service: wireguard
+      environment:
+         - WIREGUARD_PASSWORD=password
+      ports: !override
+         - 51820:51820/udp
+```
+
+### HTTPS
+To enable https server and create self-signed certificates - add `proxy` container to `docker-compose.override.yml`
+When `proxy` container is started, access services with https at following ports at your host ip:
 - dashboard: 433
 - adguard: 1443
 - filebrowser: 2443
@@ -72,6 +106,16 @@ Find full example in [docker-compose.override.sample.yml](./docker-compose.overr
 - wireguard: 4443
 - wireguard-amnezia: 5443
 
+`proxy` container is optional.
+
+### Local network
+   When you connected to VPN, you can access containers without exposing ports to internet:
+- http://core.antizapret:3000
+- http://dashboard.antizapret:80
+- http://wireguard-amnezia.antizapret:51821
+- http://wireguard.antizapret:51821
+- http://openvpn-ui.antizapret:8080
+- http://filebrowser.antizapret:80
 
 ## Update
 
@@ -140,6 +184,10 @@ Filebrowser:
 - `FILEBROWSER_PORT=admin`
 - `FILEBROWSER_PASSWORD=password`
 
+Proxy:
+- `PROXY_DOMAIN=` - create lets-encrypt https certificate for domain. If not set host ip is used for self-signed certificate.
+- `PROXY_EMAIL=` - email for letsecnrypt certificate.
+
 Openvpn
 - `OBFUSCATE_TYPE=0` - custom obfuscation level of openvpn protocol.
    0 - disable.Act as regular openvpn client, support by all clients.
@@ -174,16 +222,6 @@ Cloudflare DNS do not support ECS and is not recommended for use.
 
 Source code: [Adguard upstream DNS](./antizapret/root/adguardhome/upstream_dns_file_basis)
 After container is started working copy is located here: `./config/adguard/conf/upstream_dns_file_basis`
-
-### Access containers from local network
-When you connected to VPN, you can access containers without exposing ports to internet.
-Url examples:
- - http://core.antizapret:3000
- - http://dashboard.antizapret:80
- - http://wireguard-amnezia.antizapret:51821
- - http://wireguard.antizapret:51821
- - http://openvpn-ui.antizapret:8080
- - http://filebrowser.antizapret:80
 
 ### CDN + ECS
 Some domains can resolve differently, depending on subnet (geoip) of client. In this case using of DNS located on remote server will break some services.
