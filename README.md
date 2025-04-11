@@ -179,6 +179,7 @@ After container is started working copy is located here: `./config/adguard/conf/
 When you connected to VPN, you can access containers without exposing ports to internet.
 Url examples:
  - http://core.antizapret:3000
+ - http://dashboard.antizapret:80
  - http://wireguard-amnezia.antizapret:51821
  - http://wireguard.antizapret:51821
  - http://openvpn-ui.antizapret:8080
