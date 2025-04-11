@@ -99,7 +99,7 @@ services:
 ### HTTPS
 To enable https server and create self-signed certificates - add `proxy` container to `docker-compose.override.yml`
 When `proxy` container is started, access services with https at following ports at your host ip:
-- dashboard: 433
+- dashboard: 443
 - adguard: 1443
 - filebrowser: 2443
 - openvpn: 3443
