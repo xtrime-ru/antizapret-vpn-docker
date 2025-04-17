@@ -49,6 +49,10 @@ youtubei.googleapis.com
 news.google.com
 chrome.google.com
 
+# gemini
+gemini.google.com
+proactivebackend-pa.googleapis.com
+
 
 # google play and android
 play.google.com
