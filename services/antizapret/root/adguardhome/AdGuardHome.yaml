@@ -168,7 +168,14 @@ clients:
     rdns: true
     dhcp: true
     hosts: true
-  persistent: []
+  persistent:
+    - name: localhost
+      ids:
+        - 127.0.0.1
+      tags: [ ]
+      upstreams:
+        - 8.8.8.8
+      use_global_blocked_services: false
 log:
   enabled: true
   file: ""
