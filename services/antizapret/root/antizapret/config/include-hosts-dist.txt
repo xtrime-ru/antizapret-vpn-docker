@@ -119,6 +119,7 @@ openai.com
 # rutracker
 t-ru.org
 rutracker.org
+rutracker.cc
 rutrk.org
 
 
