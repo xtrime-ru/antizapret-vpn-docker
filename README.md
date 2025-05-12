@@ -198,7 +198,6 @@ Openvpn
 
 Openvpn-ui
 - `OPENVPN_ADMIN_PASSWORD=` — will be used as a server address in .ovpn profiles upon keys generation (default: your server's IP)
-- `OPENVPN_PORT=1194` — will be used as a server port in .ovpn profiles upon keys generation. (default: 1194)
 
 Wireguard/Wireguard Amnezia
 - `WIREGUARD_PASSWORD=` - password for admin panel
