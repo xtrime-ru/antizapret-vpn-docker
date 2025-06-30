@@ -266,6 +266,13 @@ wget http://archive.ubuntu.com/ubuntu/pool/universe/o/openvpn-dco-dkms/$deb
 sudo dpkg -i $deb
 ```
 
+### Legacy clients support
+If your clients do not have GCM ciphers support you can use legacy CBC ciphers.
+DCO is incompatible with legacy ciphers and will be disabled. This is also increase CPU load.
+
+
+## Amnezia Wireguard
+
 ### Enable Amnezia Wireguard Kernel Extension
 
 https://github.com/amnezia-vpn/amneziawg-linux-kernel-module?tab=readme-ov-file#ubuntu
@@ -278,13 +285,24 @@ https://github.com/amnezia-vpn/amneziawg-linux-kernel-module?tab=readme-ov-file#
 6. `sudo apt-get install -y amneziawg`
 7. restart server or `docker compose restart wireguard-amnezia`
 
-### Legacy clients support
-If your clients do not have GCM ciphers support you can use legacy CBC ciphers.
-DCO is incompatible with legacy ciphers and will be disabled. This is also increase CPU load.
+### Amnezia Wireguard Block
+Some providers can detect AWG with default junk packets size.
+Use env variables to change their size.
+Example part of docker-compose.override.yml with JMIN and JMAX:
+```yml
+  wireguard-amnezia:
+    environment:
+      - WIREGUARD_PASSWORD=xxxxx
+      - JMIN=1050
+      - JMAX=2000
+    extends:
+      file: services/wireguard/docker-compose.yml
+      service: wireguard-amnezia
+```
 
-### OpenVPN block
-Most providers now block openvpn to foreign IPs. Obfuscation not always fix the issue.
-For stable openvpn operation you can buy VPS inside of your country and then proxy all traffic to foreign server.
+### VPN / Hosting block
+Most providers now block vpn to foreign IPs. Obfuscation in amnezia or openvpn not always fix the issue.
+For stable vpn operation you can buy VPS inside of your country and then proxy all traffic to foreign server.
 Here is example of startup script.
 Replace X.X.X.X with IP address of your server and run it on fresh VPS (ubuntu 24.04 is recommended):
 
