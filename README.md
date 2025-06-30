@@ -299,6 +299,11 @@ Example part of docker-compose.override.yml with JMIN and JMAX:
       file: services/wireguard/docker-compose.yml
       service: wireguard-amnezia
 ```
+Settings/env variables are saved in ./config/wireguard_amnezia/ folder. To update them remove folder and run container again.
+This will also remove all existing clients/certificates.
+```shell
+docker compose down && rm -rf ./config/wireguard_amnezia/ && docker compose up -d
+```
 
 ### VPN / Hosting block
 Most providers now block vpn to foreign IPs. Obfuscation in amnezia or openvpn not always fix the issue.
