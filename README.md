@@ -286,15 +286,28 @@ https://github.com/amnezia-vpn/amneziawg-linux-kernel-module?tab=readme-ov-file#
 7. restart server or `docker compose restart wireguard-amnezia`
 
 ### Amnezia Wireguard Block
-Some providers can detect AWG with default junk packets size.
-Use env variables to change their size.
+Some providers can block AWG with default junk packets size. Large junk packets without response can be judged as DDOS attack.
+Use env variables to change their size:
+
+```
+Jc=3
+Jmin=20
+Jmax=100
+```
+or
+```
+Jc=2
+Jmin=10
+Jmax=20
+```
 Example part of docker-compose.override.yml with JMIN and JMAX:
 ```yml
   wireguard-amnezia:
     environment:
       - WIREGUARD_PASSWORD=xxxxx
-      - JMIN=1050
-      - JMAX=2000
+      - JC=3
+      - JMIN=20
+      - JMAX=100
     extends:
       file: services/wireguard/docker-compose.yml
       service: wireguard-amnezia
