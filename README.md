@@ -283,7 +283,10 @@ https://github.com/amnezia-vpn/amneziawg-linux-kernel-module?tab=readme-ov-file#
 4. install source for kernel `sudo apt-get source linux-image-$(uname -r)`
 5. `sudo add-apt-repository ppa:amnezia/ppa`
 6. `sudo apt-get install -y amneziawg`
-7. restart server or `docker compose restart wireguard-amnezia`
+7. `sudo dkms install -m amneziawg -v 1.0.0`
+8. restart server or `docker compose restart wireguard-amnezia`
+9. check the list of kernel modules `dkms status`, 
+   and check that bunch of `[kworker/X:X-wg-crypt-wg0]` processes are now running.
 
 ### Amnezia Wireguard Block
 Some providers can block AWG with default junk packets size. Large junk packets without response can be judged as DDOS attack.
