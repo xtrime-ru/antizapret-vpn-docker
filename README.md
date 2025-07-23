@@ -174,7 +174,7 @@ Antizapret:
 - `ADGUARDHOME_PORT=3000`
 - `ADGUARDHOME_USERNAME=admin`
 - `ADGUARDHOME_PASSWORD=`
-- `ADGUARDHOME_PASSWORD_HASH=` - hashed password, taken from the AdGuardHome.yaml file after the first run using `ADGUARDHOME_PASSWORD`
+- `ADGUARDHOME_PASSWORD_HASH=` - hashed password, taken from the AdGuardHome.yaml file after the first run using `ADGUARDHOME_PASSWORD`. Dollar sign `$` in hash must be escaped with another dollar sign: `$$` 
 - `DNS=8.8.8.8` - Upstream DNS for resolving blocked sites
 - `ROUTES` - list of VPN containers and their virtual addresses. Needed for uniq client addresses in adguard logs 
 - `LISTS` - list of urls to get blocked domains lists
