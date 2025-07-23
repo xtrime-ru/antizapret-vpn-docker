@@ -201,7 +201,7 @@ Openvpn-ui
 
 Wireguard/Wireguard Amnezia
 - `WIREGUARD_PASSWORD=` - password for admin panel
-- `WIREGUARD_PASSWORD_HASH=` - [hashed password](https://github.com/wg-easy/wg-easy/blob/master/How_to_generate_an_bcrypt_hash.md) for admin panel
+- `WIREGUARD_PASSWORD_HASH=` - [hashed password](https://github.com/wg-easy/wg-easy/blob/v14.0.0/How_to_generate_an_bcrypt_hash.md) for admin panel
 - `ANTIZAPRET_SUBNET=10.224.0.0/15` - subnet for virtual blocked ips
 - `WG_DEFAULT_DNS=10.224.0.1` - DNS address for clients. Must be in `ANTIZAPRET_SUBNET`
 - `WG_PERSISTENT_KEEPALIVE=25`
