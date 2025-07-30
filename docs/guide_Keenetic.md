@@ -128,7 +128,8 @@ No special steps are required, follow [instructions](https://github.com/xtrime-r
 1. [Install the "WireGuard VPN" component](https://help.keenetic.com/hc/en-us/articles/360010592379-WireGuard-VPN)
 2. Load the profile downloaded from the panel `Internet` > `Other Connections` > `WireGuard` > `Import from a file`.
 3. Open imported connection and check `Use for accessing the Internet`, change the name to `Antizapret` (optional).
-4. `Network Rules` > `Routing`.
+4. Add `77.88.8.8/32` to `Allowed v4 IPs`.
+5. `Network Rules` > `Routing`.
    1. `Create route`.
       1. Route type: `Route to host`.
       2. Description: `AntiZapretDNS`.
@@ -143,7 +144,7 @@ No special steps are required, follow [instructions](https://github.com/xtrime-r
       4. Subnet mask: `255.254.0.0.0/15`.
       5. Gateway IP: `blank`.
       6. Interface: `Antizapret` (if you did not change the name, then by file name)
-5. `Network Rules` > `Internet Safety` > `DNS Configuration`.
+6. `Network Rules` > `Internet Safety` > `DNS Configuration`.
    1. Profile name: `System`.
    2. Transit requests: `NO`.
    3. `Save`.
@@ -151,7 +152,7 @@ No special steps are required, follow [instructions](https://github.com/xtrime-r
       1. DNS server type: `Default`.
       2. DNS server address: `77.88.8.8`.
       3. `Save`.
-6. `Internet` > `Ethernet Cable`
+7. `Internet` > `Ethernet Cable`
    1. Find your active ISP connect:
       1. Enable checkbox `Ignore DNSv4 from ISP`
       2. Enable checkbox `Ignore DNSv6 from ISP`
