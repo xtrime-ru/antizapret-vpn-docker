@@ -181,6 +181,9 @@ In the `Internet` > `Other Connections` section, enable the `AntiZapret` connect
 
 **Done!**
 
+> [!NOTE]
+> If any of the client devices does not require blocking bypass, then you should [register it](https://help.keenetic.com/hc/en-us/articles/360000394159-Client-devices-registration), [create a DNS profile](https://help.keenetic.com/hc/en-us/articles/7248035195548-Creating-a-DNS-profile-without-filtering), add some public DNS servers there (different from those you added to the `System` profile), enable the `Public DNS resolvers` filtering mode in the `Content Filter` section and assign the newly created DNS profile to this client below on this page.
+
 ## IPsec
 ### IPsec server side
 In the process of writing
