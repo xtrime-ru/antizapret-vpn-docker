@@ -134,7 +134,7 @@ No special steps are required, follow [instructions](https://github.com/xtrime-r
       1. Route type: `Route to host`.
       2. Description: `AntiZapretDNS`.
       3. Destination host address: `77.88.8.8`
-      4. Gateway IP: `empty`.
+      4. Gateway IP: `10.1.166.2` (`IPv4 address` from the `Antizapret` connection options)
       5. Interface: `Antizapret` (if you did not change the name, by file name)
       6. Enable checkbox `Add automatically`
    2. `Create route`.
