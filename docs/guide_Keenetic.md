@@ -143,18 +143,14 @@ No special steps are required, follow [instructions](https://github.com/xtrime-r
       4. Subnet mask: `255.254.0.0.0/15`.
       5. Gateway IP: `blank`.
       6. Interface: `Antizapret` (if you did not change the name, then by file name)
-5. `Network Rules` > `Internet Safety`.
-    1. `DNS Configuration` > `Add Profile`.
-       1. Profile name: `AntiZapret`.
-       2. Transit requests: `NO`.
-       3. `Save`.
-       4. `Add Server`.
-          1. DNS server type: `Default`.
-          2. DNS server address: `77.88.8.8`.
-          3. `Save`.
-    2. `Content Filter`.
-       1. Filtering mode: `Public DNS resolvers`.
-       2. Default Content Filtering Profiles (`guest` and `home`): `AntiZapret`.
+5. `Network Rules` > `Internet Safety` > `DNS Configuration`.
+   1. Profile name: `System`.
+   2. Transit requests: `NO`.
+   3. `Save`.
+   4. `Add Server`.
+      1. DNS server type: `Default`.
+      2. DNS server address: `77.88.8.8`.
+      3. `Save`.
 6. `Internet` > `Ethernet Cable`
    1. Find your active ISP connect:
       1. Enable checkbox `Ignore DNSv4 from ISP`
