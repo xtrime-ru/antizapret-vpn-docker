@@ -137,13 +137,14 @@ No special steps are required, follow [instructions](https://github.com/xtrime-r
       4. Gateway IP: `empty`.
       5. Interface: `Antizapret` (if you did not change the name, by file name)
       6. Enable checkbox `Add automatically`
-   2. `Create Route`.
+   2. `Create route`.
       1. Route type: `Route to network`.
       2. Description: `AntiZapret`.
       3. Destination network address: `10.224.0.0`
       4. Subnet mask: `255.254.0.0.0/15`.
       5. Gateway IP: `blank`.
       6. Interface: `Antizapret` (if you did not change the name, then by file name)
+   3. Similarly, add routes to all subnets specified in `Allowed v4 IPs` in the `Antizapret` connection options.
 6. `Network Rules` > `Internet Safety` > `DNS Configuration`.
    1. Profile name: `System`.
    2. Transit requests: `NO`.
