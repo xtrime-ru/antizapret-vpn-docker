@@ -128,34 +128,32 @@ No special steps are required, follow [instructions](https://github.com/xtrime-r
 1. [Install the "WireGuard VPN" component](https://help.keenetic.com/hc/en-us/articles/360010592379-WireGuard-VPN)
 2. Load the profile downloaded from the panel `Internet` > `Other Connections` > `WireGuard` > `Import from a file`.
 3. Open imported connection and check `Use for accessing the Internet`, change the name to `Antizapret` (optional).
-4. `Network Rules` > `Routing`.
+4. Add `77.88.8.8/32` to `Allowed v4 IPs`.
+5. `Network Rules` > `Routing`.
    1. `Create route`.
       1. Route type: `Route to host`.
       2. Description: `AntiZapretDNS`.
       3. Destination host address: `77.88.8.8`
-      4. Gateway IP: `empty`.
+      4. Gateway IP: `10.1.166.2` (`IPv4 address` from the `Antizapret` connection options)
       5. Interface: `Antizapret` (if you did not change the name, by file name)
       6. Enable checkbox `Add automatically`
-   2. `Create Route`.
+   2. `Create route`.
       1. Route type: `Route to network`.
       2. Description: `AntiZapret`.
       3. Destination network address: `10.224.0.0`
       4. Subnet mask: `255.254.0.0.0/15`.
       5. Gateway IP: `blank`.
       6. Interface: `Antizapret` (if you did not change the name, then by file name)
-5. `Network Rules` > `Internet Safety`.
-    1. `DNS Configuration` > `Add Profile`.
-       1. Profile name: `AntiZapret`.
-       2. Transit requests: `NO`.
-       3. `Save`.
-       4. `Add Server`.
-          1. DNS server type: `Default`.
-          2. DNS server address: `77.88.8.8`.
-          3. `Save`.
-    2. `Content Filter`.
-       1. Filtering mode: `Public DNS resolvers`.
-       2. Default Content Filtering Profiles (`guest` and `home`): `AntiZapret`.
-6. `Internet` > `Ethernet Cable`
+   3. Similarly, add routes to all subnets specified in `Allowed v4 IPs` in the `Antizapret` connection options.
+6. `Network Rules` > `Internet Safety` > `DNS Configuration`.
+   1. Profile name: `System`.
+   2. Transit requests: `NO`.
+   3. `Save`.
+   4. `Add Server`.
+      1. DNS server type: `Default`.
+      2. DNS server address: `77.88.8.8`.
+      3. `Save`.
+7. `Internet` > `Ethernet Cable`
    1. Find your active ISP connect:
       1. Enable checkbox `Ignore DNSv4 from ISP`
       2. Enable checkbox `Ignore DNSv6 from ISP`
@@ -182,6 +180,9 @@ starting at step 20. I'll briefly duplicate it here.
 In the `Internet` > `Other Connections` section, enable the `AntiZapret` connection.
 
 **Done!**
+
+> [!NOTE]
+> If any of the client devices does not require blocking bypass, then you should [register it](https://help.keenetic.com/hc/en-us/articles/360000394159-Client-devices-registration), [create a DNS profile](https://help.keenetic.com/hc/en-us/articles/7248035195548-Creating-a-DNS-profile-without-filtering), add some public DNS servers there (different from those you added to the `System` profile), enable the `Public DNS resolvers` filtering mode in the `Content Filter` section and assign the newly created DNS profile to this client below on this page.
 
 ## IPsec
 ### IPsec server side
