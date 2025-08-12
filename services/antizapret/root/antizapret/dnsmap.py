@@ -197,7 +197,7 @@ if __name__ == '__main__':
 
     import argparse, time, os, sys
 
-    dns = os.getenv('DNS', '8.8.8.8') + ':53'
+    dns = os.getenv('DNS', '127.0.0.1') + ':53'
 
     p = argparse.ArgumentParser(description="DNS Proxy")
 

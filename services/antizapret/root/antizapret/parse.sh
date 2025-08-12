@@ -59,12 +59,14 @@ done < result/blocked-ranges-with-include.txt
 
 # Generate adguardhome aliases
 /bin/cp --update=none /root/adguardhome/* /opt/adguardhome/conf
-/bin/cp -f /opt/adguardhome/conf/upstream_dns_file_basis result/adguard_upstream_dns_file
-echo "" >> result/adguard_upstream_dns_file
-sed -E -e 's~(.*)~[/\1/] 127.0.0.4~' result/hostlist_zones.txt >> result/adguard_upstream_dns_file
-/bin/cp -f result/adguard_upstream_dns_file /opt/adguardhome/conf/upstream_dns_file
+sed -E -e 's~(.*)~@@||\1\^\$client=127.0.0.1~' result/hostlist_zones.txt > result/adguard_rules
+RULES_DIR="/opt/adguardhome/work/data/userfilters/"
+if [ ! -d "$RULES_DIR" ]; then
+  mkdir "$RULES_DIR"
+fi
+/bin/cp -f result/adguard_rules "${RULES_DIR}adguard_rules"
 
-echo "Adguard config generated: $(cat /opt/adguardhome/conf/upstream_dns_file | wc -l) lines"
+echo "Adguard config generated: $(cat "${RULES_DIR}adguard_rules" | wc -l) lines"
 
 rm temp/hostlist* temp/{include,exclude}*
 

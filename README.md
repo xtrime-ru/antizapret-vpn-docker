@@ -149,19 +149,50 @@ docker compose up -d
 
 # Documentation
 
-## Adding Domains/IPs
-Any domains or IPs can be added or excluded from routing with config files from `./config/antizapret/custom` directory.
-These lists are added/excluded to/from automatically generated lists of domains and IP's.
-Reboot container and wait few minutes for applying changes.
-Here is rules for lists: https://github.com/AdguardTeam/AdGuardHome/wiki/Configuration#upstreams
+## DNS resolving algorithm
+
+When DNS request arrives aguard:
+1. Check if with blacklist rules. If domain in blacklist - return 0.0.0.0 and client not able to access domain.
+2. Send DNS request to internal dnsmap.py server (127.0.0.4).
+3. dnsmap.py sends request back to adguard
+4. Adguard recieves requests one more time, but now applies rules with `$client=127.0.0.1` and real upstream server client (8.8.8.8 by default)
+5. If domain in whitelist - adguard will resolve its adress and return to dnsmap.py
+6. If domain not in whitelist adguard return SERVFAIL
+7. dnsmap.py send response to adguard:
+   a. If it is valid IP, then replaces it with "internal" IP from `10.224.0.0/15` subnet, add masquerade to iptables and return internal ip to adguard
+   b. If is is SERVFAIL it sends this response to client.
+8. Adguard get response from dnsmap.py, cache it and forward it to the client.
+
+
+## Adding Domains
+Add domains in adguard panel: http://core.antizapret:3000/#custom_rules
+Rules/syntaxes: https://adguard-dns.io/kb/general/dns-filtering-syntax/#basic-examples
+
+By default, adguard rewrite all requests with SERVFAIL. This is only way to make client retry DNS request to second, local DNS server.
+Rules with the dnsrewrite response modifier have higher priority than other rules in AdGuard Home and AdGuard DNS.
+To override default rule custom rules must have  `$dnsrewrite=` modifier or must be in whitelist section.
+
+To support default adguard filters default SERVFAIL rule applied only to internal requests from client=127.0.0.1.
+
+
 
 Examples:
 ```
-subdomain.host.com
-*.host.com
-host.com
-de
+@@||subdomain.host.com^$dnsrewrite,client=127.0.0.1
+@@||*.host.com^$dnsrewrite,client=127.0.0.1
+@@||host.com^$dnsrewrite,client=127.0.0.1
+@@||de^$dnsrewrite,client=127.0.0.1
+
+@@/some_.*_regex/$dnsrewrite,client=127.0.0.1
 ```
+
+Also you can add any urls to whitelist. http://core.antizapret:3000/#dns_allowlists
+Whitelist have hiest priority, so no modifiers needed. 
+Supported formats: simple list of domaind, adguard format, hosts format.
+
+## Adding IPs/Subnets
+Add ips and subnets to `./config/antizapret/custom/include-ips-custom.txt` and run `docker compose exec antizapret doall`
+
 
 ## Environment Variables
 
@@ -194,10 +225,12 @@ Openvpn
    1 - light obfuscation, works with microtics
    2 - strong obfuscation, works with some clients: openvpn gui client, asuswrt client...
 - `ANTIZAPRET_SUBNET=10.224.0.0/15` - subnet for virtual blocked ips
-- `OPENVPN_DNS=10.1.165.1` - DNS address for clients. Must be in `ANTIZAPRET_SUBNET`
 
 Openvpn-ui
 - `OPENVPN_ADMIN_PASSWORD=` — will be used as a server address in .ovpn profiles upon keys generation (default: your server's IP)
+- `OPENVPN_DNS_AZ=10.1.165.1` - first, private DNS address blocked sites (adguard). Must be in `ANTIZAPRET_SUBNET`
+- `OPENVPN_DNS_LOCAL=8.8.8.8` - second, public DNS address for NON blocked sites. Client will send requests directly, without VPN
+- `OPENVPN_LOCAL_IP_RANGE=10.1.165.0` - subnet for ovpn clients. Subnet can be viewed in adguard journal or in ovpn-ui panel
 
 Wireguard/Wireguard Amnezia
 - `WIREGUARD_PASSWORD=` - password for admin panel
