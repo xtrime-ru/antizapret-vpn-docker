@@ -1,4 +1,4 @@
-FROM d3vilh/openvpn-ui
+FROM d3vilh/openvpn-ui:0.9.5.6
 
 RUN apk add -U --no-cache grep moreutils sqlite
 

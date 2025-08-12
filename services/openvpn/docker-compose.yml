@@ -28,7 +28,7 @@ services:
     privileged: true
     build:
       context: .
-      dockerfile: Dockerfile.ui
+      dockerfile: Dockerfile-ui
     volumes:
       - /etc/timezone:/etc/timezone:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
