@@ -18,12 +18,11 @@ STAGE_3=${STAGE_3:-false}
 FILES=(
     temp/list.csv
     temp/nxdomain.txt
-    result/adguard_upstream_dns_file
 )
 
 
 create_hash () {
-    path="/root/antizapret/config/custom/*.txt  /opt/adguardhome/conf/upstream_dns*"
+    path="/root/antizapret/config/custom/*.txt "
     echo $(
         sed -E '/^(#.*)?[[:space:]]*$/d' $path | \
             sort -u | sha1sum | awk '{print $1}'

@@ -24,7 +24,9 @@ dns:
   ratelimit_whitelist: []
   refuse_any: true
   upstream_dns:
-  upstream_dns_file: /opt/adguardhome/conf/upstream_dns_file
+    - 127.0.0.4
+    - '[/*.antizapret/]127.0.0.11'
+  upstream_dns_file: ""
   bootstrap_dns:
     - 8.8.8.8
     - 9.9.9.10
@@ -62,7 +64,7 @@ dns:
   ipset: []
   ipset_file: ""
   bootstrap_prefer_ipv6: false
-  upstream_timeout: 1s
+  upstream_timeout: 5s
   private_networks: []
   use_private_ptr_resolvers: false
   local_ptr_upstreams: []
@@ -108,8 +110,13 @@ filters:
     url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_2.txt
     name: AdAway Default Blocklist
     id: 2
-whitelist_filters: []
+whitelist_filters:
+  - enabled: true
+    url: /opt/adguardhome/work/data/userfilters/adguard_rules
+    name: Anrizapret Rules
+    id: 3
 user_rules:
+  - '||*^$dnsrewrite=SERVFAIL,client=127.0.0.1,denyallow=adguardteam.github.io|static.adtidy.org'
   - '#||*^$dnstype=HTTPS'
 dhcp:
   enabled: false
@@ -150,7 +157,7 @@ filtering:
   safebrowsing_block_host: standard-block.dns.adguard.com
   rewrites: []
   safe_fs_patterns:
-    - /opt/adguardhome/work/userfilters/*
+    - /opt/adguardhome/work/data/userfilters/*
   safebrowsing_cache_size: 1048576
   safesearch_cache_size: 1048576
   parental_cache_size: 1048576
@@ -176,6 +183,7 @@ clients:
       upstreams:
         - 8.8.8.8
       use_global_blocked_services: false
+      filtering_enabled: true
 log:
   enabled: true
   file: ""

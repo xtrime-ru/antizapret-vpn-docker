@@ -24,7 +24,7 @@ x-common: &common
   environment:
     - PORT=51821
     - WG_PORT=51820
-    - WG_DEFAULT_DNS=10.224.0.1
+    - WG_DEFAULT_DNS=10.224.0.1, 8.8.8.8, 1.1.1.1
     - WG_PERSISTENT_KEEPALIVE=25
 
 services:

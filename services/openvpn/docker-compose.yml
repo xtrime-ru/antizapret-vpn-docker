@@ -40,5 +40,8 @@ services:
     environment:
       - OPENVPN_ADMIN_USERNAME=admin
       - OPENVPN_ADMIN_PASSWORD=gagaZush
+      - OPENVPN_DNS_AZ=10.1.165.1
+      - OPENVPN_DNS_LOCAL=8.8.8.8
+      - OPENVPN_LOCAL_IP_RANGE
     depends_on:
       - antizapret

@@ -4,6 +4,7 @@ services:
       - ADGUARDHOME_USERNAME=admin
       - ADGUARDHOME_PASSWORD=password
 
+
   # cloak:
   #   extends:
   #     file: services/cloak/docker-compose.yml
