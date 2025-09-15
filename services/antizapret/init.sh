@@ -72,5 +72,10 @@ yq -i '
     .dns.bind_hosts=["127.0.0.1","'$SELF_IP'"]
     ' /opt/adguardhome/conf/AdGuardHome.yaml
 
+if [ ! -f /opt/unbound/unbound.conf ]; then
+    cp /root/unbound/unbound.conf /opt/unbound/unbound.conf
+fi
+unbound -d -c /opt/unbound/unbound.conf &
+
 # systemd init
 exec /usr/sbin/init

@@ -24,7 +24,7 @@ dns:
   ratelimit_whitelist: []
   refuse_any: true
   upstream_dns:
-    - 127.0.0.4
+    - 127.0.0.5
     - '[/*.antizapret/]127.0.0.11'
   upstream_dns_file: ""
   bootstrap_dns:

@@ -17,6 +17,7 @@ services:
       - $PWD/config/antizapret/result:/root/antizapret/result
       - $PWD/config/adguard/conf:/opt/adguardhome/conf
       - $PWD/config/adguard/work:/opt/adguardhome/work
+      - $PWD/config/unbound:/opt/unbound
 #    dns:
 #      - 8.8.8.8
     ports:

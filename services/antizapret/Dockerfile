@@ -39,7 +39,8 @@ RUN <<-"EOT" bash -ex
         systemd-sysv \
         vim-tiny \
         apache2-utils \
-        wget
+        wget \
+        unbound
     apt-get clean
     rm -frv /var/lib/apt/lists/*
 EOT
