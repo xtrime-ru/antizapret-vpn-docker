@@ -46,7 +46,7 @@ services:
     build:
       context: .
       args:
-        - IMAGE=xtrime/amnezia-wg-easy:latest
+        - IMAGE=xtrime/amnezia-wg-easy:0.2.13
     devices:
       - /dev/net/tun:/dev/net/tun
     volumes:
