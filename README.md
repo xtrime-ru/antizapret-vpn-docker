@@ -278,7 +278,7 @@ DCO is incompatible with legacy ciphers and will be disabled. This is also incre
 https://github.com/amnezia-vpn/amneziawg-linux-kernel-module?tab=readme-ov-file#ubuntu
 
 #### Ubuntu 24.04
-1. Edit `/etc/apt/sources.list` and add replace every `Types: deb` by `Types: deb deb-src`
+1. Edit `/etc/apt/sources.list` and replace every `Types: deb` by `Types: deb deb-src`
 2. `sudo apt update`
 3. `sudo apt install -y software-properties-common python3-launchpadlib gnupg2 linux-headers-$(uname -r)`
 4. `sudo add-apt-repository ppa:amnezia/ppa`
