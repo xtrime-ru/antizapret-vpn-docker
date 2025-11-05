@@ -115,6 +115,10 @@ oaistatic.com
 oaiusercontent.com
 openai.com
 
+# grok
+x.ai
+grok.com
+
 
 # rutracker
 t-ru.org
