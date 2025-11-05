@@ -164,6 +164,9 @@ qualcomm.com
 usablenet.com
 recraft.ai
 hetzner.com
+pokerplanning.org
+thanosjs.org
+smartsheet.com
 
 #discord
 discord.com
