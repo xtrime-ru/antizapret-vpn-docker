@@ -47,7 +47,7 @@ EOT
 COPY . /
 
 COPY --from=mikefarah/yq:4.45.1 /usr/bin/yq /usr/bin/yq
-COPY --from=adguard/adguardhome:v0.107.66 /opt/adguardhome /opt/adguardhome
+COPY --from=adguard/adguardhome:v0.107.69 /opt/adguardhome /opt/adguardhome
 COPY --from=builder-api /app/app /opt/api/app
 
 RUN <<-"EOF" bash -ex
