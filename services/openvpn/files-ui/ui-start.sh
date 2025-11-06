@@ -30,11 +30,13 @@ cd /opt/openvpn-ui
 # Create the database directory if it does not exist
 mkdir -p db
 
+export DOCKER_SUBNET=$(ip r | awk '/default/ {dev=$5} !/default/ && $0 ~ dev {print $1}' | tail -n1)
+
 cat << EOF | sponge /etc/environment
 OPENVPN_EXTERNAL_IP='${OPENVPN_EXTERNAL_IP:-$(curl -4 icanhazip.com)}'
 OPENVPN_LOCAL_IP_RANGE='${OPENVPN_LOCAL_IP_RANGE:-"10.1.165.0"}'
-OPENVPN_DNS_AZ='${OPENVPN_DNS_AZ:-"10.1.165.1"}'
-OPENVPN_DNS_LOCAL='${OPENVPN_DNS_LOCAL:-"8.8.8.8"}'
+DOCKER_SUBNET='${DOCKER_SUBNET}'
+OPENVPN_DNS='${OPENVPN_DNS:-"10.1.165.1"}'
 NIC='$(ip -4 route | grep default | grep -Po '(?<=dev )(\S+)' | head -1)'
 OVDIR='${OVDIR:-"/etc/openvpn"}'
 EOF
@@ -48,8 +50,8 @@ if [ ! -f /opt/openvpn-ui/db/data.db ]; then
         update o_v_client_config set server_address = '${OPENVPN_EXTERNAL_IP}' where profile = 'default';
         update o_v_config set
             server = 'server ${OPENVPN_LOCAL_IP_RANGE} 255.255.255.0',
-            d_n_s_server1 = 'push "dhcp-option DNS ${OPENVPN_DNS_AZ}"',
-            d_n_s_server2 = 'push "dhcp-option DNS ${OPENVPN_DNS_LOCAL}"'
+            route = 'route ${DOCKER_SUBNET} 255.255.255.0',
+            d_n_s_server1 = 'push "dhcp-option DNS ${OPENVPN_DNS}"'
         where profile = 'default';
 EOS
     [ $? -gt 0 ] && echo "SQLite migration failed" && exit 1

@@ -20,19 +20,21 @@ if [ -f "/opt/antizapret/result/blocked-ranges-with-include.txt" ]; then
     cp -f /opt/antizapret/result/blocked-ranges-with-include.txt /app/blocked-ranges-with-include.txt
 fi
 
+export DOCKER_SUBNET=$(ip r | awk '/default/ {dev=$5} !/default/ && $0 ~ dev {print $1}' | tail -n1)
 if [ -z "$WG_ALLOWED_IPS" ]; then
-    export WG_ALLOWED_IPS="${WG_DEFAULT_ADDRESS/"x"/"0"}/24,$ANTIZAPRET_SUBNET"
+    export WG_ALLOWED_IPS="${WG_DEFAULT_ADDRESS/"x"/"0"}/24,$ANTIZAPRET_SUBNET,$DOCKER_SUBNET"
     blocked_ranges=`tr '\n' ',' < /app/blocked-ranges-with-include.txt | sed 's/,$//g'`
     if [ -n "${blocked_ranges}" ]; then
         export WG_ALLOWED_IPS="${WG_ALLOWED_IPS},${blocked_ranges}"
     fi
 fi
 
-export DOCKER_SUBNET=$(ip r | awk '/default/ {dev=$5} !/default/ && $0 ~ dev {print $1}')
 export AZ_HOST=$(dig +short antizapret)
-while [ -z "${AZ_HOST}" ]; do
+export DNS_HOST=$(dig +short adguard)
+while [ -z "${AZ_HOST}" ] || [ -z "$DNS_HOST" ]; do
     echo "No route to antizapret container. Retrying..."
     export AZ_HOST=$(dig +short antizapret)
+    export DNS_HOST=$(dig +short adguard)
     sleep 1;
 done;
 
@@ -40,6 +42,7 @@ export WG_POST_UP=$(tr '\n' ' ' << EOF
 iptables -t nat -N masq_not_local;
 iptables -t nat -A POSTROUTING -s ${WG_DEFAULT_ADDRESS/"x"/"0"}/24 -o ${WG_DEVICE} -j masq_not_local;
 iptables -t nat -A masq_not_local -d ${AZ_HOST} -j RETURN;
+iptables -t nat -A masq_not_local -d ${DNS_HOST} -j RETURN;
 iptables -t nat -A masq_not_local -d ${ANTIZAPRET_SUBNET} -j RETURN;
 iptables -t nat -A masq_not_local -j MASQUERADE;
 iptables -A FORWARD -i wg0 -j ACCEPT;
@@ -62,8 +65,8 @@ ip route add $ANTIZAPRET_SUBNET via $AZ_HOST
 if [[ ${FORCE_FORWARD_DNS:-true} == true ]]; then
     dnsPorts=${FORCE_FORWARD_DNS_PORTS:-"53"}
     for dnsPort in $dnsPorts; do
-        iptables -t nat -A PREROUTING -p tcp --dport $dnsPort -j DNAT --to-destination $AZ_HOST
-        iptables -t nat -A PREROUTING -p udp --dport $dnsPort -j DNAT --to-destination $AZ_HOST
+        iptables -t nat -A PREROUTING -p tcp --dport $dnsPort -j DNAT --to-destination $DNS_HOST
+        iptables -t nat -A PREROUTING -p udp --dport $dnsPort -j DNAT --to-destination $DNS_HOST
     done
 fi
 

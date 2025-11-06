@@ -1,0 +1,37 @@
+services:
+  adguard:
+    build: .
+    hostname: adguard.antizapret
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    sysctls:
+      - net.ipv4.ip_forward=1
+      - net.ipv4.conf.all.src_valid_mark=1
+    healthcheck:
+      test: (cat /root/antizapret/result/* | md5sum) | cmp - /tmp/config_md5 || sh -c 'killall -INT -r AdGuardHome && (sleep 5; killall -s 9 -r AdGuardHome)'
+      interval: 30s
+      timeout: 10s
+      retries: 1
+    logging:
+      driver: json-file
+      options:
+        max-size: 100k
+        max-file: 2
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - $PWD/config/antizapret/result:/root/antizapret/result
+      - $PWD/config/adguard/conf:/opt/adguardhome/conf
+      - $PWD/config/adguard/work:/opt/adguardhome/work
+      - ./entrypoint.sh:/root/entrypoint.sh
+    ports: !override
+      - "3000:3000/tcp"
+    environment:
+      - |
+        ROUTES=
+        openvpn:10.1.165.0/24;
+        wireguard-amnezia:10.1.167.0/24;
+        wireguard:10.1.166.0/24;
+      - ADGUARDHOME_PORT
+      - ADGUARDHOME_USERNAME
+      - ADGUARDHOME_PASSWORD

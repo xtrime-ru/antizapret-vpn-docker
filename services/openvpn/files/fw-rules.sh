@@ -4,14 +4,17 @@ set -e
 set -x
 
 AZ_HOST=$(dig +short antizapret)
-while [ -z "${AZ_HOST}" ]; do
-    echo "No route to antizapret container. Retrying..."
+DNS_HOST=$(dig +short adguard)
+while [ -z "${AZ_HOST}" ] || [ -z "$DNS_HOST" ]; do
+    echo "No route to antizapret or DNS container. Retrying..."
     AZ_HOST=$(dig +short antizapret)
+    DNS_HOST=$(dig +short adguard)
     sleep 1;
 done;
 
 cat << EOF | sponge /etc/environment
 OPENVPN_LOCAL_IP_RANGE='${OPENVPN_LOCAL_IP_RANGE:-"10.1.165.0"}'
+OPENVPN_DNS='${OPENVPN_DNS:-"10.1.165.1"}'
 ANTIZAPRET_SUBNET=${ANTIZAPRET_SUBNET:-"10.224.0.0/15"}
 NIC='$(ip -4 route ls | grep default | grep -Po '(?<=dev )(\S+)' | head -1)'
 OVDIR='${OVDIR:-"/etc/openvpn"}'
@@ -23,6 +26,7 @@ ln -sf /etc/environment /etc/profile.d/environment.sh
 iptables -t nat -N masq_not_local;
 iptables -t nat -A POSTROUTING -s ${OPENVPN_LOCAL_IP_RANGE}/24 -j masq_not_local;
 iptables -t nat -A masq_not_local -d ${AZ_HOST} -j RETURN;
+iptables -t nat -A masq_not_local -d ${DNS_HOST} -j RETURN;
 iptables -t nat -A masq_not_local -d ${ANTIZAPRET_SUBNET} -j RETURN;
 iptables -t nat -A masq_not_local -j MASQUERADE;
 
@@ -36,7 +40,7 @@ ip route add "$ANTIZAPRET_SUBNET" via "$AZ_HOST"
 if [[ ${FORCE_FORWARD_DNS:-true} == true ]]; then
     dnsPorts=${FORCE_FORWARD_DNS_PORTS:-"53"}
     for dnsPort in $dnsPorts; do
-        iptables -t nat -A PREROUTING -p tcp --dport "$dnsPort" -j DNAT --to-destination "$AZ_HOST"
-        iptables -t nat -A PREROUTING -p udp --dport "$dnsPort" -j DNAT --to-destination "$AZ_HOST"
+        iptables -t nat -A PREROUTING -p tcp --dport "$dnsPort" -j DNAT --to-destination "$DNS_HOST"
+        iptables -t nat -A PREROUTING -p udp --dport "$dnsPort" -j DNAT --to-destination "$DNS_HOST"
     done
 fi

@@ -1,5 +1,5 @@
 services:
-  antizapret:
+  adguard:
     environment:
       - ADGUARDHOME_USERNAME=admin
       - ADGUARDHOME_PASSWORD=password

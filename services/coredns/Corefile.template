@@ -1,0 +1,14 @@
+.:53 {
+    log
+    errors
+
+    # Forward plugin with strict failover
+    forward . ${AZ_HOST} ${DNS_HOST} {
+        policy sequential
+        prefer_udp
+        failover SERVFAIL
+    }
+}
+
+
+

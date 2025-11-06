@@ -151,17 +151,26 @@ docker compose up -d
 
 ## DNS resolving algorithm
 
-When DNS request arrives aguard:
-1. Check if with blacklist rules. If domain in blacklist - return 0.0.0.0 and client not able to access domain.
-2. Send DNS request to internal dnsmap.py server (127.0.0.4).
-3. dnsmap.py sends request back to adguard
-4. Adguard recieves requests one more time, but now applies rules with `$client=127.0.0.1` and real upstream server client (8.8.8.8 by default)
-5. If domain in whitelist - adguard will resolve its adress and return to dnsmap.py
-6. If domain not in whitelist adguard return SERVFAIL
-7. dnsmap.py send response to adguard:
-   a. If it is valid IP, then replaces it with "internal" IP from `10.224.0.0/15` subnet, add masquerade to iptables and return internal ip to adguard
-   b. If is is SERVFAIL it sends this response to client.
-8. Adguard get response from dnsmap.py, cache it and forward it to the client.
+![Preview](./img/chart.png)
+
+1. DNS Request arrives into AdGuardHome
+1. Adguard check it with blacklist rules. If domain in blacklist - return 0.0.0.0 and client not able to access domain.
+1. Adguard Send DNS request to CoreDNS service.
+1. CoreDNS Send DNS request to internal dnsmap.py server (antizapret container) and dnsmap.py sends request back to adguard
+1. Adguard recieves requests one more time, but now applies rules with `$client=antizapret` and real upstream server client (8.8.8.8 by default)
+1. If domain in whitelist - adguard will resolve its address and return to dnsmap.py
+1. If domain not in whitelist adguard return SERVFAIL
+1. dnsmap.py send response to adguard:
+   1. If it is valid IP, then replaces it with "internal" IP from `10.224.0.0/15` subnet, add masquerade to iptables and return internal ip to adguard 
+   1. If is is SERVFAIL it sends this response to client.
+1. If CoreDNS receives SERVFAIL it retries request and send it directly to Adguard. In this case rules with `$client=antizapret` do not applied and request processed normally.
+
+Why so complicated? 
+- Windows and some other clients do not retry to Fallback DNS, even if  SERVFAIL received. So we added CoreDNS for that. 
+- Adguard dont allow to redefine upstream in blacklist/whitelist rules. 
+  But this rules have regex support and updated automatically, so we want to use them.
+  So multiple requests from different clients are made internally.
+- Adguard allows different upstreams for different clients. So we can use different DNS for blocked and non blocked domains.
 
 
 ## Adding Domains
@@ -170,7 +179,7 @@ Rules/syntaxes: https://adguard-dns.io/kb/general/dns-filtering-syntax/#basic-ex
 
 By default, adguard rewrite all requests with SERVFAIL. This is only way to make client retry DNS request to second, local DNS server.
 Rules with the dnsrewrite response modifier have higher priority than other rules in AdGuard Home and AdGuard DNS.
-To override default rule custom rules must have  `$dnsrewrite=` modifier or must be in whitelist section.
+To override default rule custom rules must have  `$dnsrewrite` modifier or must be in whitelist section.
 
 To support default adguard filters default SERVFAIL rule applied only to internal requests from client=127.0.0.1.
 
@@ -199,17 +208,18 @@ Add ips and subnets to `./config/antizapret/custom/include-ips-custom.txt` and r
 You can define these variables in docker-compose.override.yml file for your needs:
 
 Antizapret:
-- `SKIP_UPDATE_FROM_ZAPRET=true` - do not download and use list of all blocked domains from internet.
-    Will reduce RAM consumption. Need to manually fill domains in `*-custom.txt` files.
-- `UPDATE_TIMER=1d` - blocked domains update interval
+- `DNS=adguard` - Upstream DNS for resolving blocked sites (adguard by default)
+- `ROUTES` - list of VPN containers and their virtual addresses. Used for iperf3 server.
+
+Adguard: 
+- `ROUTES` - list of VPN containers and their virtual addresses. Used for uniq client addresses in adguard logs
 - `ADGUARDHOME_PORT=3000`
 - `ADGUARDHOME_USERNAME=admin`
 - `ADGUARDHOME_PASSWORD=`
-- `ADGUARDHOME_PASSWORD_HASH=` - hashed password, taken from the AdGuardHome.yaml file after the first run using `ADGUARDHOME_PASSWORD`. Dollar sign `$` in hash must be escaped with another dollar sign: `$$` 
-- `DNS=127.0.0.1` - Upstream DNS for resolving blocked sites (adguard by default)
-- `ROUTES` - list of VPN containers and their virtual addresses. Needed for uniq client addresses in adguard logs 
-- `LISTS` - list of urls to get blocked domains lists
-- `IP_LIST` - main url to get list of blocked ips and domains. Override with blank value to disable download of this list.
+- `ADGUARDHOME_PASSWORD_HASH=` - hashed password, taken from the AdGuardHome.yaml file after the first run using `ADGUARDHOME_PASSWORD`. Dollar sign `$` in hash must be escaped with another dollar sign: `$$`
+
+CoreDNS: 
+- None
 
 Filebrowser:
 - `FILEBROWSER_PORT=admin`
@@ -404,27 +414,9 @@ iperf3 server is included in antizapret-vpn container.
 2. Use iperf3 client on your phone or computer to check upload/download speed.
     Example 10 threads for 10 seconds and report result every second:
     ```shell
-    iperf3 -c 10.224.0.1 -i1 -t10 -P10
-    iperf3 -c 10.224.0.1 -i1 -t10 -P10 -R
+    iperf3 -c core.antizapret -i1 -t10 -P10
+    iperf3 -c core.antizapret -i1 -t10 -P10 -R
     ```
-
-## IPsec/XAuth (Cisco IPsec) server
-**Important notice**: not all clients support tunnel-split (send only part of traffic via VPN).
-For example **Apple** devices **will not** be able **to connect** to this server.
-
-**Recommended to use OpenVPN or Wireguard/Amnezia instead.**
-
-1. Create settings file:
-   ```shell
-   cp ipsec/ipsec.env.example ipsec/ipsec.env
-   ```
-2. Fill your creditentials in `ipsec/ipsec.env`
-3. Start
-   ```shell
-   docker compose down
-   docker compose -f docker-compose.ipsec.yml up -d
-   ```
-4. Setup your clients: https://github.com/hwdsl2/setup-ipsec-vpn/blob/master/docs/clients-xauth.md
 
 # Credits
 - [ProstoVPN](https://antizapret.prostovpn.org) — the original project

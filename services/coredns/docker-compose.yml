@@ -1,0 +1,13 @@
+services:
+  coredns:
+    hostname: coredns.antizapret
+    restart: unless-stopped
+    build: .
+    logging:
+      driver: json-file
+      options:
+        max-size: 100k
+        max-file: 2
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./Corefile.template:/root/Corefile.template

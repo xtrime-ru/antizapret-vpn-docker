@@ -2,7 +2,7 @@ http:
   pprof:
     port: 6060
     enabled: false
-  address: 0.0.0.0:300
+  address: 0.0.0.0:3000
   session_ttl: 720h
 users:
   - name: admin
@@ -14,8 +14,7 @@ language: ""
 theme: auto
 dns:
   bind_hosts:
-    - 127.0.0.1
-    - 10.224.0.1
+    - 0.0.0.0
   port: 53
   anonymize_client_ip: false
   ratelimit: 0
@@ -24,10 +23,11 @@ dns:
   ratelimit_whitelist: []
   refuse_any: true
   upstream_dns:
-    - 127.0.0.5
+    - coredns
     - '[/*.antizapret/]127.0.0.11'
   upstream_dns_file: ""
   bootstrap_dns:
+    - 127.0.0.11
     - 8.8.8.8
     - 9.9.9.10
     - 149.112.112.10
@@ -110,13 +110,17 @@ filters:
     url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_2.txt
     name: AdAway Default Blocklist
     id: 2
+  - enabled: true
+    url: /root/antizapret/result/adguard_rules
+    name: Antizapret DIST
+    id: 3
 whitelist_filters:
   - enabled: true
-    url: /opt/adguardhome/work/data/userfilters/adguard_rules
-    name: Anrizapret Rules
-    id: 3
+    url: https://antifilter.download/list/domains.lst
+    name: Antifilter Rules
+    id: 4
 user_rules:
-  - '||*^$dnsrewrite=SERVFAIL,client=127.0.0.1,denyallow=adguardteam.github.io|static.adtidy.org'
+  - '||*^$dnsrewrite=SERVFAIL,client=antizapret'
   - '#||*^$dnstype=HTTPS'
 dhcp:
   enabled: false
@@ -157,7 +161,7 @@ filtering:
   safebrowsing_block_host: standard-block.dns.adguard.com
   rewrites: []
   safe_fs_patterns:
-    - /opt/adguardhome/work/data/userfilters/*
+    - /*
   safebrowsing_cache_size: 1048576
   safesearch_cache_size: 1048576
   parental_cache_size: 1048576
@@ -176,14 +180,30 @@ clients:
     dhcp: true
     hosts: true
   persistent:
-    - name: localhost
-      ids:
-        - 127.0.0.1
+    - name: antizapret
+      ids: []
       tags: [ ]
       upstreams:
         - 8.8.8.8
-      use_global_blocked_services: false
-      filtering_enabled: true
+        - 8.8.4.4
+        - 9.9.9.11
+        - 149.112.112.11
+        - '[/akamai.net/akamaiedge.net/akadns.net/microsoft.com/ru/su/xn--p1ai/]77.88.8.8'
+        - '[/themoviedb.org/tmdb.org/tmdb-image-prod.b-cdn.net/]9.9.9.10'
+      use_global_settings: true
+      use_global_blocked_services: true
+    - name: coredns
+      ids: []
+      tags: [ ]
+      upstreams:
+        - 8.8.8.8
+        - 8.8.4.4
+        - 9.9.9.11
+        - 149.112.112.11
+        - '[/akamai.net/akamaiedge.net/akadns.net/microsoft.com/ru/su/xn--p1ai/]77.88.8.8'
+        - '[/themoviedb.org/tmdb.org/tmdb-image-prod.b-cdn.net/]9.9.9.10'
+      use_global_settings: true
+      use_global_blocked_services: true
 log:
   enabled: true
   file: ""

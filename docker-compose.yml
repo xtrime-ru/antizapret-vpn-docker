@@ -10,3 +10,12 @@ services:
     extends:
       file: services/antizapret/docker-compose.yml
       service: antizapret
+  adguard:
+    extends:
+      file: services/adguard/docker-compose.yml
+      service: adguard
+  coredns:
+    extends:
+      file: services/coredns/docker-compose.yml
+      service: coredns
+
