@@ -56,14 +56,8 @@ services:
     extends:
       file: services/wireguard/docker-compose.yml
       service: wireguard-amnezia
-    ports: !override
-      - 51830:51820/udp
-      - 51831:51821/tcp
     environment:
       - WIREGUARD_PASSWORD=password
-      - PORT=51821
-      - WG_PORT=51820
-      - WG_CONFIG_PORT=51830
 
   proxy:
     extends:

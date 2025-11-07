@@ -1,0 +1,29 @@
+services:
+  base:
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 100k
+        max-file: 2
+    healthcheck:
+      test: cmp /app/ips.txt /opt/antizapret/result/ips.txt || sh -c 'kill -INT 1 && (sleep 5; kill -s 9 1)'
+      interval: 60s
+      timeout: 30s
+      retries: 1
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    sysctls:
+      - net.ipv4.ip_forward=1
+      - net.ipv4.conf.all.src_valid_mark=1
+    depends_on:
+      - antizapret
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - $PWD/config/antizapret/result:/opt/antizapret/result
+    environment:
+      - PORT=51821
+      - WG_PORT=51820
+      - WG_DEFAULT_DNS=10.224.0.1
+      - WG_PERSISTENT_KEEPALIVE=25

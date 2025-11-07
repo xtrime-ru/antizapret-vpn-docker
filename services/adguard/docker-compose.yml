@@ -30,8 +30,8 @@ services:
       - |
         ROUTES=
         openvpn:10.1.165.0/24;
-        wireguard-amnezia:10.1.167.0/24;
         wireguard:10.1.166.0/24;
+        wireguard-amnezia:10.1.167.0/24;
       - ADGUARDHOME_PORT
       - ADGUARDHOME_USERNAME
       - ADGUARDHOME_PASSWORD
