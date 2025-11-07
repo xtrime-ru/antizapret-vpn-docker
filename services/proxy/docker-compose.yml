@@ -17,7 +17,7 @@ services:
       - PROXY_EMAIL=
       # PROXY_SERVICE_N=external_port:internal_hostname:internal_port
       - PROXY_SERVICE_1=Dashboard:443:dashboard.antizapret:80
-      - PROXY_SERVICE_2=AdGuard:1443:core.antizapret:3000
+      - PROXY_SERVICE_2=AdGuard:1443:adguard.antizapret:3000
       - PROXY_SERVICE_3=File Browser:2443:filebrowser.antizapret:80
       - PROXY_SERVICE_4=OpenVPN UI:3443:openvpn-ui.antizapret:8080
       - PROXY_SERVICE_5=WireGuard:4443:wireguard.antizapret:51821

@@ -43,7 +43,7 @@ https://t.me/antizapret_support
 2. Create docker-compose.override.yml with services you need. Minimal example with only wireguard:
 ```yml
 services:
-  antizapret:
+  adguard:
     environment:
       - ADGUARDHOME_PASSWORD=somestrongpassword
   wireguard:
@@ -52,8 +52,6 @@ services:
      extends:
         file: services/wireguard/docker-compose.yml
         service: wireguard
-     depends_on:
-        - antizapret
 ```
 Find full example in [docker-compose.override.sample.yml](./docker-compose.override.sample.yml)
 
