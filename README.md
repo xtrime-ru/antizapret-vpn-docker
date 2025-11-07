@@ -90,8 +90,6 @@ services:
          service: wireguard
       environment:
          - WIREGUARD_PASSWORD=password
-      ports: !override
-         - 51820:51820/udp
 ```
 
 ### HTTPS
@@ -108,7 +106,7 @@ When `proxy` container is started, access services with https at following ports
 
 ### Local network
    When you connected to VPN, you can access containers without exposing ports to internet:
-- http://core.antizapret:3000
+- http://adguard.antizapret:3000
 - http://dashboard.antizapret:80
 - http://wireguard-amnezia.antizapret:51821
 - http://wireguard.antizapret:51821
@@ -185,15 +183,15 @@ To support default adguard filters default SERVFAIL rule applied only to interna
 
 Examples:
 ```
-@@||subdomain.host.com^$dnsrewrite,client=127.0.0.1
-@@||*.host.com^$dnsrewrite,client=127.0.0.1
-@@||host.com^$dnsrewrite,client=127.0.0.1
-@@||de^$dnsrewrite,client=127.0.0.1
+@@||subdomain.host.com^$dnsrewrite,client=antizapret
+@@||*.host.com^$dnsrewrite,client=antizapret
+@@||host.com^$dnsrewrite,client=antizapret
+@@||de^$dnsrewrite,client=antizapret
 
-@@/some_.*_regex/$dnsrewrite,client=127.0.0.1
+@@/some_.*_regex/$dnsrewrite,client=antizapret
 ```
 
-Also you can add any urls to whitelist. http://core.antizapret:3000/#dns_allowlists
+Also you can add any urls to whitelist. http://adguard.antizapret:3000/#dns_allowlists
 Whitelist have hiest priority, so no modifiers needed. 
 Supported formats: simple list of domaind, adguard format, hosts format.
 
