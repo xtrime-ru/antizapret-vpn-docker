@@ -119,6 +119,15 @@ whitelist_filters:
     url: https://antifilter.download/list/domains.lst
     name: Antifilter Rules
     id: 4
+  - enabled: true
+    url: https://raw.githubusercontent.com/xtrime-ru/antizapret-vpn-docker/refs/heads/v5/lists/comss-vpn.txt
+    name: Comss VPN List
+    id: 5
+  - enabled: false
+    url: https://raw.githubusercontent.com/GubernievS/AntiZapret-VPN/refs/heads/main/setup/root/antizapret/download/include-hosts.txt
+    name: GubernievS AntiZapret List
+    id: 6
+
 user_rules:
   - '||*^$dnsrewrite=SERVFAIL,client=antizapret'
   - '#||*^$dnstype=HTTPS'
