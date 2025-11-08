@@ -26,10 +26,14 @@ ln -sf /etc/default/antizapret /etc/profile.d/antizapret.sh
 
 
 # creating custom hosts files if they have not yet been initialized
-for file in $(echo include-{hosts,ips}-custom.txt); do
+for file in $(echo {exclude,include}-{hosts,ips}-custom.txt); do
     path=/root/antizapret/config/custom/$file
     [ ! -f $path ] && touch $path
 done
+
+rm /root/antizapret/config/custom/exclude-ips-custom.txt
+
+(cat /root/antizapret/result/* /root/antizapret/config/custom/* | md5sum) > /tmp/config_md5
 
 # add routes from env ROUTES
 postrun 'while true; do /routes.sh; sleep 60; done'

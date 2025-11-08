@@ -111,23 +111,30 @@ filters:
     name: AdAway Default Blocklist
     id: 2
   - enabled: true
-    url: /root/antizapret/result/adguard_rules
-    name: Antizapret DIST
+    url: http://core.antizapret/list/?file=/root/antizapret/config/custom/include-hosts-custom.txt
+    name: Custom User Rules
     id: 3
-whitelist_filters:
   - enabled: true
-    url: https://antifilter.download/list/domains.lst
-    name: Antifilter Rules
+    url: http://core.antizapret/list/?file=/root/antizapret/config/include-hosts-dist.txt
+    name: Antizapret Dist Rules
     id: 4
   - enabled: true
-    url: https://raw.githubusercontent.com/xtrime-ru/antizapret-vpn-docker/refs/heads/v5/lists/comss-vpn.txt
-    name: Comss VPN List
+    url: http://core.antizapret/list/?url=https://antifilter.download/list/domains.lst
+    name: Antifilter Rules
     id: 5
-  - enabled: false
-    url: https://raw.githubusercontent.com/GubernievS/AntiZapret-VPN/refs/heads/main/setup/root/antizapret/download/include-hosts.txt
-    name: GubernievS AntiZapret List
+  - enabled: true
+    url: http://core.antizapret/list/?url=https://raw.githubusercontent.com/xtrime-ru/antizapret-vpn-docker/v5/lists/comss-vpn.txt
+    name: Comss VPN List
     id: 6
-
+  - enabled: false
+    url: http://core.antizapret/list/?url=https://raw.githubusercontent.com/GubernievS/AntiZapret-VPN/refs/heads/main/setup/root/antizapret/download/include-hosts.txt
+    name: GubernievS AntiZapret List
+    id: 7
+  - enabled: false
+    url: http://core.antizapret/list/?url=https://blockedin.org/api/v3/domains/
+    name: Blockedin.org List
+    id: 8
+whitelist_filters: []
 user_rules:
   - '||*^$dnsrewrite=SERVFAIL,client=antizapret'
   - '#||*^$dnstype=HTTPS'

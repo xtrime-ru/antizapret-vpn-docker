@@ -11,6 +11,11 @@ services:
       options:
         max-size: 100k
         max-file: 2
+    healthcheck:
+      test: /healthcheck.sh
+      interval: 30s
+      timeout: 10s
+      retries: 1
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - $PWD/config/antizapret/custom:/root/antizapret/config/custom
@@ -26,3 +31,6 @@ services:
         wireguard:10.1.166.0/24;
         wireguard-amnezia:10.1.167.0/24;
       - DNS=adguard
+    depends_on:
+      - adguard
+      - coredns

@@ -1,5 +1,7 @@
 FROM golang:1.25 AS builder-api
 WORKDIR /app
+COPY ./api/go.mod ./api/go.sum ./
+RUN go mod download
 COPY ./api .
 RUN go build -o app main.go
 
