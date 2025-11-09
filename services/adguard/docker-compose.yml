@@ -9,7 +9,7 @@ services:
       - net.ipv4.ip_forward=1
       - net.ipv4.conf.all.src_valid_mark=1
     healthcheck:
-      test: (cat /root/antizapret/result/* | md5sum) | cmp - /tmp/config_md5 || sh -c 'killall -INT -r AdGuardHome && (sleep 5; killall -s 9 -r AdGuardHome)'
+      test: /root/healthcheck.sh
       interval: 30s
       timeout: 10s
       retries: 1
@@ -26,6 +26,13 @@ services:
       - ./entrypoint.sh:/root/entrypoint.sh
     ports:
       - "3000:3000/tcp"
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [ node.labels.location == local ]
+    depends_on:
+      - coredns
+      - az-local
     environment:
       - |
         ROUTES=

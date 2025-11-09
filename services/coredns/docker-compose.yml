@@ -10,4 +10,10 @@ services:
         max-file: 2
     volumes:
       - /etc/localtime:/etc/localtime:ro
-      - ./Corefile.template:/root/Corefile.template
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [ node.labels.location == local ]
+    depends_on:
+      - az-local
+      - az-world

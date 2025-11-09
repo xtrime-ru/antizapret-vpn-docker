@@ -18,6 +18,9 @@ SELF_IP=$(hostname -i)
 DOCKER_SUBNET=$(ip r | awk '/default/ {dev=$5} !/default/ && $0 ~ dev {print $1}')
 ROUTES='${ROUTES:-""}'
 DNS=${DNS:-"127.0.0.1"}
+CLIENT=${CLIENT:-"az-local"}
+DOALL_DISABLED={$DOALL_DISABLED:-""}
+AZ_SUBNET=${AZ_SUBNET:-"10.224.0.0/15"}
 LC_ALL=C.UTF-8
 EOF
 source /etc/default/antizapret
@@ -28,20 +31,23 @@ ln -sf /etc/default/antizapret /etc/profile.d/antizapret.sh
 # creating custom hosts files if they have not yet been initialized
 for file in $(echo {exclude,include}-{hosts,ips}-custom.txt); do
     path=/root/antizapret/config/custom/$file
+    [[ "$file" == "exclude-ips-custom.txt" ]] && continue
     [ ! -f $path ] && touch $path
 done
 
-rm /root/antizapret/config/custom/exclude-ips-custom.txt
+( cat /root/antizapret/result/* /root/antizapret/config/custom/* | md5sum ) > /.config_md5
 
-(cat /root/antizapret/result/* /root/antizapret/config/custom/* | md5sum) > /tmp/config_md5
+# Prepare iptables for dnsmap.py
+iptables -t nat -N dnsmap
+iptables -t nat -A PREROUTING -d "${AZ_SUBNET}" -j dnsmap
+iptables -t nat -A OUTPUT -d "${AZ_SUBNET}" -j dnsmap
+iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
 
 # add routes from env ROUTES
 postrun 'while true; do /routes.sh; sleep 60; done'
 
 # output systemd logs to docker logs since container boot
 postrun 'until [[ "$(systemctl is-active systemd-journald)" == "active" ]]; do sleep 1; done; journalctl --boot --follow --lines=all --no-hostname'
-
-[ -d /root/antizapret/result_dist ] && /bin/cp --update=none /root/antizapret/result_dist/* /root/antizapret/result/
 
 # systemd init
 exec /usr/sbin/init

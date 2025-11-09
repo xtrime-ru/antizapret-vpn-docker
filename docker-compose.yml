@@ -6,10 +6,31 @@ networks:
         - subnet: 10.200.0.0/24
 
 services:
-  antizapret:
+  az-local:
+    hostname: az-local.antizapret
     extends:
       file: services/antizapret/docker-compose.yml
       service: antizapret
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [ node.labels.location == local ]
+    environment:
+      - CLIENT=az-local
+      - AZ_SUBNET=10.224.0.0/15
+  az-world:
+    hostname: az-world.antizapret
+    extends:
+      file: services/antizapret/docker-compose.yml
+      service: antizapret
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [ node.labels.location == local ]
+    environment:
+      - CLIENT=az-world
+      - AZ_SUBNET=10.226.0.0/15
+      - DOALL_DISABLED=1
   adguard:
     extends:
       file: services/adguard/docker-compose.yml

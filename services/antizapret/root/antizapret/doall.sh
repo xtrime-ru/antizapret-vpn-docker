@@ -9,6 +9,11 @@ if [ -s /etc/default/antizapret ]; then
     set +a
 fi
 
+if [ -n "$DOALL_DISABLED" ]; then
+    echo "DoAll disabled. Exiting now..."
+    exit 0
+fi
+
 echo "run parse.sh" && ./parse.sh || exit 2
 
 echo "Rules updated"

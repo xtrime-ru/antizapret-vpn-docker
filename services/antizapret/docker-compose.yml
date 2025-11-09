@@ -1,7 +1,6 @@
 services:
   antizapret:
     image: xtrime/antizapret-vpn
-    hostname: core.antizapret
     restart: unless-stopped
     stop_signal: SIGRTMIN+4
     privileged: true
@@ -31,6 +30,5 @@ services:
         wireguard:10.1.166.0/24;
         wireguard-amnezia:10.1.167.0/24;
       - DNS=adguard
-    depends_on:
-      - adguard
-      - coredns
+      - CLIENT
+      - DOALL_DISABLED

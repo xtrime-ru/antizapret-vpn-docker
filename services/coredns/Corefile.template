@@ -3,7 +3,7 @@
     errors
 
     # Forward plugin with strict failover
-    forward . ${AZ_HOST} ${DNS_HOST} {
+    forward . ${AZ_WORLD_HOST} ${AZ_LOCAL_HOST} ${DNS_HOST} {
         policy sequential
         prefer_udp
         failover SERVFAIL
