@@ -10,10 +10,14 @@ services:
       - DASHBOARD_PASSWORD=password
 
       # DASHBOARD_SERVICE_N=name:external_port:internal_hostname:internal_port
-      - DASHBOARD_SERVICE_1=AdGuard:1443:core.antizapret:3000
+      - DASHBOARD_SERVICE_1=AdGuard:1443:adguard.antizapret:3000
       - DASHBOARD_SERVICE_2=File Browser:2443:filebrowser.antizapret:80
       - DASHBOARD_SERVICE_3=OpenVPN UI:3443:openvpn-ui.antizapret:8080
       - DASHBOARD_SERVICE_4=WireGuard:4443:wireguard.antizapret:51821
       - DASHBOARD_SERVICE_5=WireGuard Amnezia:5443:wireguard-amnezia.antizapret:51821
     depends_on:
-      - antizapret
+      - az-local
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [ node.labels.location == local ]

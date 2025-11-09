@@ -18,7 +18,11 @@ services:
       - "1194:1194/udp"
     depends_on:
       - openvpn-ui
-      - antizapret
+      - az-local
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [ node.labels.location == local ]
     environment:
       - OBFUSCATE_TYPE=0
 
@@ -41,4 +45,8 @@ services:
       - OPENVPN_ADMIN_USERNAME=admin
       - OPENVPN_ADMIN_PASSWORD=gagaZush
     depends_on:
-      - antizapret
+      - az-local
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [ node.labels.location == local ]

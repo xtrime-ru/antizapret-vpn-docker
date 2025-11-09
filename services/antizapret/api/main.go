@@ -57,8 +57,9 @@ type ListRequest struct {
 	Url    string `schema:"url"`
 	File   string `schema:"file"`
 	Format string `schema:"format"`
-	Client string `schema:"client"`
-	Allow  bool   `schema:"allow"`
+	Client string `schema:"client"` //$client=xxx
+	Filter bool   `schema:"filter"` //skip lines with rules from exclude-hosts-{dist,custom}.txt
+	Allow  bool   `schema:"allow"`  //add @@ at the start of rule
 }
 
 // RegexMatcher holds compiled regex rules
@@ -127,9 +128,12 @@ func NewRegexMatcher(files []string) *RegexMatcher {
 	return &RegexMatcher{regexes: compiled, substrs: substrs}
 }
 
+var DefaultClient string
+
 func adaptList(w http.ResponseWriter, r *http.Request) {
 	req := ListRequest{
-		Client: "antizapret",
+		Client: DefaultClient,
+		Filter: true, //
 		Allow:  true, // default (adds @@)
 	}
 
@@ -215,7 +219,7 @@ func adaptList(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Skip if line matches any exclude regex
-		if excludeMatcher.MatchString(line) {
+		if req.Filter && excludeMatcher.MatchString(line) {
 			return
 		}
 
@@ -280,6 +284,15 @@ func adaptList(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func update(w http.ResponseWriter, r *http.Request) {
+	excludeMatcher = NewRegexMatcher([]string{
+		"/root/antizapret/config/exclude-hosts-dist.txt",
+		"/root/antizapret/config/custom/exclude-hosts-custom.txt",
+	})
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte("ok"))
+}
+
 // responseWriterWrapper captures the status code and bytes written
 type responseWriterWrapper struct {
 	http.ResponseWriter
@@ -337,6 +350,7 @@ func loggingMiddleware(next http.Handler) http.Handler {
 }
 
 func main() {
+	DefaultClient = os.Getenv("CLIENT")
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	excludeMatcher = NewRegexMatcher([]string{
@@ -349,6 +363,7 @@ func main() {
 	// Optional trailing slash via regex
 	r.HandleFunc(`/list/`, adaptList)
 	r.HandleFunc(`/doall/`, doallHandler)
+	r.HandleFunc(`/update/`, update)
 
 	fmt.Println("Starting server on http://localhost:80")
 	log.Fatal(http.ListenAndServe(":80", loggingMiddleware(r)))

@@ -8,6 +8,10 @@ services:
     volumes:
       - /etc/timezone:/etc/timezone:ro
       - $PWD/config/cloak:/opt/cloak
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [ node.labels.location == local ]
     environment:
       - CK_PROXYBOOK_OPENVPN=udp://openvpn:1194 # Set upstream openvpn
       - CK_PRIVATEKEY # The static private key encoded in base64 (default: auto generation)
