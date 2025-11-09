@@ -1,6 +1,6 @@
 FROM adguard/adguardhome:latest
 
-RUN apk --no-cache add apache2-utils yq bash bind-tools
+RUN apk --no-cache add apache2-utils yq bash bind-tools curl
 
 ADD . /root/
 

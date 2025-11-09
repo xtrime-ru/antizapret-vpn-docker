@@ -14,14 +14,11 @@ RUN <<-"EOT" bash -ex
     DEBIAN_FRONTEND=noninteractive
 
     apt-get update -q
-    apt-get dist-upgrade -qy
     apt-get install -qqy --no-install-suggests --no-install-recommends \
         bsdmainutils \
-        ca-certificates \
         iperf3 \
         curl \
         dnsutils \
-        ferm \
         gawk \
         host \
         idn \
@@ -29,15 +26,11 @@ RUN <<-"EOT" bash -ex
         iptables \
         iproute2 \
         moreutils \
-        nano \
-        openssl \
-        patch \
         procps \
         python3-dnslib \
         sipcalc \
         systemd-sysv \
-        vim-tiny \
-        wget
+        vim-tiny
     apt-get clean
     rm -frv /var/lib/apt/lists/*
 EOT
