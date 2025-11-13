@@ -25,8 +25,7 @@ services:
     deploy:
       replicas: 1
       placement:
-        constraints:
-          - node.labels.location == local
+        constraints: [ node.labels.location == local ]
     environment:
       - PORT=51821
       - WG_PORT=51820
