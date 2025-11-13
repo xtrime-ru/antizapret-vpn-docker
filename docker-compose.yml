@@ -26,7 +26,7 @@ services:
     deploy:
       replicas: 1
       placement:
-        constraints: [ node.labels.location == local ]
+        constraints: [ node.labels.location == world ]
     environment:
       - CLIENT=az-world
       - AZ_SUBNET=10.226.0.0/15
