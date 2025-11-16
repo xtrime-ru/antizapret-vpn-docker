@@ -129,7 +129,7 @@ func NewRegexMatcher(files []string) *RegexMatcher {
 
 func adaptList(w http.ResponseWriter, r *http.Request) {
 	req := ListRequest{
-		Client: "~antizapret",
+		Client: "antizapret",
 		Allow:  true, // default (adds @@)
 	}
 
