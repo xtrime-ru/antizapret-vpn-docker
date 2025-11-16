@@ -6,3 +6,4 @@ COPY easy-rsa.vars /usr/share/easy-rsa/var
 COPY files-ui/init.db /opt/openvpn-ui/init.db
 COPY files-ui/ui-start.sh /opt/start.sh
 COPY files-ui/restart.sh /opt/scripts/restart.sh
+COPY files-ui/update-crl.sh /opt/update-crl.sh

@@ -54,6 +54,12 @@ EOS
 
 fi
 
+while true; do
+    sleep 86400;
+    echo "Update crl";
+    ./update-crl.sh;
+done &
+
 # Start the OpenVPN GUI
 echo "Starting OpenVPN UI!"
 exec ./openvpn-ui
