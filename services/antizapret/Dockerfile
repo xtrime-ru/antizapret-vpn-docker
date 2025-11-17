@@ -34,7 +34,6 @@ RUN <<-"EOT" bash -ex
         procps \
         python3-dnslib \
         sipcalc \
-        systemd-sysv \
         vim-tiny
     apt-get clean
     rm -frv /var/lib/apt/lists/*
@@ -45,14 +44,6 @@ COPY --from=builder-compose2swarm /app/compose2swarm /usr/bin/compose2swarm
 COPY . /
 
 RUN <<-"EOF" bash -ex
-    systemctl enable \
-        antizapret-update.service \
-        antizapret-update.timer \
-        dnsmap \
-        systemd-networkd \
-        iperf3-server@1 \
-        antizapret-api
-
     for list in antizapret/config/*-dist.txt; do
         sed -E '/^(#.*)?[[:space:]]*$/d' $list | sort | uniq | sponge $list
     done

@@ -3,10 +3,9 @@
 set -e
 set -x
 
-# run commands after systemd initialization
+# run commands after start
 function postrun () {
-    local waiter="until ps -p 1 | grep -q systemd; do sleep 0.1; done"
-    nohup bash -c "$waiter; $@" &
+    nohup bash -c "$@" &
 }
 
 
@@ -47,7 +46,10 @@ iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
 postrun 'while true; do /routes.sh; sleep 60; done'
 
 # output systemd logs to docker logs since container boot
-postrun 'until [[ "$(systemctl is-active systemd-journald)" == "active" ]]; do sleep 1; done; journalctl --boot --follow --lines=all --no-hostname'
+
+postrun 'while true; do /opt/api/app; done'
+postrun 'while true; do /usr/bin/doall; sleep 6h; done'
+postrun 'while true; do /usr/bin/iperf3 -s -1; done'
 
 # systemd init
-exec /usr/sbin/init
+exec /usr/bin/dnsmap -a 0.0.0.0 --iprange "$AZ_SUBNET"
