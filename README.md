@@ -89,7 +89,8 @@ ID                            HOSTNAME   STATUS    AVAILABILITY   MANAGER STATUS
 6dzagr08r8d2iidkcumjjz3q7 *   az-local   Ready     Active         Leader           29.0.1
 vspy2m6w4tf7uv4ywgdnzttvr     az-world   Ready     Active                          29.0.1
 ```
-4. [Primary]: docker compose config | docker run --rm -i xtrime/antizapret-vpn:5 compose2swarm | docker stack deploy -c - antizapret
+4. [Primary, Secondary]: create config folders on both nodes: ```docker compose pull; docker compose up -d; sleep 10; docker compose down;```
+5. [Primary]: start swarm `docker compose config | docker run --rm -i xtrime/antizapret-vpn:5 compose2swarm | docker stack deploy -c - antizapret`
 
 
 ## Access admin panels:
