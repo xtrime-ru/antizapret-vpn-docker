@@ -61,7 +61,7 @@ services:
 
   proxy:
     extends:
-      file: services/proxy/docker-compose.yml
+      file: services/https/docker-compose.yml
       service: proxy
     environment:
       # If not set, will be created and used self-signed certificate

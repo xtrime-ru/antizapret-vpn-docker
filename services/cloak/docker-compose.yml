@@ -2,7 +2,13 @@ services:
   cloak:
     restart: unless-stopped
     stop_signal: SIGRTMIN+4
-    build: .
+    image: xtrime/antizapret-vpn-cloak:5
+    build: 
+      context: .
+      x-bake:
+        platforms:
+          - linux/amd64
+          - linux/arm64
     ports:
       - 443:443
     volumes:

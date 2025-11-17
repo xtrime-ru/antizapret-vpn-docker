@@ -2,8 +2,19 @@ services:
   openvpn:
     hostname: openvpn.antizapret
     restart: unless-stopped
-    privileged: true
-    build: .
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    sysctls:
+      - net.ipv4.ip_forward=1
+      - net.ipv4.conf.all.src_valid_mark=1
+    image: xtrime/antizapret-vpn-openvpn:5
+    build:
+      context: .
+      x-bake:
+        platforms:
+          - linux/amd64
+          - linux/arm64
     healthcheck:
       test: cmp /etc/openvpn/openvpn-blocked-ranges.txt /opt/antizapret/result/openvpn-blocked-ranges.txt || sh -c 'killall -INT -r openvpn && (sleep 5; killall -s 9 -r openvpn)'
       interval: 30s
@@ -29,10 +40,17 @@ services:
   openvpn-ui:
     hostname: openvpn-ui.antizapret
     restart: unless-stopped
-    privileged: true
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    image: xtrime/antizapret-vpn-openvpn-ui:5
     build:
       context: .
       dockerfile: Dockerfile-ui
+      x-bake:
+        platforms:
+          - linux/amd64
+          - linux/arm64
     volumes:
       - /etc/timezone:/etc/timezone:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro

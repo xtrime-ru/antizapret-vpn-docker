@@ -79,6 +79,8 @@ Foreign server - as secondary/worker node for az-world container.
    3. Create docker-compose.override.yml on primary node
 1. [Optionally] change hostnames of servers to az-local and az-world for ease of use:
     `hostnamectl set-hostname az-local` and `hostnamectl set-hostname az-world`
+1. [Optionally] on russian servers hub.docker.com can be unreachable. Proxy can be used. See instructions: https://dockerhub.timeweb.cloud
+    Alternativly images can be build locally on **both servers**: `docker compose build`
 1. [Primary]: `docker swarm init --advertise-addr <MANAGER_IP_ADDRESS>`
 2. [Secondary]: Copy command from result on primary node and run it on secondary node: `docker swarm join --token <TOKEN> <MANAGER_IP_ADDRESS>:<PORT>`
 3. [Primary]: Inspect swarm `docker node ls`

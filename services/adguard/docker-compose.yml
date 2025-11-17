@@ -1,7 +1,12 @@
 services:
   adguard:
     image: xtrime/antizapret-vpn-adguard:5
-    build: .
+    build: 
+      context: .
+      x-bake:
+        platforms:
+          - linux/amd64
+          - linux/arm64
     hostname: adguard.antizapret
     restart: unless-stopped
     cap_add:
