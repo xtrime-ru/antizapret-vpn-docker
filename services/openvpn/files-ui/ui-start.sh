@@ -35,6 +35,7 @@ export DOCKER_SUBNET=$(ip r | awk '/default/ {dev=$5} !/default/ && $0 ~ dev {pr
 cat << EOF | sponge /etc/environment
 OPENVPN_EXTERNAL_IP='${OPENVPN_EXTERNAL_IP:-$(curl -4 icanhazip.com)}'
 OPENVPN_LOCAL_IP_RANGE='${OPENVPN_LOCAL_IP_RANGE:-"10.1.165.0"}'
+AZ_SUBNET=${AZ_SUBNET:="10.224.0.0"}
 DOCKER_SUBNET='${DOCKER_SUBNET}'
 OPENVPN_DNS='${OPENVPN_DNS:-"10.224.0.1"}'
 NIC='$(ip -4 route | grep default | grep -Po '(?<=dev )(\S+)' | head -1)'
@@ -51,7 +52,8 @@ if [ ! -f /opt/openvpn-ui/db/data.db ]; then
         update o_v_config set
             server = 'server ${OPENVPN_LOCAL_IP_RANGE} 255.255.255.0',
             route = 'route ${DOCKER_SUBNET} 255.255.255.0',
-            d_n_s_server1 = 'push "dhcp-option DNS ${OPENVPN_DNS}"'
+            d_n_s_server1 = 'push "dhcp-option DNS ${OPENVPN_DNS}"',
+            push_route = 'push "route ${AZ_SUBNET} 255.252.0.0"'
         where profile = 'default';
 EOS
     [ $? -gt 0 ] && echo "SQLite migration failed" && exit 1
