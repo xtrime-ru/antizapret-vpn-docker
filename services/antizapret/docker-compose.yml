@@ -3,7 +3,8 @@ services:
     image: xtrime/antizapret-vpn:5
     restart: unless-stopped
     stop_signal: SIGRTMIN+4
-    privileged: true
+    cap_add:
+      - NET_ADMIN
     build: 
       context: .
       x-bake:
