@@ -35,6 +35,8 @@ services:
     depends_on:
       - az-local
     deploy:
-      replicas: 1
+      mode: global
+
+      endpoint_mode: dnsrr
       placement:
         constraints: [ node.labels.location == local ]

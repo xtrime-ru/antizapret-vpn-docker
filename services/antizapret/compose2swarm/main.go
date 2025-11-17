@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/compose-spec/compose-go/loader"
@@ -84,7 +85,7 @@ func main() {
 		service.Build = nil        // Swarm does not build images
 		service.DependsOn = nil    // Swarm ignores depends_on
 		service.Privileged = false // Swarm does not support privileged mode
-		service.Devices = nil // Swarm does not support devices
+		service.Devices = nil      // Swarm does not support devices
 
 		// Convert restart to deploy.restart_policy
 		if service.Restart != "" {
@@ -132,6 +133,7 @@ func main() {
 	// Replace with integer
 	fixed := ports.ReplaceAllString(string(out), "published: $1")
 	fixed = name.ReplaceAllString(fixed, "")
+	fixed = strings.ReplaceAll(fixed, "mode: ingress", "mode: host")
 
 	fmt.Println(string(fixed))
 }

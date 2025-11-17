@@ -17,7 +17,9 @@ services:
     volumes:
       - /etc/localtime:/etc/localtime:ro
     deploy:
-      replicas: 1
+      mode: global
+
+      endpoint_mode: dnsrr
       placement:
         constraints: [ node.labels.location == local ]
     depends_on:
