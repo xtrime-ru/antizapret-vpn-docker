@@ -23,6 +23,7 @@ RUN <<-"EOT" bash -ex
         bsdmainutils \
         iperf3 \
         curl \
+        ca-certificates \
         dnsutils \
         gawk \
         host \
