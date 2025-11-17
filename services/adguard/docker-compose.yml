@@ -33,7 +33,9 @@ services:
     ports:
       - "3000:3000/tcp"
     deploy:
-      replicas: 1
+      mode: global
+
+      endpoint_mode: dnsrr
       placement:
         constraints: [ node.labels.location == local ]
     depends_on:

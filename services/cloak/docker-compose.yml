@@ -15,7 +15,9 @@ services:
       - /etc/timezone:/etc/timezone:ro
       - $PWD/config/cloak:/opt/cloak
     deploy:
-      replicas: 1
+      mode: global
+
+      endpoint_mode: dnsrr
       placement:
         constraints: [ node.labels.location == local ]
     environment:
