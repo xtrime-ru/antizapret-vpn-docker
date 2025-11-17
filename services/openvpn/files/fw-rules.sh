@@ -21,14 +21,12 @@ AZ_LOCAL_SUBNET=${AZ_LOCAL_SUBNET:-"10.224.0.0/15"}
 AZ_WORLD_SUBNET=${AZ_WORLD_SUBNET:-"10.226.0.0/15"}
 NIC='$(ip -4 route ls | grep default | grep -Po '(?<=dev )(\S+)' | head -1)'
 OVDIR='${OVDIR:-"/etc/openvpn"}'
-AZ_HOST='${AZ_HOST}'
 EOF
 source /etc/environment
 ln -sf /etc/environment /etc/profile.d/environment.sh
 
 iptables -t nat -N masq_not_local;
 iptables -t nat -A POSTROUTING -s ${OPENVPN_LOCAL_IP_RANGE}/24 -j masq_not_local;
-iptables -t nat -A masq_not_local -d ${AZ_HOST} -j RETURN;
 iptables -t nat -A masq_not_local -d ${DNS_HOST} -j RETURN;
 iptables -t nat -A masq_not_local -d ${AZ_LOCAL_SUBNET} -j RETURN;
 iptables -t nat -A masq_not_local -d ${AZ_WORLD_SUBNET} -j RETURN;
@@ -40,7 +38,7 @@ if [ -f "/opt/antizapret/result/openvpn-blocked-ranges.txt" ]; then
 fi
 
 ip route add "$AZ_LOCAL_SUBNET" via "$AZ_LOCAL_HOST"
-ip route add "$AZ_WORLD_SUBNET" via "$AZ_AZ_WORLD_HOST"
+ip route add "$AZ_WORLD_SUBNET" via "$AZ_WORLD_HOST"
 
 if [[ ${FORCE_FORWARD_DNS:-true} == true ]]; then
     dnsPorts=${FORCE_FORWARD_DNS_PORTS:-"53"}
