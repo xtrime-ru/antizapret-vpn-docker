@@ -40,7 +40,9 @@ done
 iptables -t nat -N dnsmap
 iptables -t nat -A PREROUTING -d "${AZ_SUBNET}" -j dnsmap
 iptables -t nat -A OUTPUT -d "${AZ_SUBNET}" -j dnsmap
-iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+for eth in $(ip link | grep -oE "eth[0-9]"); do
+    iptables -t nat -A POSTROUTING -o "$eth" -j MASQUERADE
+done
 
 # add routes from env ROUTES
 postrun 'while true; do /routes.sh; sleep 60; done'
