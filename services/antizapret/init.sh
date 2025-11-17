@@ -18,7 +18,7 @@ DOCKER_SUBNET=$(ip r | awk '/default/ {dev=$5} !/default/ && $0 ~ dev {print $1}
 ROUTES='${ROUTES:-""}'
 DNS=${DNS:-"127.0.0.1"}
 CLIENT=${CLIENT:-"az-local"}
-DOALL_DISABLED={$DOALL_DISABLED:-""}
+DOALL_DISABLED=${DOALL_DISABLED:-""}
 AZ_SUBNET=${AZ_SUBNET:-"10.224.0.0/15"}
 LC_ALL=C.UTF-8
 EOF
