@@ -2,7 +2,13 @@ services:
   filebrowser:
     hostname: filebrowser.antizapret
     restart: unless-stopped
-    build: .
+    image: xtrime/antizapret-vpn-filebrowser:5
+    build: 
+      context: .
+      x-bake:
+        platforms:
+          - linux/amd64
+          - linux/arm64
     logging:
       driver: json-file
       options:

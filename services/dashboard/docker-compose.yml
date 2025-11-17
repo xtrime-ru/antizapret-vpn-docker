@@ -2,7 +2,13 @@ services:
   dashboard:
     hostname: dashboard.antizapret
     restart: unless-stopped
-    build: .
+    image: xtrime/antizapret-vpn-dashboard:5
+    build: 
+      context: .
+      x-bake:
+        platforms:
+          - linux/amd64
+          - linux/arm64
     volumes:
       - /etc/timezone:/etc/timezone:ro
     environment:

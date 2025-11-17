@@ -31,27 +31,44 @@ fi
 
 # If no versions specified, default to "latest"
 if [ ${#SERVICES[@]} -eq 0 ]; then
-  SERVICES=(antizapret coredns adguard)
+  SERVICES=(antizapret adguard coredns wireguard wireguard-amnezia openvpn openvpn-ui https cloak filebrowser dashboard)
 fi
 
 # Build each service for all versions at once
 for service in "${SERVICES[@]}"; do
-  SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && cd ../services/"$service" && pwd )"
 
-  # Prepare multiple -t arguments
+  DIR="$service"
+  if [[ "$service" =~ ^wireguard- ]]; then
+    DIR="wireguard"
+  elif [[ "$service" =~ ^openvpn- ]]; then
+    DIR="openvpn"
+  fi
+
   SERVICE_POSTFIX=""
   if [[ "$service" != "antizapret" ]]; then
     SERVICE_POSTFIX="-$service"
   fi
-  TAG_ARGS=()
+
+  SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && cd ../services/"$DIR" && pwd )"
+
+
+
+  echo ""
+  echo "==============================="
+  echo "Building service: $service"
+  echo "==============================="
+
+  # Create dynamic tag setters
+  SET_ARGS=()
+
   for version in "${VERSIONS[@]}"; do
-    TAG_ARGS+=("-t" "xtrime/antizapret-vpn${SERVICE_POSTFIX}:${version}")
+    IMAGE_TAG="xtrime/antizapret-vpn${SERVICE_POSTFIX}:${version}"
+    SET_ARGS+=(--set "${service}.tags=${IMAGE_TAG}")
   done
 
-  echo "Building $service with tags: ${VERSIONS[*]} ..."
-  docker buildx build \
-    --platform linux/amd64,linux/arm64 \
-    "${TAG_ARGS[@]}" \
-    --push \
-    "$SCRIPT_DIR"
+  echo "Running command:"
+  echo "(cd $SCRIPT_DIR; docker buildx bake $service ${SET_ARGS[@]} --push)"
+
+  # Execute bake for this service
+  (cd "$SCRIPT_DIR"; docker buildx bake "$service" "${SET_ARGS[@]}" --push)
 done

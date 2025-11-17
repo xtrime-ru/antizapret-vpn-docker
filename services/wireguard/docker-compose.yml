@@ -4,10 +4,15 @@ services:
       file: docker-compose.base.yml
       service: base
     hostname: wireguard.antizapret
+    image: xtrime/antizapret-vpn-wireguard:5
     build:
       context: .
       args:
         - IMAGE=ghcr.io/wg-easy/wg-easy:14
+      x-bake:
+        platforms:
+          - linux/amd64
+          - linux/arm64
     ports:
       - "51820:51820/udp"
       - "51821:51821/tcp"
@@ -22,10 +27,14 @@ services:
       file: docker-compose.base.yml
       service: base
     hostname: wireguard-amnezia.antizapret
+    image: xtrime/antizapret-vpn-wireguard-amnezia:5
     build:
       context: .
       args:
         - IMAGE=xtrime/amnezia-wg-easy:0.2.15
+      x-bake:
+        platforms:
+          - linux/amd64
     ports:
       - "51830:51820/udp"
       - "51831:51821/tcp"

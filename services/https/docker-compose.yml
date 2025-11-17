@@ -1,7 +1,13 @@
 services:
-  proxy:
+  https:
     restart: unless-stopped
-    build: .
+    image: xtrime/antizapret-vpn-https:5
+    build: 
+      context: .
+      x-bake:
+        platforms:
+          - linux/amd64
+          - linux/arm64
     ports:
       - "80:80"
       - "443:443"

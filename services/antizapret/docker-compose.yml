@@ -4,7 +4,12 @@ services:
     restart: unless-stopped
     stop_signal: SIGRTMIN+4
     privileged: true
-    build: .
+    build: 
+      context: .
+      x-bake:
+        platforms:
+          - linux/amd64
+          - linux/arm64
     logging:
       driver: json-file
       options:
