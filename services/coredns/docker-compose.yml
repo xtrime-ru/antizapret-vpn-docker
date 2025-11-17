@@ -1,5 +1,6 @@
 services:
   coredns:
+    image: xtrime/antizapret-vpn-coredns:5
     hostname: coredns.antizapret
     restart: unless-stopped
     build: .

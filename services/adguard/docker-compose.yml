@@ -1,5 +1,6 @@
 services:
   adguard:
+    image: xtrime/antizapret-vpn-adguard:5
     build: .
     hostname: adguard.antizapret
     restart: unless-stopped
