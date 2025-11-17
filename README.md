@@ -30,6 +30,8 @@ https://t.me/antizapret_support
 
 # Installation
 
+## Single instance (Easy)
+
 0. Install [Docker Engine](https://docs.docker.com/engine/install/):
    ```bash
    curl -fsSL https://get.docker.com -o get-docker.sh
@@ -62,6 +64,31 @@ Find full example in [docker-compose.override.sample.yml](./docker-compose.overr
    docker compose up -d
    docker system prune -f
 ```
+
+## Docker Swarm, multiple exit nodes (Advanced)
+Version 5 comes with ability to forward traffic to different exit nodes for different domains. 
+For example YouTube works best if exit node is close to client and other services require foreign IP to work. 
+We use docker swarm to build unified network between containers.
+
+Its recomended to use russian server as manager/primary node for VPN's, DNS and az-local containers.
+Foreign server - as secondary/worker node for az-world container.
+
+0. Repeat steps 0,1 and 2 from single instance instalation on **both servers**:
+   1. Install docker
+   2. Checkout project in same location on both servers.
+   3. Create docker-compose.override.yml on primary node
+1. [Optionally] change hostnames of servers to az-local and az-world for ease of use:
+    `hostnamectl set-hostname az-local` and `hostnamectl set-hostname az-world`
+1. [Primary]: `docker swarm init --advertise-addr <MANAGER_IP_ADDRESS>`
+2. [Secondary]: Copy command from result on primary node and run it on secondary node: `docker swarm join --token <TOKEN> <MANAGER_IP_ADDRESS>:<PORT>`
+3. [Primary]: Inspect swarm `docker node ls`
+```text
+ID                            HOSTNAME   STATUS    AVAILABILITY   MANAGER STATUS   ENGINE VERSION
+6dzagr08r8d2iidkcumjjz3q7 *   az-local   Ready     Active         Leader           29.0.1
+vspy2m6w4tf7uv4ywgdnzttvr     az-world   Ready     Active                          29.0.1
+```
+4. [Primary]: docker compose config | docker compose run --rm -T az-local compose2swarm | docker stack deploy -c - antizapret
+
 
 ## Access admin panels:
 
@@ -177,18 +204,18 @@ By default, adguard rewrite all requests with SERVFAIL. This is only way to make
 Rules with the dnsrewrite response modifier have higher priority than other rules in AdGuard Home and AdGuard DNS.
 To override default rule custom rules must have  `$dnsrewrite` modifier or must be in whitelist section.
 
-To support default adguard filters default SERVFAIL rule applied only to internal requests from client=~antizapret.
+To support default adguard filters default SERVFAIL rule applied only to internal requests from client=az-local.
 
 
 
 Examples:
 ```
-@@||subdomain.host.com^$dnsrewrite,client=antizapret
-@@||*.host.com^$dnsrewrite,client=antizapret
-@@||host.com^$dnsrewrite,client=antizapret
-@@||de^$dnsrewrite,client=antizapret
+@@||subdomain.host.com^$dnsrewrite,client=az-local
+@@||*.host.com^$dnsrewrite,client=az-local
+@@||host.com^$dnsrewrite,client=az-local
+@@||de^$dnsrewrite,client=az-local
 
-@@/some_.*_regex/$dnsrewrite,client=antizapret
+@@/some_.*_regex/$dnsrewrite,client=az-local
 ```
 
 Also you can add any urls to whitelist. http://adguard.antizapret:3000/#dns_allowlists

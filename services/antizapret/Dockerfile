@@ -1,9 +1,14 @@
 FROM golang:1.25 AS builder-api
 WORKDIR /app
-COPY ./api/go.mod ./api/go.sum ./
-RUN go mod download
 COPY ./api .
-RUN go build -o app main.go
+RUN go mod download
+RUN go build -o app
+
+FROM golang:1.25 AS builder-compose2swarm
+WORKDIR /app
+COPY ./compose2swarm .
+RUN go mod download
+RUN go build -o compose2swarm
 
 FROM ubuntu:24.04
 
@@ -36,6 +41,7 @@ RUN <<-"EOT" bash -ex
 EOT
 
 COPY --from=builder-api /app/app /opt/api/app
+COPY --from=builder-compose2swarm /app/compose2swarm /usr/bin/compose2swarm
 COPY . /
 
 RUN <<-"EOF" bash -ex
@@ -59,4 +65,4 @@ RUN <<-"EOF" bash -ex
     rm -frv /tmp/*
 EOF
 
-ENTRYPOINT ["/init.sh"]
+CMD ["/init.sh"]
