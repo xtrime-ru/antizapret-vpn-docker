@@ -82,10 +82,9 @@ func main() {
 
 	// Remove unsupported fields for Swarm
 	for name, service := range project.Services {
-		service.Build = nil        // Swarm does not build images
-		service.DependsOn = nil    // Swarm ignores depends_on
-		service.Privileged = false // Swarm does not support privileged mode
-		service.Devices = nil      // Swarm does not support devices
+		service.Build = nil     // Swarm does not build images
+		service.DependsOn = nil // Swarm ignores depends_on
+		service.Devices = nil   // Swarm does not support devices
 
 		// Convert restart to deploy.restart_policy
 		if service.Restart != "" {

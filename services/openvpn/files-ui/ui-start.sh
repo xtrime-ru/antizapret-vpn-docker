@@ -30,13 +30,11 @@ cd /opt/openvpn-ui
 # Create the database directory if it does not exist
 mkdir -p db
 
-export DOCKER_SUBNET=$(ip r | awk '/default/ {dev=$5} !/default/ && $0 ~ dev {print $1}' | tail -n1)
-
 cat << EOF | sponge /etc/environment
 OPENVPN_EXTERNAL_IP='${OPENVPN_EXTERNAL_IP:-$(curl -4 icanhazip.com)}'
 OPENVPN_LOCAL_IP_RANGE='${OPENVPN_LOCAL_IP_RANGE:-"10.1.165.0"}'
 AZ_SUBNET=${AZ_SUBNET:="10.224.0.0"}
-DOCKER_SUBNET='${DOCKER_SUBNET}'
+DOCKER_SUBNET='$(ip r | awk '/default/ {dev=$5} !/default/ && $0 ~ dev {print $1}' | tail -n1)'
 OPENVPN_DNS='${OPENVPN_DNS:-"10.224.0.1"}'
 NIC='$(ip -4 route | grep default | grep -Po '(?<=dev )(\S+)' | head -1)'
 OVDIR='${OVDIR:-"/etc/openvpn"}'

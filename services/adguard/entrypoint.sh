@@ -11,16 +11,22 @@ if [[ -n $ADGUARDHOME_PASSWORD ]]; then
     ADGUARDHOME_PASSWORD_HASH=${ADGUARDHOME_PASSWORD_HASH#*:}
 fi
 
-AZ_LOCAL_HOST=$(dig +short az-local)
-AZ_WORLD_HOST=$(dig +short az-world)
-COREDNS_HOST=$(dig +short coredns)
-while [ -z "${AZ_LOCAL_HOST}" ] || [ -z "${AZ_WORLD_HOST}" ] || [ -z "$COREDNS_HOST" ]; do
-    echo "No route to antizapret container. Retrying..."
-    AZ_LOCAL_HOST=$(dig +short az-local)
-    AZ_WORLD_HOST=$(dig +short az-world)
-    COREDNS_HOST=$(dig +short coredns)
-    sleep 1;
-done;
+
+/root/routes.sh
+
+function resolve () {
+    # $1 domain/ip address, $2 fallback ip address
+    res="$(dig +short "$1")"
+    if [ -z "$res" ]; then
+        echo "$2"
+    else
+        echo "$res"
+    fi
+}
+
+AZ_LOCAL_HOST=$(resolve az-local '169.0.0.1')
+AZ_WORLD_HOST=$(resolve az-world '169.0.0.2')
+COREDNS_HOST=$(resolve coredns '169.0.0.3')
 
 yq -i '
     .http.address="0.0.0.0:'$ADGUARDHOME_PORT'" |
@@ -31,6 +37,6 @@ yq -i '
     .clients.persistent[2].ids=["'$COREDNS_HOST'"]
     ' /opt/adguardhome/conf/AdGuardHome.yaml
 
-while true; do /root/routes.sh; sleep 60; done &
+
 
 exec /opt/adguardhome/AdGuardHome "$@"

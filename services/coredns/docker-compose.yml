@@ -16,6 +16,11 @@ services:
         max-file: 2
     volumes:
       - /etc/localtime:/etc/localtime:ro
+    healthcheck:
+      test: /root/healthcheck.sh
+      interval: 5s
+      timeout: 1s
+      start_period: 30s
     deploy:
       mode: global
 

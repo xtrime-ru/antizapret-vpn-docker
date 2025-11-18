@@ -14,8 +14,7 @@ function postrun () {
 cat << EOF | sponge /etc/default/antizapret
 PYTHONUNBUFFERED=1
 SELF_IP=$(hostname -i)
-DOCKER_SUBNET=$(ip r | awk '/default/ {dev=$5} !/default/ && $0 ~ dev {print $1}')
-ROUTES='${ROUTES:-""}'
+DOCKER_SUBNET='$(ip r | awk '/default/ {dev=$5} !/default/ && $0 ~ dev {print $1}')'
 DNS=${DNS:-"127.0.0.1"}
 CLIENT=${CLIENT:-"az-local"}
 DOALL_DISABLED=${DOALL_DISABLED:-""}
@@ -44,8 +43,7 @@ for eth in $(ip link | grep -oE "eth[0-9]"); do
     iptables -t nat -A POSTROUTING -o "$eth" -j MASQUERADE
 done
 
-# add routes from env ROUTES
-postrun 'while true; do /routes.sh; sleep 60; done'
+/routes.sh
 
 # output systemd logs to docker logs since container boot
 

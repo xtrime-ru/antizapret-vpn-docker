@@ -29,3 +29,4 @@ COPY easy-rsa.vars /opt/app
 COPY files/fw-rules.sh /opt/app
 COPY files/checkpsw.sh /opt/app
 COPY files/server-start.sh /opt/app/docker-entrypoint.sh
+COPY routes.sh /opt/app

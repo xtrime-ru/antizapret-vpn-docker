@@ -8,6 +8,8 @@
         prefer_udp
         failover SERVFAIL
     }
+
+    reload 2s
 }
 
 

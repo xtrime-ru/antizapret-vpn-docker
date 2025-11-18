@@ -13,7 +13,6 @@ services:
       service: antizapret
     deploy:
       mode: global
-
       endpoint_mode: dnsrr
       placement:
         constraints: [ node.labels.location == local ]
@@ -27,7 +26,6 @@ services:
       service: antizapret
     deploy:
       mode: global
-
       endpoint_mode: dnsrr
       placement:
         constraints: [ node.labels.location == world ]

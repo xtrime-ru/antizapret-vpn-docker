@@ -16,9 +16,9 @@ services:
       - net.ipv4.conf.all.src_valid_mark=1
     healthcheck:
       test: /root/healthcheck.sh
-      interval: 30s
-      timeout: 10s
-      retries: 1
+      interval: 5s
+      timeout: 3s
+      start_period: 30s
     logging:
       driver: json-file
       options:
@@ -47,6 +47,9 @@ services:
         openvpn:10.1.165.0/24;
         wireguard:10.1.166.0/24;
         wireguard-amnezia:10.1.167.0/24;
+        adguard:10.224.0.1;
+        az-local:10.224.0.0/15;
+        az-world:10.226.0.0/15;
       - ADGUARDHOME_PORT
       - ADGUARDHOME_USERNAME
       - ADGUARDHOME_PASSWORD
