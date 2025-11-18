@@ -64,6 +64,14 @@ services:
     environment:
       - OPENVPN_ADMIN_USERNAME=admin
       - OPENVPN_ADMIN_PASSWORD=gagaZush
+      - |
+        ROUTES=
+        openvpn:10.1.165.0/24;
+        wireguard:10.1.166.0/24;
+        wireguard-amnezia:10.1.167.0/24;
+        adguard:10.224.0.1;
+        az-local:10.224.0.0/15;
+        az-world:10.226.0.0/15;
     depends_on:
       - az-local
     deploy:

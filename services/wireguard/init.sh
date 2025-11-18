@@ -23,23 +23,12 @@ if [ -z "$WG_ALLOWED_IPS" ]; then
     fi
 fi
 
-export AZ_LOCAL_HOST=$(dig +short az-local)
-export AZ_WORLD_HOST=$(dig +short az-world)
-export DNS_HOST=$(dig +short adguard)
-while [ -z "${AZ_LOCAL_HOST}" ] || [ -z "${AZ_WORLD_HOST}" ] || [ -z "$DNS_HOST" ]; do
-    echo "No route to antizapret container. Retrying..."
-    export AZ_LOCAL_HOST=$(dig +short az-local)
-    export AZ_WORLD_HOST=$(dig +short az-world)
-    export DNS_HOST=$(dig +short adguard)
-    sleep 1;
-done;
+/routes.sh --vpn
 
 export WG_POST_UP=$(tr '\n' ' ' << EOF
 iptables -t nat -N masq_not_local;
 iptables -t nat -A POSTROUTING -s ${WG_DEFAULT_ADDRESS/"x"/"0"}/24 -o ${WG_DEVICE} -j masq_not_local;
-iptables -t nat -A masq_not_local -d ${AZ_LOCAL_HOST} -j RETURN;
-iptables -t nat -A masq_not_local -d ${AZ_WORLD_HOST} -j RETURN;
-iptables -t nat -A masq_not_local -d ${DNS_HOST} -j RETURN;
+iptables -t nat -A masq_not_local -d ${DOCKER_SUBNET} -j RETURN;
 iptables -t nat -A masq_not_local -d ${AZ_LOCAL_SUBNET} -j RETURN;
 iptables -t nat -A masq_not_local -d ${AZ_WORLD_SUBNET} -j RETURN;
 iptables -t nat -A masq_not_local -j MASQUERADE;
@@ -56,18 +45,6 @@ iptables -D FORWARD -i wg0 -j ACCEPT;
 iptables -D FORWARD -o wg0 -j ACCEPT;
 EOF
 )
-
-
-ip route add $AZ_LOCAL_SUBNET via $AZ_LOCAL_HOST
-ip route add $AZ_WORLD_SUBNET via $AZ_WORLD_HOST
-
-if [[ ${FORCE_FORWARD_DNS:-true} == true ]]; then
-    dnsPorts=${FORCE_FORWARD_DNS_PORTS:-"53"}
-    for dnsPort in $dnsPorts; do
-        iptables -t nat -A PREROUTING -p tcp --dport $dnsPort -j DNAT --to-destination $DNS_HOST
-        iptables -t nat -A PREROUTING -p udp --dport $dnsPort -j DNAT --to-destination $DNS_HOST
-    done
-fi
 
 if [ -n "$WIREGUARD_PASSWORD_HASH" ]; then
     PASSWORD_HASH="$WIREGUARD_PASSWORD_HASH"
