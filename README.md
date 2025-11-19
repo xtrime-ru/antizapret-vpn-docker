@@ -30,7 +30,9 @@ https://t.me/antizapret_support
 
 # Installation
 
-## Single instance (Easy)
+## Single Server (Easy)
+
+Recommended to use server located in western countries. Some sites will block users from other countries. 
 
 0. Install [Docker Engine](https://docs.docker.com/engine/install/):
    ```bash
@@ -67,30 +69,34 @@ Find full example in [docker-compose.override.sample.yml](./docker-compose.overr
 
 ## Docker Swarm, multiple exit nodes (Advanced)
 Version 5 comes with ability to forward traffic to different exit nodes for different domains. 
-For example YouTube works best if exit node is close to client and other services require foreign IP to work. 
-We use docker swarm to build unified network between containers.
+For example, YouTube works best if exit node is close to client and other services require foreign IP to work. 
+Docker swarm is used to build unified network between containers.
 
-Its recomended to use russian server as manager/primary node for VPN's, DNS and az-local containers.
+Its recommended to use local server as manager/primary node for VPN's, DNS and az-local containers.
 Foreign server - as secondary/worker node for az-world container.
 
-0. Repeat steps 0,1 and 2 from single instance instalation on **both servers**:
-   1. Install docker
-   2. Checkout project in same location on both servers.
-   3. Create docker-compose.override.yml on primary node
-1. [Optionally] change hostnames of servers to az-local and az-world for ease of use:
-    `hostnamectl set-hostname az-local` and `hostnamectl set-hostname az-world`
-1. [Optionally] on russian servers hub.docker.com can be unreachable. Proxy can be used. See instructions: https://dockerhub.timeweb.cloud
-    Alternativly images can be build locally on **both servers**: `docker compose build`
-1. [Primary]: `docker swarm init --advertise-addr <MANAGER_IP_ADDRESS>`
-2. [Secondary]: Copy command from result on primary node and run it on secondary node: `docker swarm join --token <TOKEN> <MANAGER_IP_ADDRESS>:<PORT>`
-3. [Primary]: Inspect swarm `docker node ls`
-```text
-ID                            HOSTNAME   STATUS    AVAILABILITY   MANAGER STATUS   ENGINE VERSION
-6dzagr08r8d2iidkcumjjz3q7 *   az-local   Ready     Active         Leader           29.0.1
-vspy2m6w4tf7uv4ywgdnzttvr     az-world   Ready     Active                          29.0.1
-```
-4. [Primary, Secondary]: create config folders on both nodes: ```docker compose pull; docker compose up -d; sleep 10; docker compose down;```
-5. [Primary]: start swarm `docker compose config | docker run --rm -i xtrime/antizapret-vpn:5 compose2swarm | docker stack deploy -c - antizapret`
+Most of the domains will be proxied through **local** server for maximum speed and performance. 
+Some of the sites, which use geoip to block users, will be proxied through **foreign** server.
+
+0. Repeat steps 0 and 1 from single server installation on **both servers**:
+   - Install docker 
+   - Checkout project in same location on both servers.
+1. [Primary] Create docker-compose.override.yml on primary node and define which services you need. See step 2 from single server installation.
+1. [Primary] Change hostnames of servers to az-local and az-world for ease of use: `hostnamectl set-hostname az-local`
+1. [Secondary] Change hostnames of servers to az-local and az-world for ease of use: `hostnamectl set-hostname az-world`
+1. [Optionally] hub.docker.com can be unreachable on local hostings. Proxy can be used. See instructions: https://dockerhub.timeweb.cloud
+    Alternatively images can be build locally on **both servers**: `docker compose build`
+1. [Primary]: `docker swarm init --advertise-addr <PRIMARY_SERVER_PUBLIC_IP_ADDRESS>`
+1. [Secondary]: Copy command from results  and run it on secondary node: `docker swarm join --token <TOKEN> <MANAGER_IP_ADDRESS>:<PORT>`
+1. [Primary]: Inspect swarm `docker node ls`
+    ```text
+    ID                            HOSTNAME   STATUS    AVAILABILITY   MANAGER STATUS   ENGINE VERSION
+    6dzagr08r8d2iidkcumjjz3q7 *   az-local   Ready     Active         Leader           29.0.1
+    vspy2m6w4tf7uv4ywgdnzttvr     az-world   Ready     Active                          29.0.1
+    ```
+1. [Primary] Add labels for nodes `docker node update --label-add location=local az-local && docker node update --label-add location=world az-world`
+1. [Primary, Secondary]: create config folders on **both nodes**: ```docker compose pull; docker compose up -d; sleep 10; docker compose down;```
+1. [Primary]: start swarm `docker compose config | docker run --rm -i xtrime/antizapret-vpn:5 compose2swarm | docker stack deploy -c - antizapret`
 
 
 ## Access admin panels:
@@ -145,32 +151,40 @@ When `proxy` container is started, access services with https at following ports
 
 ## Update
 
-```shell
-git pull
-docker compose pull
-docker compose build
-docker compose down --remove-orphans && docker compose up -d --remove-orphans
-```
+- Single instance
+    ```shell
+    git pull
+    docker compose pull
+    docker compose build
+    docker compose down --remove-orphans && docker compose up -d --remove-orphans
+    ```
+- Swarm mode: 
+    ```shell
+  git pull
+  docker pull xtrime/antizapret-vpn:5
+  docker compose config | docker run --rm -i xtrime/antizapret-vpn:5 compose2swarm | docker stack deploy -c - antizapret
+  ```
 
-### Upgrade from v3
-**Only WireGuard/Amnezia configs can be moved**, please make backup WireGuard files (from `./.etc_wireguard` or `./.etc_wireguard_amnezia`) and put them in `./config/wireguard` or `./config/wireguard_amnezia` accordingly after steps below.
+### Upgrade from v4
 
-Recommended to perform full remove of old version:
+Wireguard/Amnezia - added new subnet for az-world exit node. Need to download new configs
+OpenVPN - no actions needed
+Aguard - Need to remove old config
+Antizapret - no actions needed
+
 ```shell
 docker compose down --remove-orphans
 docker system prune -af
-cd ../
-rm -rf antizapret/
+rm -rf ./config/adguard
 ```
 
-Then follow installation steps from this README.
+Then follow installation steps.
 
 ## Reset:
 Remove all settings, vpn configs and return initial state of service:
 ```shell
-docker compose down
+docker stack rm antizapret || docker compose down --remove-orphans
 rm -rf config/*
-docker compose up -d
 ```
 
 # Documentation
@@ -183,13 +197,13 @@ docker compose up -d
 1. Adguard check it with blacklist rules. If domain in blacklist - return 0.0.0.0 and client not able to access domain.
 1. Adguard Send DNS request to CoreDNS service.
 1. CoreDNS Send DNS request to internal dnsmap.py server (antizapret container) and dnsmap.py sends request back to adguard
-1. Adguard recieves requests one more time, but now applies rules with `$client=antizapret` and real upstream server client (8.8.8.8 by default)
+1. Adguard recieves requests one more time, but now applies rules with `$client=az-local` and real upstream server client (8.8.8.8 by default)
 1. If domain in whitelist - adguard will resolve its address and return to dnsmap.py
 1. If domain not in whitelist adguard return SERVFAIL
 1. dnsmap.py send response to adguard:
    1. If it is valid IP, then replaces it with "internal" IP from `10.224.0.0/15` subnet, add masquerade to iptables and return internal ip to adguard 
    1. If is is SERVFAIL it sends this response to client.
-1. If CoreDNS receives SERVFAIL it retries request and send it directly to Adguard. In this case rules with `$client=antizapret` do not applied and request processed normally.
+1. If CoreDNS receives SERVFAIL it retries request and send it directly to Adguard. In this case rules with `$client=az-local` do not applied and request processed normally.
 
 Why so complicated? 
 - Windows and some other clients do not retry to Fallback DNS, even if  SERVFAIL received. So we added CoreDNS for that. 
@@ -200,30 +214,44 @@ Why so complicated?
 
 
 ## Adding Domains
-Add domains in adguard panel: http://adguard.antizapret:3000/#custom_rules
+There are two ways of adding domains. Via custom rules and via black lists.
+
+### Adding Domains via rules
+Open adguard panel: http://adguard.antizapret:3000/#custom_rules
 Rules/syntaxes: https://adguard-dns.io/kb/general/dns-filtering-syntax/#basic-examples
 
-By default, adguard rewrite all requests with SERVFAIL. This is only way to make client retry DNS request to second, local DNS server.
+By default, adguard rewrite all requests with SERVFAIL. This is a trick to make client retry DNS request to second, local DNS server.
 Rules with the dnsrewrite response modifier have higher priority than other rules in AdGuard Home and AdGuard DNS.
-To override default rule custom rules must have  `$dnsrewrite` modifier or must be in whitelist section.
+To override default rule custom rules must have  `$dnsrewrite` modifier.
 
-To support default adguard filters default SERVFAIL rule applied only to internal requests from client=az-local.
-
+To support default adguard filters default SERVFAIL rule applied only to internal requests from client=az-local and client=az-world
 
 
 Examples:
 ```
 @@||subdomain.host.com^$dnsrewrite,client=az-local
 @@||*.host.com^$dnsrewrite,client=az-local
-@@||host.com^$dnsrewrite,client=az-local
-@@||de^$dnsrewrite,client=az-local
+@@||host.com^$dnsrewrite,client=az-world
+@@||de^$dnsrewrite,client=az-world
 
 @@/some_.*_regex/$dnsrewrite,client=az-local
 ```
 
-Also you can add any urls to whitelist. http://adguard.antizapret:3000/#dns_allowlists
-Whitelist have hiest priority, so no modifiers needed. 
-Supported formats: simple list of domaind, adguard format, hosts format.
+### Adding Domains via lists
+Also you can add any urls to blocklist. http://adguard.antizapret:3000/#dns_blocklist
+Need to use adapter, to parse and adapt list in different formats.
+ - Add domains for local exit node: `http://az-local.antizapret/list/?url=<ANY_URL>`
+ - Add domains for world exit node `http://az-world.antizapret/list/?url=<ANY_URL>`
+Supported formats: simple list of domains, adguard format, hosts format, json array of domains, regex list.
+
+
+Options for adapter: 
+ - `url` - download list from url
+ - `file` - read local file. Used for include-host-{custom,dist}.txt
+ - `filter_custom=1` - filter lists with rules from exclude-hosts-custom.txt.
+ - `filter_dist=0` - filter lists with rules from exclude-hosts-dist.txt
+ - `format=list` - 'list' or 'json'. Detected automatically.
+ - `client=az-local` - name of client to add to rules. Detected automatically.
 
 ## Adding IPs/Subnets
 Add ips and subnets to `./config/antizapret/custom/include-ips-custom.txt` and run `docker compose exec antizapret doall`
@@ -259,6 +287,7 @@ Proxy:
 - `PROXY_EMAIL=` - email for letsecnrypt certificate.
 
 Openvpn
+- `ROUTES`
 - `OBFUSCATE_TYPE=0` - custom obfuscation level of openvpn protocol.
    0 - disable.Act as regular openvpn client, support by all clients.
    1 - light obfuscation, works with microtics
@@ -272,6 +301,7 @@ Openvpn-ui
 - `OPENVPN_LOCAL_IP_RANGE=10.1.165.0` - subnet for ovpn clients. Subnet can be viewed in adguard journal or in ovpn-ui panel
 
 Wireguard/Wireguard Amnezia
+- `ROUTES` 
 - `WIREGUARD_PASSWORD=` - password for admin panel
 - `WIREGUARD_PASSWORD_HASH=` - [hashed password](https://github.com/wg-easy/wg-easy/blob/v14.0.0/How_to_generate_an_bcrypt_hash.md) for admin panel
 - `AZ_LOCAL_SUBNET=10.224.0.0/15` - subnet for virtual blocked ips. local exit node
@@ -321,10 +351,6 @@ Kernel extensions can be installed only on <u>a host machine</u>, not in a conta
 
 #### Ubuntu 24.04
 ```bash
-sudo apt update
-sudo apt upgrade
-echo "#### Please reboot your system after upgrade ###" && sleep 100
-sudo apt install -y efivar
 sudo apt install -y openvpn-dco-dkms
 ```
 
@@ -351,14 +377,10 @@ DCO is incompatible with legacy ciphers and will be disabled. This is also incre
 https://github.com/amnezia-vpn/amneziawg-linux-kernel-module?tab=readme-ov-file#ubuntu
 
 #### Ubuntu 24.04
-1. Edit `/etc/apt/sources.list` and replace every `Types: deb` by `Types: deb deb-src`
-2. `sudo apt update`
-3. `sudo apt install -y software-properties-common python3-launchpadlib gnupg2 linux-headers-$(uname -r)`
-4. `sudo add-apt-repository ppa:amnezia/ppa`
-5. `sudo apt install -y amneziawg`
-6. `sudo dkms install -m amneziawg -v 1.0.0`
-7. restart server or `docker compose restart wireguard-amnezia`
-8. check the list of kernel modules `dkms status`, 
+1. `sudo add-apt-repository ppa:amnezia/ppa`
+2. `sudo apt install -y amneziawg`
+3. restart server or `docker compose restart wireguard-amnezia`
+4. check the list of kernel modules `dkms status`, 
    and check that bunch of `[kworker/X:X-wg-crypt-wg0]` processes are now running.
 
 #### Ubuntu 20.04, 22.04
@@ -408,15 +430,20 @@ docker compose down && rm -rf ./config/wireguard_amnezia/ && docker compose up -
 
 ### VPN / Hosting block
 Most providers now block vpn to foreign IPs. Obfuscation in amnezia or openvpn not always fix the issue.
-For stable vpn operation you can buy VPS inside of your country and then proxy all traffic to foreign server.
-Here is example of startup script.
-Replace X.X.X.X with IP address of your server and run it on fresh VPS (ubuntu 24.04 is recommended):
+For stable vpn operation you can try to connect to  VPS inside of your country and then proxy  traffic to foreign server.
+
+There are two ways: 
+1. [Recommended] Install in [docker swarm mode](#docker-swarm-multiple-exit-nodes-advanced)
+1. Proxy all traffic frought local proxy. See below.
+
+Example of startup script.
+Replace <SERVER_IP> with IP address of your server and run it on fresh VPS (ubuntu 24.04 is recommended):
 
 ```shell
 #!/bin/sh
 
 # Fill with your foreign server ip
-export VPN_IP=X.X.X.X
+export VPN_IP=<SERVER_IP>
 
 echo "net.ipv4.ip_forward=1" >> /etc/sysctl.d/99-sysctl.conf
 sysctl -w net.ipv4.ip_forward=1
