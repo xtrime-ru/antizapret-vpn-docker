@@ -31,6 +31,7 @@ RUN <<-"EOT" bash -ex
         inetutils-ping \
         iptables \
         iproute2 \
+        ipcalc \
         moreutils \
         procps \
         python3-dnslib \

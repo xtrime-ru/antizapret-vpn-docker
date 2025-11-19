@@ -14,10 +14,11 @@ if [ -f "/opt/antizapret/result/ips.txt" ]; then
     cp -f /opt/antizapret/result/ips.txt /app/ips.txt
 fi
 
-export DOCKER_SUBNET=$(ip r | awk '/default/ {dev=$5} !/default/ && $0 ~ dev {print $1}' | tail -n1)
+DOCKER_SUBNET="$(ipcalc "$(ip -4 addr show dev eth0 | awk '$1=="inet" {print $2; exit}')" | awk '/Network:/ {print $2}')"
+
 if [ -z "$WG_ALLOWED_IPS" ]; then
     export WG_ALLOWED_IPS="${WG_DEFAULT_ADDRESS/"x"/"0"}/24,$AZ_LOCAL_SUBNET,$AZ_WORLD_SUBNET,$DOCKER_SUBNET"
-    blocked_ranges=`tr '\n' ',' < /app/ips.txt | sed 's/,$//g'`
+    blocked_ranges=$(tr '\n' ',' < /app/ips.txt | sed 's/,$//g')
     if [ -n "${blocked_ranges}" ]; then
         export WG_ALLOWED_IPS="${WG_ALLOWED_IPS},${blocked_ranges}"
     fi

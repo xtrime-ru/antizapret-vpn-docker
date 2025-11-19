@@ -1,6 +1,6 @@
 FROM d3vilh/openvpn-server:0.5.5
 
-RUN apk add -U --no-cache grep moreutils && apk del openvpn
+RUN apk add -U --no-cache ipcalc grep moreutils && apk del openvpn
 
 ARG OPENVPN_VER=2.6.14
 ADD files/socket.patch /socket.patch
