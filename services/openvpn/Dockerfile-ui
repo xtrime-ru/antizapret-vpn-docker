@@ -1,6 +1,6 @@
 FROM d3vilh/openvpn-ui:0.9.5.6
 
-RUN apk add -U --no-cache grep moreutils sqlite
+RUN apk add -U --no-cache grep moreutils sqlite ipcalc
 
 COPY easy-rsa.vars /usr/share/easy-rsa/var
 COPY files-ui/init.db /opt/openvpn-ui/init.db

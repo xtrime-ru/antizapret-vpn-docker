@@ -14,7 +14,7 @@ function postrun () {
 cat << EOF | sponge /etc/default/antizapret
 PYTHONUNBUFFERED=1
 SELF_IP=$(hostname -i)
-DOCKER_SUBNET='$(ip r | awk '/default/ {dev=$5} !/default/ && $0 ~ dev {print $1}')'
+DOCKER_SUBNET='$(ip -4 addr show dev eth0 | awk '$1=="inet" {print $2; exit}')'
 DNS=${DNS:-"127.0.0.1"}
 CLIENT=${CLIENT:-"az-local"}
 DOALL_DISABLED=${DOALL_DISABLED:-""}

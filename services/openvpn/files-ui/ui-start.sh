@@ -34,12 +34,17 @@ cat << EOF | sponge /etc/environment
 OPENVPN_EXTERNAL_IP='${OPENVPN_EXTERNAL_IP:-$(curl -4 icanhazip.com)}'
 OPENVPN_LOCAL_IP_RANGE='${OPENVPN_LOCAL_IP_RANGE:-"10.1.165.0"}'
 AZ_SUBNET=${AZ_SUBNET:="10.224.0.0"}
-DOCKER_SUBNET='$(ip r | awk '/default/ {dev=$5} !/default/ && $0 ~ dev {print $1}' | tail -n1)'
+DOCKER_SUBNET='$(ip -4 addr show dev eth0 | awk '$1 == "inet" {print $2; exit}')'
 OPENVPN_DNS='${OPENVPN_DNS:-"10.224.0.1"}'
 NIC='$(ip -4 route | grep default | grep -Po '(?<=dev )(\S+)' | head -1)'
 OVDIR='${OVDIR:-"/etc/openvpn"}'
 EOF
 source /etc/environment
+
+# Parse DOCKER_SUBNET using ipcalc
+MASK=$(ipcalc -m "$DOCKER_SUBNET" | awk '/Netmask:/ {print $2}')
+NETWORK=$(ipcalc -n "$DOCKER_SUBNET" | awk '/Network:/ {print $2}' | cut -d/ -f1)
+
 ln -sf /etc/environment /etc/profile.d/environment.sh
 
 if [ ! -f /opt/openvpn-ui/db/data.db ]; then
@@ -49,7 +54,7 @@ if [ ! -f /opt/openvpn-ui/db/data.db ]; then
         update o_v_client_config set server_address = '${OPENVPN_EXTERNAL_IP}' where profile = 'default';
         update o_v_config set
             server = 'server ${OPENVPN_LOCAL_IP_RANGE} 255.255.255.0',
-            route = 'route ${DOCKER_SUBNET} 255.255.255.0',
+            route = 'route ${NETWORK} ${MASK}',
             d_n_s_server1 = 'push "dhcp-option DNS ${OPENVPN_DNS}"',
             push_route = 'push "route ${AZ_SUBNET} 255.252.0.0"'
         where profile = 'default';
