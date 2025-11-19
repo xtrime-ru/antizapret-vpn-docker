@@ -254,6 +254,7 @@ Options for adapter:
  - `filter_dist=0` - filter lists with rules from exclude-hosts-dist.txt
  - `format=list` - 'list' or 'json'. Detected automatically.
  - `client=az-local` - name of client to add to rules. Detected automatically.
+ - `allow=true` - disable this option, to block domains from list for this exit node.
 
 ## Adding IPs/Subnets
 Add ips and subnets to `./config/antizapret/custom/include-ips-custom.txt` and run `docker compose exec antizapret doall`
