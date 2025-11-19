@@ -1,3 +1,7 @@
+# Original list from comss-vpn.
+# Hosts witch block russian IPs
+# This hosts will be proxied throught az-world exit node
+
 /^ip\.comss\.net$/
 /^chatgpt\.com$/
 /^ipinfo\.io$/
