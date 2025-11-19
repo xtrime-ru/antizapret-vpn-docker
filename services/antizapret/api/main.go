@@ -54,12 +54,13 @@ func doallHandler(w http.ResponseWriter, r *http.Request) {
 var decoder = schema.NewDecoder()
 
 type ListRequest struct {
-	Url    string `schema:"url"`
-	File   string `schema:"file"`
-	Format string `schema:"format"`
-	Client string `schema:"client"` //$client=xxx
-	Filter bool   `schema:"filter"` //skip lines with rules from exclude-hosts-{dist,custom}.txt
-	Allow  bool   `schema:"allow"`  //add @@ at the start of rule
+	Url          string `schema:"url"`
+	File         string `schema:"file"`
+	Format       string `schema:"format"`
+	Client       string `schema:"client"`        //$client=xxx
+	FilterCustom bool   `schema:"filter_custom"` //skip lines with rules from exclude-hosts-custom.txt
+	FilterDist   bool   `schema:"filter_dist"`   //skip lines with rules from exclude-hosts-dist.txt
+	Allow        bool   `schema:"allow"`         //add @@ at the start of rule
 }
 
 // RegexMatcher holds compiled regex rules
@@ -68,7 +69,8 @@ type RegexMatcher struct {
 	regexes []*regexp.Regexp
 }
 
-var excludeMatcher *RegexMatcher
+var excludeMatcherDist *RegexMatcher
+var excludeMatcherCustom *RegexMatcher
 
 // MatchString returns true if the input matches any of the compiled regex rules
 func (rm *RegexMatcher) MatchString(s string) bool {
@@ -132,9 +134,10 @@ var DefaultClient string
 
 func adaptList(w http.ResponseWriter, r *http.Request) {
 	req := ListRequest{
-		Client: DefaultClient,
-		Filter: true, //
-		Allow:  true, // default (adds @@)
+		Client:       DefaultClient,
+		FilterCustom: true, //
+		FilterDist:   false,
+		Allow:        true, // default (adds @@)
 	}
 
 	if err := decoder.Decode(&req, r.URL.Query()); err != nil {
@@ -218,8 +221,11 @@ func adaptList(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Skip if line matches any exclude regex
-		if req.Filter && excludeMatcher.MatchString(line) {
+		// Skip if line matches exclude regex
+		if req.FilterDist && excludeMatcherDist.MatchString(line) {
+			return
+		}
+		if req.FilterCustom && excludeMatcherCustom.MatchString(line) {
 			return
 		}
 
@@ -285,8 +291,10 @@ func adaptList(w http.ResponseWriter, r *http.Request) {
 }
 
 func update(w http.ResponseWriter, r *http.Request) {
-	excludeMatcher = NewRegexMatcher([]string{
+	excludeMatcherDist = NewRegexMatcher([]string{
 		"/root/antizapret/config/exclude-hosts-dist.txt",
+	})
+	excludeMatcherCustom = NewRegexMatcher([]string{
 		"/root/antizapret/config/custom/exclude-hosts-custom.txt",
 	})
 	w.WriteHeader(http.StatusOK)
@@ -353,8 +361,10 @@ func main() {
 	DefaultClient = os.Getenv("CLIENT")
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
-	excludeMatcher = NewRegexMatcher([]string{
+	excludeMatcherDist = NewRegexMatcher([]string{
 		"/root/antizapret/config/exclude-hosts-dist.txt",
+	})
+	excludeMatcherCustom = NewRegexMatcher([]string{
 		"/root/antizapret/config/custom/exclude-hosts-custom.txt",
 	})
 	// Create a mux so we can wrap all handlers with logging

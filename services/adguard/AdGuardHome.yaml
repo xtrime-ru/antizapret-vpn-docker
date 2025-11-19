@@ -119,11 +119,11 @@ filters:
     name: Antizapret Dist Rules
     id: 4
   - enabled: true
-    url: http://az-local.antizapret/list/?url=https://antifilter.download/list/domains.lst
+    url: http://az-local.antizapret/list/?filter_dist=1&url=https://antifilter.download/list/domains.lst
     name: Antifilter Rules
     id: 5
   - enabled: true
-    url: http://az-world.antizapret/list/?url=https://raw.githubusercontent.com/xtrime-ru/antizapret-vpn-docker/v5/lists/comss-vpn.txt
+    url: http://az-world.antizapret/list/?url=https://raw.githubusercontent.com/xtrime-ru/antizapret-vpn-docker/v5/lists/world.txt
     name: Comss VPN List
     id: 6
   - enabled: false
@@ -131,7 +131,7 @@ filters:
     name: GubernievS AntiZapret List
     id: 7
   - enabled: false
-    url: http://az-local.antizapret/list/?url=https://blockedin.org/api/v3/domains/
+    url: http://az-local.antizapret/list/?filter_dist=1&url=https://blockedin.org/api/v3/domains/
     name: Blockedin.org List
     id: 8
 whitelist_filters: []
