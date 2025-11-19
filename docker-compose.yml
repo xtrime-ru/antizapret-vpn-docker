@@ -12,7 +12,8 @@ services:
       file: services/antizapret/docker-compose.yml
       service: antizapret
     deploy:
-      mode: global
+      mode: replicated
+      replicas: 1
       endpoint_mode: dnsrr
       placement:
         constraints: [ node.labels.location == local ]
@@ -25,7 +26,8 @@ services:
       file: services/antizapret/docker-compose.yml
       service: antizapret
     deploy:
-      mode: global
+      mode: replicated
+      replicas: 1
       endpoint_mode: dnsrr
       placement:
         constraints: [ node.labels.location == world ]

@@ -34,7 +34,7 @@ fi
 # resolve domain address to ip address
 function resolve () {
     # $1 domain/ip address, $2 fallback ip address
-    res="$(dig +short $1)"
+    res="$(dig +short $1 | head -n1)"
     if [ -z "$res" ]; then
         echo "$2"
     else

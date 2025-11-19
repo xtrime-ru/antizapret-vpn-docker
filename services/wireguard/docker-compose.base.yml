@@ -23,7 +23,8 @@ services:
       - /etc/localtime:/etc/localtime:ro
       - $PWD/config/antizapret/result:/opt/antizapret/result
     deploy:
-      mode: global
+      mode: replicated
+      replicas: 1
       endpoint_mode: dnsrr
       placement:
         constraints: [ node.labels.location == local ]

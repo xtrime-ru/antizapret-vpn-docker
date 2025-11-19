@@ -21,8 +21,8 @@ services:
       interval: 5s
       timeout: 1m
     deploy:
-      mode: global
-
+      mode: replicated
+      replicas: 1
       endpoint_mode: dnsrr
       placement:
         constraints: [ node.labels.location == local ]
