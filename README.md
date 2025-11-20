@@ -172,7 +172,7 @@ When `proxy` container is started, access services with https at following ports
  - Aguard - Need to remove old config `rm -rf ./config/adguard`
  - Antizapret - adguard moved to separate container, all corresponding env variables must be moved to adguard container. 
     docker-compose.override.yml update needed
- - https/proxy - proxy container renamed to https. docker-compose.override.yml update needed
+ - https/proxy - proxy container renamed to https. docker-compose.override.yml update needed. And rename old config folder: `mv ./config/caddy ./config/https`
 
 ```shell
 docker compose down --remove-orphans

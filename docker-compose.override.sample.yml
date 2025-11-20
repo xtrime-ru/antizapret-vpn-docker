@@ -59,10 +59,10 @@ services:
     environment:
       - WIREGUARD_PASSWORD=password
 
-  proxy:
+  https:
     extends:
       file: services/https/docker-compose.yml
-      service: proxy
+      service: https
     environment:
       # If not set, will be created and used self-signed certificate
       - PROXY_DOMAIN=

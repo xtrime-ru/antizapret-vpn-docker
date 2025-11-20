@@ -30,8 +30,8 @@ services:
       - PROXY_SERVICE_6=WireGuard Amnezia:5443:wireguard-amnezia.antizapret:51821
     volumes:
       - /etc/timezone:/etc/timezone:ro
-      - $PWD/config/caddy/data:/data
-      - $PWD/config/caddy/config:/config
+      - $PWD/config/https/data:/data
+      - $PWD/config/https/config:/config
     depends_on:
       - az-local
     deploy:
