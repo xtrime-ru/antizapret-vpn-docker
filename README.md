@@ -42,6 +42,7 @@ Recommended to use server located in western countries. Some sites will block us
 1. Clone repository and start container:
    ```bash
    git clone https://github.com/xtrime-ru/antizapret-vpn-docker.git antizapret
+   git checkout v5
    cd antizapret
    ```
 2. Create docker-compose.override.yml with services you need. Minimal example with only wireguard:
