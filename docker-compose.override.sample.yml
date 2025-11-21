@@ -4,6 +4,12 @@ services:
       - ADGUARDHOME_USERNAME=admin
       - ADGUARDHOME_PASSWORD=password
 
+  https:
+    environment:
+      # If not set, will be created and used self-signed certificate
+      - PROXY_DOMAIN=
+      # If not set, will be created and used self-signed certificate
+      - PROXY_EMAIL=
 
   # cloak:
   #   extends:
@@ -59,12 +65,4 @@ services:
     environment:
       - WIREGUARD_PASSWORD=password
 
-  https:
-    extends:
-      file: services/https/docker-compose.yml
-      service: https
-    environment:
-      # If not set, will be created and used self-signed certificate
-      - PROXY_DOMAIN=
-      # If not set, will be created and used self-signed certificate
-      - PROXY_EMAIL=
+

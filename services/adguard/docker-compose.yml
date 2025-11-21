@@ -30,8 +30,6 @@ services:
       - $PWD/config/adguard/conf:/opt/adguardhome/conf
       - $PWD/config/adguard/work:/opt/adguardhome/work
       - ./entrypoint.sh:/root/entrypoint.sh
-    ports:
-      - "3000:3000/tcp"
     deploy:
       mode: replicated
       replicas: 1

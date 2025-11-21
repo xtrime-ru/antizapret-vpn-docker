@@ -15,7 +15,6 @@ services:
           - linux/arm64
     ports:
       - "51820:51820/udp"
-      - "51821:51821/tcp"
     environment:
       - WG_CONFIG_PORT=51820
       - WG_DEFAULT_ADDRESS=10.1.166.x
@@ -37,7 +36,6 @@ services:
           - linux/amd64
     ports:
       - "51830:51820/udp"
-      - "51831:51821/tcp"
     environment:
       - WG_CONFIG_PORT=51830
       - WG_DEFAULT_ADDRESS=10.1.167.x

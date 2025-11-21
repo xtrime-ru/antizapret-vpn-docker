@@ -101,44 +101,17 @@ Some of the sites, which use geoip to block users, will be proxied through **for
 
 ## Access admin panels:
 
-### HTTP: 
-By default panels have following http ports exposed to internet:
-- dashboard: no exposed port
-- adguard: 3000
-- filebrowser: 2000
-- openvpn: 8080
-- wireguard: 51821
-- wireguard-amnezia: 51831
-
-If you do not wish to expose ports to internet override them in `docker-compose.override.yml`.
-In this example adguard and wireguard admin panels are removed from internet, and wireguard udp server is exposed: 
-```yml
-services:
-   antizapret:
-      environment:
-         - ADGUARDHOME_USERNAME=admin
-         - ADGUARDHOME_PASSWORD=password
-      ports: !reset []
-
-   wireguard:
-      extends:
-         file: services/wireguard/docker-compose.yml
-         service: wireguard
-      environment:
-         - WIREGUARD_PASSWORD=password
-```
-
 ### HTTPS
-To enable https server and create self-signed certificates - add `proxy` container to `docker-compose.override.yml`
-When `proxy` container is started, access services with https at following ports at your host ip:
-- dashboard: 443
-- adguard: 1443
-- filebrowser: 2443
-- openvpn: 3443
-- wireguard: 4443
-- wireguard-amnezia: 5443
+By default, all container can be accessed via https. For certificated management separate `https` container is used.
+If you did not provide domain and email in its env it will generate self-signed certificates
 
-`proxy` container is optional.
+- dashboard: https://<your-server-ip>:443
+- adguard: https://<your-server-ip>:1443
+- filebrowser: https://<your-server-ip>:2443
+- openvpn: https://<your-server-ip>:3443
+- wireguard: https://<your-server-ip>:4443
+- wireguard-amnezia: https://<your-server-ip>:5443
+
 
 ### Local network
    When you connected to VPN, you can access containers without exposing ports to internet:
@@ -148,6 +121,29 @@ When `proxy` container is started, access services with https at following ports
 - http://wireguard.antizapret:51821
 - http://openvpn-ui.antizapret:8080
 - http://filebrowser.antizapret:80
+
+### HTTP:
+By default, containers don't expose web panels to internet. All web panels are proxied via `https` container.
+If you want to expose http to internet, add port forwarding to docker-compose.override.yml.
+Example:
+```yml
+services:
+   adguard:
+      #...
+      ports:
+        - "3000:3000/tcp"
+```
+
+List of default ports: 
+
+- adguard: http://<your-server-ip>:3000
+- dashboard: http://<your-server-ip>:80
+- wireguard-amnezia: http://<your-server-ip>:51821
+- wireguard: http://<your-server-ip>:51821
+- openvpn-ui: http://<your-server-ip>:8080
+- filebrowser: http://<your-server-ip>:80
+
+Some containers have same ports. So you need to choose uniq external port in docker-compose.override.yml.
 
 ## Update
 
