@@ -35,16 +35,6 @@ EOL
     echo "[INFO] The file $AUTH_CONF_FILE has been successfully created."
 }
 
-is_host_resolved() {
-    sleep 1s
-    host=$1
-    if getent hosts "$host" >/dev/null; then
-        return 0
-    else
-        return 1
-    fi
-}
-
 create_services_json() {
     services=""
     COUNTER=1
@@ -62,24 +52,20 @@ create_services_json() {
         internal_hostname=$(echo "$service_value" | cut -d':' -f3)
         internal_port=$(echo "$service_value" | cut -d':' -f4)
 
-        if is_host_resolved "$internal_hostname"; then
-            service_json=$(jq -n \
-                    --arg name "$name" \
-                    --arg externalPort "$external_port" \
-                    --arg internalHostname "$internal_hostname" \
-                    --arg internalPort "$internal_port" \
-                    '$ARGS.named')
+        service_json=$(jq -n \
+                --arg name "$name" \
+                --arg externalPort "$external_port" \
+                --arg internalHostname "$internal_hostname" \
+                --arg internalPort "$internal_port" \
+                '$ARGS.named')
 
-            if [ -n "$services" ]; then
-                services="$services,$service_json"
-            else
-                services="$service_json"
-            fi
-
-            echo "[INFO] Added service '$name' to JSON."
+        if [ -n "$services" ]; then
+            services="$services,$service_json"
         else
-            echo "[WARNING] Host '$internal_hostname' is not resolved and will be skipped."
+            services="$service_json"
         fi
+
+        echo "[INFO] Added service '$name' to JSON."
 
         COUNTER=$((COUNTER + 1))
     done
