@@ -9,17 +9,6 @@ CONFIG_FILE="/etc/caddy/Caddyfile"
 REACHABLE_SERVICES=""
 IS_SELF_SIGNED=0
 
-
-is_host_resolved() {
-    sleep 1s
-    host=$1
-    if getent hosts "$host" >/dev/null; then
-        return 0
-    else
-        return 1
-    fi
-}
-
 generate_certificate() {
     echo "[INFO] Generating or checking SSL certificates..."
 
@@ -56,12 +45,7 @@ get_services() {
             exit 1
         fi
 
-        if is_host_resolved "$internal_host"; then
-            REACHABLE_SERVICES=$(printf "%s\n%s" "$REACHABLE_SERVICES" "$service_value")
-            echo "[INFO] Host $internal_host is reachable. Adding service: $service_value"
-        else
-            echo "[WARNING] Host $internal_host is not reachable. Skipping: $service_value"
-        fi
+        REACHABLE_SERVICES=$(printf "%s\n%s" "$REACHABLE_SERVICES" "$service_value")
 
         COUNTER=$((COUNTER + 1))
     done
