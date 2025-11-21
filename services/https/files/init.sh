@@ -88,6 +88,9 @@ add_services_to_config() {
 #$name#
 :$external_port {
   tls $CERT_CRT $CERT_KEY
+  header {
+    -X-Frame-Options
+  }
   reverse_proxy {
     to http://$internal_host:$internal_port
   }
