@@ -43,7 +43,7 @@ Recommended to use server located in western countries. Some sites will block us
    ```bash
    git clone https://github.com/xtrime-ru/antizapret-vpn-docker.git antizapret
    cd antizapret
-  git checkout v5
+   git checkout v5
    ```
 2. Create docker-compose.override.yml with services you need. Minimal example with only wireguard:
 ```yml
@@ -63,7 +63,6 @@ Find full example in [docker-compose.override.sample.yml](./docker-compose.overr
 3. Start services:
 ```shell
    docker compose pull
-   docker compose build
    docker compose up -d
    docker system prune -f
 ```
@@ -144,7 +143,7 @@ List of default ports:
 - openvpn-ui: http://<your-server-ip>:8080
 - filebrowser: http://<your-server-ip>:80
 
-Some containers have same ports. So you need to choose uniq external port in docker-compose.override.yml.
+Some containers have same ports. So you need to choose unique external port in docker-compose.override.yml.
 
 ## Update
 
@@ -166,7 +165,7 @@ Some containers have same ports. So you need to choose uniq external port in doc
 
  - Wireguard/Amnezia - added new subnet for az-world exit node. Need to download new configs
  - OpenVPN - no actions needed
- - Aguard - Need to remove old config `rm -rf ./config/adguard`
+ - Adguard - Need to remove old config `rm -rf ./config/adguard`
  - Antizapret - adguard moved to separate container, all corresponding env variables must be moved to adguard container. 
     docker-compose.override.yml update needed
  - https/proxy - proxy container renamed to https. docker-compose.override.yml update needed. And rename old config folder: `mv ./config/caddy ./config/https`
@@ -196,7 +195,7 @@ rm -rf config/*
 1. Adguard check it with blacklist rules. If domain in blacklist - return 0.0.0.0 and client not able to access domain.
 1. Adguard Send DNS request to CoreDNS service.
 1. CoreDNS Send DNS request to internal dnsmap.py server (antizapret container) and dnsmap.py sends request back to adguard
-1. Adguard recieves requests one more time, but now applies rules with `$client=az-local` and real upstream server client (8.8.8.8 by default)
+1. Adguard receives requests one more time, but now applies rules with `$client=az-local` and real upstream server client (8.8.8.8 by default)
 1. If domain in whitelist - adguard will resolve its address and return to dnsmap.py
 1. If domain not in whitelist adguard return SERVFAIL
 1. dnsmap.py send response to adguard:
@@ -206,7 +205,7 @@ rm -rf config/*
 
 Why so complicated? 
 - Windows and some other clients do not retry to Fallback DNS, even if  SERVFAIL received. So we added CoreDNS for that. 
-- Adguard dont allow to redefine upstream in blacklist/whitelist rules. 
+- Adguard don't allow to redefine upstream in blacklist/whitelist rules. 
   But this rules have regex support and updated automatically, so we want to use them.
   So multiple requests from different clients are made internally.
 - Adguard allows different upstreams for different clients. So we can use different DNS for blocked and non blocked domains.
@@ -269,7 +268,7 @@ Consists of two containers: az-local and az-world. This is VPN exit nodes.
 - `DOALL_DISABLED=` - skip run on az-world node.
 
 Adguard: 
-- `ROUTES` - list of VPN containers and their virtual addresses. Used for uniq client addresses in adguard logs
+- `ROUTES` - list of VPN containers and their virtual addresses. Used for unique client addresses in adguard logs
 - `ADGUARDHOME_PORT=3000`
 - `ADGUARDHOME_USERNAME=admin`
 - `ADGUARDHOME_PASSWORD=`
@@ -283,7 +282,7 @@ Filebrowser:
 - `FILEBROWSER_PASSWORD=password`
 
 Proxy:
-- `PROXY_DOMAIN=` - create lets-encrypt https certificate for domain. If not set host ip is used for self-signed certificate.
+- `PROXY_DOMAIN=` - create letsencrypt https certificate for domain. If not set host ip is used for self-signed certificate.
 - `PROXY_EMAIL=` - email for letsecnrypt certificate.
 
 Openvpn
@@ -334,7 +333,7 @@ If you located in other region, you need to replace `77.88.8.8` with your real i
 
 
 
-## OpenVpn
+## OpenVPN
 ### Create client certificates:
 https://github.com/d3vilh/openvpn-ui?tab=readme-ov-file#generating-ovpn-client-profiles
 1) go to `http://%your_ip%:8080/certificates`
@@ -437,7 +436,7 @@ For stable vpn operation you can try to connect to  VPS inside of your country a
 
 There are two ways: 
 1. [Recommended] Install in [docker swarm mode](#docker-swarm-multiple-exit-nodes-advanced)
-1. Proxy all traffic frought local proxy. See below.
+1. Proxy all traffic via local proxy. See below.
 
 Example of startup script.
 Replace <SERVER_IP> with IP address of your server and run it on fresh VPS (ubuntu 24.04 is recommended):
