@@ -59,6 +59,7 @@ EOS
 
 fi
 
+./update-crl.sh;
 while true; do
     sleep 86400;
     echo "Update crl";
