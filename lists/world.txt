@@ -1,6 +1,6 @@
-# Original list from comss-vpn.
+# List based on list comss-vpn.
 # Hosts witch block russian IPs
-# This hosts will be proxied throught az-world exit node
+# This hosts will be proxied through az-world exit node
 
 # root domains
 com.ua
@@ -64,6 +64,7 @@ content-autofill.googleapis.com
 content-people.googleapis.com
 developerprofiles-pa.googleapis.com
 gemini.google.com
+gemini.com
 generativelanguage.googleapis.com
 idx.google.com
 jules.google.com
@@ -228,11 +229,6 @@ nflxso.net
 nflxvideo.net
 
 # Games / Gaming Platforms
-agar.io
-beth.games
-bethesda.net
-bethesdagamestudios.com
-bethsoft.com
 brawlstarsgame.com
 cdn-webth.garenanow.com
 clashofclans.com
@@ -342,7 +338,7 @@ tiktokcdn.com
 tiktokv.com
 ttwstatic.com
 
-# Social / Messaging
+# Facebook (Meta)
 cdninstagram.com
 conversionsapigateway.com
 facebook.com
@@ -364,6 +360,7 @@ vb.me
 whatsapp.com
 whatsapp.net
 wa.me
+deovr.com
 
 # Hardware / Consumer Tech
 asus.com
@@ -388,9 +385,6 @@ quicknode.com
 wise.com
 
 # Cloud / Hosting
-amazonaws.com
-aws.amazon.com
-awsapps.com
 contabo.com
 digitalocean.com
 hetzner.com
@@ -415,6 +409,8 @@ jr-central.co.jp
 bytegsdk.com
 picovr.com
 picoxr.com
+byteoversea.com
+ibytedtos.com
 
 # Retail / E-commerce
 adidas.com
@@ -432,6 +428,8 @@ target.com
 vans.com
 vans.eu
 walmart.com
+amazon.com
+amazon.co.jp
 
 # Discord
 discord-activities.com
@@ -444,5 +442,15 @@ mee6.xyz
 rythm.fm
 
 # CDN
+contentful.com
+ctfassets.net
+cdn.tagdeliver.com
+
+#Fastly
 fastly.net
 fastly.com
+fastly-edge.com
+fastly-terrarium.com
+fastly.io
+fastlylabs.com
+fastlylb.net
