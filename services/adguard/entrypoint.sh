@@ -45,4 +45,12 @@ if [ "$SERVER_COUNTRY" = "RU" ]; then
       ' /opt/adguardhome/conf/AdGuardHome.yaml
 fi
 
+cat << 'EOF' > /usr/bin/flushdns
+#!/usr/bin/env bash
+ADGUARDHOME_USERNAME=${ADGUARDHOME_USERNAME:-"admin"}
+ADGUARDHOME_PORT=${ADGUARDHOME_PORT:-"3000"}
+curl -s -X POST "http://127.0.0.1:${ADGUARDHOME_PORT}/control/cache_clear" -u "${ADGUARDHOME_USERNAME}:${ADGUARDHOME_PASSWORD}"
+EOF
+chmod +x /usr/bin/flushdns
+
 exec /opt/adguardhome/AdGuardHome "$@"
