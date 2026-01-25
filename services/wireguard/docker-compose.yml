@@ -4,7 +4,7 @@ services:
       file: docker-compose.base.yml
       service: base
     hostname: wireguard.antizapret
-    image: xtrime/antizapret-vpn-wireguard:5.3.1
+    image: xtrime/antizapret-vpn-wireguard:6.0.1
     build:
       context: .
       args:
@@ -26,7 +26,7 @@ services:
       file: docker-compose.base.yml
       service: base
     hostname: wireguard-amnezia.antizapret
-    image: xtrime/antizapret-vpn-wireguard-amnezia:5.3.1
+    image: xtrime/antizapret-vpn-wireguard-amnezia:6.0.1
     build:
       context: .
       args:

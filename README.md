@@ -8,6 +8,8 @@ https://t.me/antizapret_support
 
 # Features
 
+- Modular design. External and high quality opensource modules/containers are used as builing blocks of our system. 
+- User friendly web panels for administration of VPN's and DNS.
 - Multiple VPN transports: Wireguard, Amnezia Wireguard, OpenVPN
 - AdguardHome as main DNS resolver and blocked domains manager
 - Multi-Server Architecture to bypass services geo restrictions. Different domains use different servers as exit nodes.
@@ -21,10 +23,10 @@ https://t.me/antizapret_support
 3) Adguardhome resend requests for blocked domains to python script dnsmap.py.
 4) Python script:
    a) resolve real address for domain
-   b) create fake address from 10.244.0.0/15 subnet
+   b) create fake address from 14.16.0.0/14 subnet
    c) create iptables rule to forward all packets from fake ip to real ip.
 5) Fake IP is sent in DNS response to client
-6) All vpn tunnels configured with split tunneling. Only traffic to 10.244.0.0/15 subnet is routed through VPN.
+6) VPN tunnels configured with split tunneling. Only traffic to 14.16.0.0/14 subnet is routed through VPN.
 
 
 # Installation
@@ -42,7 +44,7 @@ Recommended to use server located in western countries. Some sites will block us
    ```bash
    git clone https://github.com/xtrime-ru/antizapret-vpn-docker.git antizapret
    cd antizapret
-   git checkout v5
+   git checkout v6
    ```
 2. Create docker-compose.override.yml with services you need. Minimal example with only wireguard:
 ```yml
@@ -96,6 +98,10 @@ Some of the sites, which use geoip to block users, will be proxied through **for
 1. [Primary, Secondary]: create config folders on **both nodes**: ```docker compose pull; docker compose up -d; sleep 60; docker compose down;```
 1. [Primary]: start swarm `docker compose config | docker run --rm -i xtrime/antizapret-vpn:5 compose2swarm | docker stack deploy --prune -c - antizapret `
 
+## Next steps:
+ - Install DKMS module for [openvpn](#enable-openvpn-data-channel-offload-dco) 
+ - Install DKMS module for [amnezia-wireguard](#enable-amnezia-wireguard-kernel-extension)
+ - Create VPN profiles for clients in VPN admin panels. 
 
 ## Access admin panels:
 
@@ -147,49 +153,41 @@ Some containers have same ports. So you need to choose unique external port in d
 
 - Single instance
    ```shell
-   git pull
+   git pull --rebase
    docker compose down --remove-orphans
    docker compose up -d --remove-orphans
+   docker system prune -af
    ```
 - Swarm mode: 
    ```shell
-   git pull
-   docker pull xtrime/antizapret-vpn:5
-   docker compose config | docker run --rm -i xtrime/antizapret-vpn:5 compose2swarm | docker stack deploy --prune -c - antizapret
+   git pull --rebase
+   docker pull xtrime/antizapret-vpn:6
+   docker compose config | docker run --rm -i xtrime/antizapret-vpn:6 compose2swarm | docker stack deploy --prune -c - antizapret
+   docker system prune -af
    ```
 
-### Upgrade from v4
+### Upgrade from v5
 
-There are two options: Easy or Manual.
-
- - Easy upgrade [**will remove all cofigs, including vpn configs!**]
-    ```shell
-    docker compose down --remove-orphans
-    git fetch && git checkout v5
-    rm -rf ./config/*
-    sed -i  's/proxy\:/https\:/' docker-compose.override.yml
-    sed -i  's/antizapret\:/adguard\:/' docker-compose.override.yml
-    docker compose pull && docker compose up -d
-    docker system prune -af
-    ```
-
-- Manual upgrade:
-    - Wireguard/Amnezia - added new subnet for az-world exit node. Need to download new configs
-    - OpenVPN - fixed bug with duplicate routes.  
-      Need to comment `route 10.200.0.0 255.255.255.0` (add `#` at the beginning ) in field Route (Guest VPN subnet) on page http://openvpn-ui.antizapret:8080/ov/config and save changes. If openvpn-ui admin panel dont open: `rm -rf ./config/openvpn/*`
-    - Adguard - Need to remove old config `rm -rf ./config/adguard`
-    - Antizapret - adguard moved to separate container, all corresponding env variables must be moved to adguard container. 
-       docker-compose.override.yml update needed
-    - https/proxy - proxy container renamed to https. docker-compose.override.yml update needed. And rename old config folder: `mv ./config/caddy ./config/https`
-   
-    Remove old version:
-    ```shell
-    docker compose down --remove-orphans
-    docker system prune -af
-    rm -rf ./config/adguard
-    ```
-    
-    Then follow installation steps.
+1. Upgrade containers:
+- Docker Compose mode (single server):
+   ```shell
+   docker compose down --remove-orphans
+   git fetch && git checkout v6 && git pull --rebase
+   docker compose down --remove-orphans
+   docker compose up -d --remove-orphans
+   docker system prune -af
+   ```
+- Swarm mode:
+   ```shell
+   docker stack rm antizapret && sleep 10
+   git fetch && git checkout v6 && git pull --rebase
+   docker pull xtrime/antizapret-vpn:6
+   docker compose config | docker run --rm -i xtrime/antizapret-vpn:6 compose2swarm | docker stack deploy --prune -c - antizapret
+   docker system prune -af
+   ```
+2. Update clients:
+   - Wireguard/Amnezia - need to download new client configs, or add `14.16.0.0/14` to AllowedIps manually in old configs.
+   - OpenVPN - all is done automatically. Some clients require reboot (ASUS routers, for example).
 
 ## Reset:
 Remove all settings, vpn configs and return initial state of service:
@@ -212,7 +210,7 @@ rm -rf config/*
 1. If domain in whitelist - adguard will resolve its address and return to dnsmap.py
 1. If domain not in whitelist adguard return SERVFAIL
 1. dnsmap.py send response to adguard:
-   1. If it is valid IP, then replaces it with "internal" IP from `10.224.0.0/15` subnet, add masquerade to iptables and return internal ip to adguard 
+   1. If it is valid IP, then replaces it with "internal" IP from `14.16.0.0/15` subnet, add masquerade to iptables and return internal ip to adguard 
    1. If is is SERVFAIL it sends this response to client.
 1. If CoreDNS receives SERVFAIL it retries request and send it directly to Adguard. In this case rules with `$client=az-local` do not applied and request processed normally.
 
@@ -281,7 +279,7 @@ You can define these variables in docker-compose.override.yml file for your need
 Antizapret:
 Consists of two containers: az-local and az-world. This is VPN exit nodes.
 - `DNS=adguard` - Upstream DNS for resolving blocked sites (adguard by default)
-- `AZ_SUBNET=10.224.0.0/15` Subnet for virtual addresses for blocked hosts.
+- `AZ_SUBNET=14.16.0.0/14` Subnet for virtual addresses for blocked hosts.
 - `ROUTES` - list of VPN containers and their virtual addresses. Used for iperf3 server.
 - `DOALL_DISABLED=` - skip run on az-world node.
 
@@ -309,21 +307,19 @@ Openvpn
    0 - disable.Act as regular openvpn client, support by all clients.
    1 - light obfuscation, works with microtics
    2 - strong obfuscation, works with some clients: openvpn gui client, asuswrt client...
-- `AZ_LOCAL_SUBNET=10.224.0.0/15` - subnet for virtual blocked ips. Local exit node
-- `AZ_WORLD_SUBNET=10.226.0.0/15` - subnet for virtual blocked ips. Remote exit node
+- `AZ_SUBNET=14.16.0.0/14` - subnet for virtual blocked ips.
 
 Openvpn-ui
 - `OPENVPN_ADMIN_PASSWORD=` — will be used as a server address in .ovpn profiles upon keys generation (default: your server's IP)
-- `OPENVPN_DNS=10.224.0.1` - DNS address for clients. Must be in `ANTIZAPRET_SUBNET`
+- `OPENVPN_DNS=14.16.0.1` - DNS address for clients. Must be in `ANTIZAPRET_SUBNET`
 - `OPENVPN_LOCAL_IP_RANGE=10.1.165.0` - subnet for ovpn clients. Subnet can be viewed in adguard journal or in ovpn-ui panel
 
 Wireguard/Wireguard Amnezia
 - `ROUTES` 
 - `WIREGUARD_PASSWORD=` - password for admin panel
 - `WIREGUARD_PASSWORD_HASH=` - [hashed password](https://github.com/wg-easy/wg-easy/blob/v14.0.0/How_to_generate_an_bcrypt_hash.md) for admin panel
-- `AZ_LOCAL_SUBNET=10.224.0.0/15` - subnet for virtual blocked ips. local exit node
-- `AZ_WORLD_SUBNET=10.226.0.0/15` - subnet for virtual blocked ips. remote exit node
-- `WG_DEFAULT_DNS=10.224.0.1` - DNS address for clients. Must be in `ANTIZAPRET_SUBNET`
+- `AZ_SUBNET=14.16.0.0/14` - subnet for virtual blocked ips.
+- `WG_DEFAULT_DNS=14.16.0.1` - DNS address for clients. Must be in `ANTIZAPRET_SUBNET`
 - `WG_PERSISTENT_KEEPALIVE=25`
 - `PORT=51821` - admin panel port
 - `WG_PORT=51820` - wireguard server port

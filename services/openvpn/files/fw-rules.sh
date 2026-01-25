@@ -7,9 +7,8 @@ DOCKER_SUBNET="$(ipcalc "$(ip -4 addr show dev eth0 | awk '$1=="inet" {print $2;
 
 cat << EOF | sponge /etc/environment
 OPENVPN_LOCAL_IP_RANGE='${OPENVPN_LOCAL_IP_RANGE:-"10.1.165.0"}'
-OPENVPN_DNS='${OPENVPN_DNS:-"10.224.0.1"}'
-AZ_LOCAL_SUBNET=${AZ_LOCAL_SUBNET:-"10.224.0.0/15"}
-AZ_WORLD_SUBNET=${AZ_WORLD_SUBNET:-"10.226.0.0/15"}
+OPENVPN_DNS='${OPENVPN_DNS:-"14.16.0.1"}'
+AZ_SUBNET=${AZ_SUBNET:-"14.16.0.0/14"}
 DOCKER_SUBNET=${DOCKER_SUBNET}
 NIC='$(ip -4 route ls | grep default | grep -Po '(?<=dev )(\S+)' | head -1)'
 OVDIR='${OVDIR:-"/etc/openvpn"}'
@@ -21,8 +20,7 @@ iptables -t nat -N masq_not_local;
 iptables -t nat -A POSTROUTING -s ${OPENVPN_LOCAL_IP_RANGE}/24 -j masq_not_local;
 iptables -t nat -A masq_not_local -p icmp -d ${DOCKER_SUBNET} -j MASQUERADE;
 iptables -t nat -A masq_not_local -d ${DOCKER_SUBNET} -j RETURN;
-iptables -t nat -A masq_not_local -d ${AZ_LOCAL_SUBNET} -j RETURN;
-iptables -t nat -A masq_not_local -d ${AZ_WORLD_SUBNET} -j RETURN;
+iptables -t nat -A masq_not_local -d ${AZ_SUBNET} -j RETURN;
 iptables -t nat -A masq_not_local -j MASQUERADE;
 
 ./routes.sh --vpn &

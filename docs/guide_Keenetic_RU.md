@@ -1,14 +1,9 @@
 # Инструкция для маршрутизаторов Keenetic:
 - [Инструкция для маршрутизаторов Keenetic:](#инструкция-для-маршрутизаторов-keenetic)
   - [OpenVPN](#openvpn)
-    - [OpenVPN серверная часть](#openvpn-серверная-часть)
     - [OpenVPN клиентская часть](#openvpn-клиентская-часть)
   - [WireGuard](#wireguard)
-    - [WireGuard серверная часть](#wireguard-серверная-часть)
     - [WireGuard клиентская часть](#wireguard-клиентская-часть)
-  - [IPsec](#ipsec)
-    - [IPsec серверная часть](#ipsec-серверная-часть)
-    - [IPsec клиентская часть](#ipsec-клиентская-часть)
 
 ## OpenVPN
 
@@ -19,9 +14,6 @@
 Если на старом City KN-1511 скорость канала с контейнером ограничена 6-8 Мбит/с, то на новом Hopper KN-3811 скорость достигает 55-60 Мбит/с
 
 Подробную информацию о различных моделях и скорости работы OpenVPN на них можно найти на [сайте производителя](https://help.keenetic.com/hc/ru/articles/115005342025-Типы-VPN-соединений-в-Keenetic).
-
-### OpenVPN серверная часть
-Особых действий не требуется, действовать по [инструкции](https://github.com/xtrime-ru/antizapret-vpn-docker?tab=readme-ov-file#installation). А так же необходимо [выпустить сертификат](https://github.com/xtrime-ru/antizapret-vpn-docker?tab=readme-ov-file#create-client-certificates).
 
 ### OpenVPN клиентская часть
 1. [Установить компонент "Клиент и сервер OpenVPN"](https://help.keenetic.com/hc/ru/articles/360000880359-%D0%9A%D0%BB%D0%B8%D0%B5%D0%BD%D1%82-%D0%B8-%D1%81%D0%B5%D1%80%D0%B2%D0%B5%D1%80-OpenVPN)
@@ -57,68 +49,7 @@
 > [!WARNING]
 > Для работы Amnezia WireGuard необходима прошивка версии **4.2+**.
 > До 4.2 можно использовать обычный WireGuard на порту 443.
-> Но сработать может не у всех, рекомендую все таки вариант с Amnezia.
-
-### WireGuard серверная часть
-1. Устанавливаем [Docker Engine](https://docs.docker.com/engine/install/):
-    ```bash
-    curl -fsSL https://get.docker.com -o get-docker.sh
-    sudo sh get-docker.sh
-    ```
-2. Клонируем репозиторий:
-    ```
-    git clone https://github.com/xtrime-ru/antizapret-vpn-docker.git antizapret
-    cd antizapret
-    ```
-3. Создаем файл `docker-compose.override.yml` со следующим содержанием:
-    > Обратите внимание на назначаемый порт WireGuard! 443 лучше обходит блокировки, но может быть расценен вашим хостером как попытка DDoS атаки на ваш сервер. Если возникнут какие-либо лаги или отвалы соединения первым делом смените 443 на какой-либо другой порт!
-    ```yaml
-    services:
-      antizapret:
-        environment:
-          # Имя пользователя AdGuard Home (задайте свой!)
-          - ADGUARDHOME_USERNAME=user
-          # Пароль AdGuard Home (задайте свой!)
-          - ADGUARDHOME_PASSWORD=somestrongpassword
-      # Для Amnezia замените на
-      # wireguard-amnezia
-      wireguard:
-        environment:
-          # Пароль панели управления WireGuard (задайте свой!)
-          - WIREGUARD_PASSWORD=somestrongpassword
-          # Разрешить маршрутизацию всех IP адресов, в маршрутизатор в любом случае в ручном режиме добавляются маршруты
-          # Таким образом можно использовать подключение для полноценного VPN
-          - WG_ALLOWED_IPS=0.0.0.0/0
-          # Язык
-          - LANG=ru
-          # Порт для панели управления WireGuard
-          - PORT=51821
-          # Порт WireGuard
-          - WG_PORT=443
-        ports:
-          # Порт для панели управления WireGuard
-          - "51821:51821/tcp"
-          # Порт WireGuard
-          - "443:443/udp"
-        extends:
-          # Для Amnezia замените на
-          # file: docker-compose.wireguard-amnezia.yml
-          file: docker-compose.wireguard.yml
-          # Для Amnezia замените на
-          # service: wireguard-amnezia
-          service: wireguard
-    ```
-4. Собираем контейнер:
-   ```
-   docker compose pull
-   docker compose build
-   docker compose up -d
-   ```
-5. Создаем профиль в WireGuard: `http://<SERVER_IP>:51821`
-6. Скачиваем профиль и переходим к клиентской части
-
-> [!NOTE]
-> Можно сделать дополнительные настройки в панели управления AdGuard Home: `http://<SERVER_IP>:3000`
+> Но сработать может не у всех, рекомендуется вариант с Amnezia.
 
 ### WireGuard клиентская часть
 1. [Установить компонент "WireGuard VPN"](https://help.keenetic.com/hc/ru/articles/360010592379-WireGuard-VPN)
@@ -136,8 +67,8 @@
    2. `Добавить маршрут`
       1. Тип маршрута: `Маршрут до сети`
       2. Описание: `AntiZapret`
-      3. Адрес сети назначения: `10.224.0.0`
-      4. Маска подсети: `255.254.0.0/15`
+      3. Адрес сети назначения: `14.16.0.0`
+      4. Маска подсети: `255.252.0.0/14`
       5. Адрес шлюза: `пусто`
       6. Интерфейс: `Antizapret` (если не меняли имя, то по имени файла)
    3. Аналогично добавить маршруты до всех подсетей, указанных в `Разрешенных IPv4-подсетях` в настройках подключения `Antizapret`
@@ -178,10 +109,3 @@
 
 > [!NOTE]
 > Если какое-то из клиентских устройств не требует обхода блокировок, то следует [зарегистрировать его](https://help.keenetic.com/hc/ru/articles/360000394159-Регистрация-устройств-в-домашней-сети), [создайте DNS-профиль](https://help.keenetic.com/hc/ru/articles/7248035195548-Создание-DNS-профиля-без-фильтрации), добавьте туда какие-нибудь публичные DNS-серверы (отличные от тех, которые вы добавляли в `Системный` профиль), включите в разделе `Контентный фильтр` режим фильтрации `Публичные DNS-резолверы` и ниже назначьте этому клиенту свежесозданный профиль DNS ниже на этой странице.
-
-## IPsec
-### IPsec серверная часть
-В процессе написания
-
-### IPsec клиентская часть
-В процессе написания
