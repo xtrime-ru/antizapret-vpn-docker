@@ -33,13 +33,14 @@ services:
     environment:
       - PORT=51821
       - WG_PORT=51820
-      - WG_DEFAULT_DNS=10.224.0.1
+      - WG_DEFAULT_DNS=14.16.0.1
+      - AZ_SUBNET=14.16.0.0/14
       - WG_PERSISTENT_KEEPALIVE=25
       - |
         ROUTES=
         openvpn:10.1.165.0/24;
         wireguard:10.1.166.0/24;
         wireguard-amnezia:10.1.167.0/24;
-        adguard:10.224.0.1;
-        az-local:10.224.0.0/15;
-        az-world:10.226.0.0/15;
+        adguard:14.16.0.1;
+        az-local:14.16.0.0/15;
+        az-world:14.18.0.0/15;

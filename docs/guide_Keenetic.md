@@ -1,14 +1,9 @@
 # Keenetic router manual:
 - [Keenetic router manual:](#keenetic-router-manual)
   - [OpenVPN](#openvpn)
-    - [OpenVPN server part](#openvpn-server-part)
     - [OpenVPN client part](#openvpn-client-part)
   - [WireGuard](#wireguard)
-    - [WireGuard server part](#wireguard-server-part)
     - [WireGuard client part](#wireguard-client-part)
-  - [IPsec](#ipsec)
-    - [IPsec server side](#ipsec-server-side)
-    - [IPsec client side](#ipsec-client-side)
 
 ## OpenVPN
 
@@ -19,9 +14,6 @@ For better OpenVPN performance, new Keenetic routers with fast processors (from 
 For example: on old City KN-1511 bandwidth speed through server is limited at 6-8 Mbps, but on new Hopper KN-3811 speed reaches 55-60 Mbit/s
 
 Detailed information about the different models and OpenVPN speeds you can found at [manufacturer's website](https://help.keenetic.com/hc/en-us/articles/115005342025-VPN-types-in-Keenetic-routers).
-
-### OpenVPN server part
-No special steps are required, follow [instructions](https://github.com/xtrime-ru/antizapret-vpn-docker?tab=readme-ov-file#installation). Also, you need [create client certificate](https://github.com/xtrime-ru/antizapret-vpn-docker?tab=readme-ov-file#create-client-certificates).
 
 ### OpenVPN client part
 1. Install [OpenVPN client](https://help.keenetic.com/hc/en-us/articles/360000632239-OpenVPN-client)
@@ -57,68 +49,7 @@ No special steps are required, follow [instructions](https://github.com/xtrime-r
 > [!WARNING]
 > Amnezia WireGuard requires firmware version **4.2+** to work.
 > For firmware lower than 4.2 you can use regular WireGuard on port 443.
-> But it may not work for everyone, I recommend using Amnezia.
-
-### WireGuard server part
-1. Install [Docker Engine](https://docs.docker.com/engine/install/):
-    ```shell
-    curl -fsSL https://get.docker.com -o get-docker.sh
-    sudo sh get-docker.sh
-    ```
-2. Clone the repository:
-    ```shell
-    git clone https://github.com/xtrime-ru/antizapret-vpn-docker.git antizapret
-    cd antizapret
-    ```
-3. Create a file `docker-compose.override.yml` with the following content:
-    > Pay attention to WireGuard's assigned port! 443 bypasses blocking better, but may be considered by your hoster as an attempted DDoS attack on your server. If you experience any lags or connection failures, change 443 to another port first!
-    ```yaml
-    services:
-      antizapret:
-        environment:
-          # Username for AdGuard Home (set yours!)
-          - ADGUARDHOME_USERNAME=user
-          # Password for AdGuard Home (set yours!)
-          - ADGUARDHOME_PASSWORD=somestrongpassword
-      # For Amnezia, replace with
-      # wireguard-amnezia
-      wireguard:
-        environment:
-          # Password for WireGuard control panel (set yours!)
-          - WIREGUARD_PASSWORD=somestrongpassword
-          # Allow routing of all IP addresses, routes are manually added to the router anyway
-          # This way you can use the connection for a full VPN
-          - WG_ALLOWED_IPS=0.0.0.0.0/0
-          # Language
-          - LANG=en
-          # Port for WireGuard control panel
-          - PORT=51821
-          # WireGuard port
-          - WG_PORT=443
-        ports:
-          # Port for WireGuard control panel
-          - "51821:51821/tcp"
-          # WireGuard port
-          - "443:443/udp"
-        extends:
-          # For Amnezia, replace with
-          # file: docker-compose.wireguard-amnezia.yml
-          file: docker-compose.wireguard.yml
-          # For Amnezia, replace with
-          # service: wireguard-amnezia
-          service: wireguard
-    ```
-4. Assemble the container:
-   ```shell
-   docker compose pull
-   docker compose build
-   docker compose up -d
-   ```
-5. Create a profile in WireGuard: `http://<SERVER_IP>:6843`.
-6. Download the profile and go to the client part
-
-> [!NOTE]
-> You can change additional settings in AdGuard Home Control Panel: `http://<SERVER_IP>:3000`
+> But it may not work for everyone, using Amnezia is recommended.
 
 ### WireGuard client part
 1. [Install the "WireGuard VPN" component](https://help.keenetic.com/hc/en-us/articles/360010592379-WireGuard-VPN)
@@ -136,8 +67,8 @@ No special steps are required, follow [instructions](https://github.com/xtrime-r
    2. `Create route`.
       1. Route type: `Route to network`.
       2. Description: `AntiZapret`.
-      3. Destination network address: `10.224.0.0`
-      4. Subnet mask: `255.254.0.0.0/15`.
+      3. Destination network address: `14.16.0.0`
+      4. Subnet mask: `255.252.0.0/14`.
       5. Gateway IP: `blank`.
       6. Interface: `Antizapret` (if you did not change the name, then by file name)
    3. Similarly, add routes to all subnets specified in `Allowed v4 IPs` in the `Antizapret` connection options.
@@ -179,10 +110,3 @@ In the `Internet` > `Other Connections` section, enable the `AntiZapret` connect
 
 > [!NOTE]
 > If any of the client devices does not require blocking bypass, then you should [register it](https://help.keenetic.com/hc/en-us/articles/360000394159-Client-devices-registration), [create a DNS profile](https://help.keenetic.com/hc/en-us/articles/7248035195548-Creating-a-DNS-profile-without-filtering), add some public DNS servers there (different from those you added to the `System` profile), enable the `Public DNS resolvers` filtering mode in the `Content Filter` section and assign the newly created DNS profile to this client below on this page.
-
-## IPsec
-### IPsec server side
-In the process of writing
-
-### IPsec client side
-In progress
