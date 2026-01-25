@@ -19,7 +19,7 @@ services:
         constraints: [ node.labels.location == local ]
     environment:
       - CLIENT=az-local
-      - AZ_SUBNET=10.224.0.0/15
+      - AZ_SUBNET=14.16.0.0/15
   az-world:
     hostname: az-world.antizapret
     extends:
@@ -33,7 +33,7 @@ services:
         constraints: [ node.labels.location == world ]
     environment:
       - CLIENT=az-world
-      - AZ_SUBNET=10.226.0.0/15
+      - AZ_SUBNET=14.18.0.0/15
       - DOALL_DISABLED=1
   adguard:
     extends:

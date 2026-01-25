@@ -8,7 +8,7 @@ services:
     sysctls:
       - net.ipv4.ip_forward=1
       - net.ipv4.conf.all.src_valid_mark=1
-    image: xtrime/antizapret-vpn-openvpn:5.3.1
+    image: xtrime/antizapret-vpn-openvpn:6.0.1
     build:
       context: .
       x-bake:
@@ -45,9 +45,9 @@ services:
         openvpn:10.1.165.0/24;
         wireguard:10.1.166.0/24;
         wireguard-amnezia:10.1.167.0/24;
-        adguard:10.224.0.1;
-        az-local:10.224.0.0/15;
-        az-world:10.226.0.0/15;
+        adguard:14.16.0.1;
+        az-local:14.16.0.0/15;
+        az-world:14.18.0.0/15;
 
   openvpn-ui:
     hostname: openvpn-ui.antizapret
@@ -55,7 +55,7 @@ services:
     cap_add:
       - NET_ADMIN
       - SYS_MODULE
-    image: xtrime/antizapret-vpn-openvpn-ui:5.3.4
+    image: xtrime/antizapret-vpn-openvpn-ui:6.0.0
     build:
       context: .
       dockerfile: Dockerfile-ui
@@ -72,6 +72,7 @@ services:
     environment:
       - OPENVPN_ADMIN_USERNAME=admin
       - OPENVPN_ADMIN_PASSWORD=gagaZush
+      - AZ_SUBNET=14.16.0.0
     depends_on:
       - az-local
     deploy:

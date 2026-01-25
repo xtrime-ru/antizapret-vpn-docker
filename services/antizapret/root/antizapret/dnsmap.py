@@ -221,9 +221,9 @@ if __name__ == '__main__':
                    help="Log hooks to enable (default: +request,+reply,+truncated,+error,-recv,-send,-data)")
     p.add_argument("--log-prefix", action='store_true', default=False,
                    help="Log prefix (timestamp/handler/resolver) (default: False)")
-    p.add_argument("--iprange", default="10.224.0.0/24",
+    p.add_argument("--iprange", default="14.16.0.0/16",
                    metavar="<ip/mask>",
-                   help="Fake IP range (default: 10.224.0.0/24)")
+                   help="Fake IP range (default: 14.16.0.0/16)")
     args = p.parse_args()
 
     args.dns,_,args.dns_port = args.upstream.partition(':')

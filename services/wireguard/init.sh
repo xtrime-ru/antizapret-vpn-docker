@@ -6,8 +6,7 @@ fi
 
 export WG_DEFAULT_ADDRESS=${WG_DEFAULT_ADDRESS:-"10.1.166.x"}
 export WG_PORT=${WG_PORT:-51820}
-export AZ_LOCAL_SUBNET=${AZ_LOCAL_SUBNET:-"10.224.0.0/15"}
-export AZ_WORLD_SUBNET=${AZ_WORLD_SUBNET:-"10.226.0.0/15"}
+export AZ_SUBNET=${AZ_SUBNET:-"14.16.0.0/14"}
 
 CONFIG_FILES="/opt/antizapret/result/ips*"
 cat $CONFIG_FILES 2>/dev/null | md5sum | cut -d' ' -f1 > /.config_md5
@@ -15,7 +14,7 @@ cat $CONFIG_FILES 2>/dev/null | md5sum | cut -d' ' -f1 > /.config_md5
 DOCKER_SUBNET="$(ipcalc "$(ip -4 addr show dev eth0 | awk '$1=="inet" {print $2; exit}')" | awk '/Network:/ {print $2}')"
 
 if [ -z "$WG_ALLOWED_IPS" ]; then
-    export WG_ALLOWED_IPS="${WG_DEFAULT_ADDRESS/"x"/"0"}/24,$AZ_LOCAL_SUBNET,$AZ_WORLD_SUBNET,$DOCKER_SUBNET"
+    export WG_ALLOWED_IPS="${WG_DEFAULT_ADDRESS/"x"/"0"}/24,$AZ_SUBNET,$DOCKER_SUBNET"
     blocked_ranges=$( cat $CONFIG_FILES | grep -v '^[[:space:]]*$' | tr '\n' ',' | sed 's/,$//g')
     if [ -n "${blocked_ranges}" ]; then
         export WG_ALLOWED_IPS="${WG_ALLOWED_IPS},${blocked_ranges}"
@@ -29,8 +28,7 @@ iptables -t nat -N masq_not_local;
 iptables -t nat -A POSTROUTING -s ${WG_DEFAULT_ADDRESS/"x"/"0"}/24 -j masq_not_local;
 iptables -t nat -A masq_not_local -p icmp -d ${DOCKER_SUBNET} -j MASQUERADE;
 iptables -t nat -A masq_not_local -d ${DOCKER_SUBNET} -j RETURN;
-iptables -t nat -A masq_not_local -d ${AZ_LOCAL_SUBNET} -j RETURN;
-iptables -t nat -A masq_not_local -d ${AZ_WORLD_SUBNET} -j RETURN;
+iptables -t nat -A masq_not_local -d ${AZ_SUBNET} -j RETURN;
 iptables -t nat -A masq_not_local -j MASQUERADE;
 iptables -A FORWARD -i wg0 -j ACCEPT;
 iptables -A FORWARD -o wg0 -j ACCEPT;
