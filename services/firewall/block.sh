@@ -7,7 +7,9 @@ SET_V6="az_firewall_v6"
 
 function clear() {
     # --- Remove old iptables rules referencing the sets ---
+    iptables  -D DOCKER-USER -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT 2>/dev/null || true
     iptables  -D DOCKER-USER -m set --match-set "$SET_V4" src -j DROP 2>/dev/null || true
+    ip6tables  -D DOCKER-USER -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT 2>/dev/null || true
     ip6tables -D DOCKER-USER -m set --match-set "$SET_V6" src -j DROP 2>/dev/null || true
 
     # --- Delete old ipsets if they exist ---
@@ -27,7 +29,9 @@ ipset create "$SET_V4" hash:net family inet hashsize 4096 maxelem 200000
 ipset create "$SET_V6" hash:net family inet6 hashsize 4096 maxelem 200000
 
 # --- Add fresh rules ---
+iptables -I DOCKER-USER -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
 iptables  -A DOCKER-USER -m set --match-set "$SET_V4" src -j DROP
+ip6tables -I DOCKER-USER -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
 ip6tables -A DOCKER-USER -m set --match-set "$SET_V6" src -j DROP
 
 # --- Populate IPv4 set ---

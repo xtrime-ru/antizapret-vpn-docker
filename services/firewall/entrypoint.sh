@@ -2,7 +2,7 @@
 set -ex
 
 running=true
-trap 'running=false; [ -n "$sleep_pid" ] && kill "$sleep_pid"; ./block.sh clear' \
+trap 'running=false; ( [ -n "$sleep_pid" ] && kill "$sleep_pid" ); ./block.sh clear' \
     SIGTERM SIGINT SIGQUIT EXIT
 
 while [ "$running" = true ]; do
