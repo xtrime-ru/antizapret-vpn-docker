@@ -237,6 +237,7 @@ brawlstarsgame.com
 cdn-webth.garenanow.com
 clashofclans.com
 clashroyaleapp.com
+gaming-sdk.com
 ghostrc.game.idtech.services
 marvelsnap.com
 doom.com
@@ -244,6 +245,8 @@ elderscrolls.com
 global.platform.seconddinnertech.com
 haydaygame.com
 promods.net
+photonengine.com
+photonengine.io
 supercell.com
 wbagora.com
 wbgames.com
