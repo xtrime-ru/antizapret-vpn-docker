@@ -65,4 +65,28 @@ services:
     environment:
       - WIREGUARD_PASSWORD=password
 
+  danted-local:
+     hostname: danted-local.antizapret
+     extends:
+       file: services/danted/compose.yml
+       service: danted
+     deploy:
+       mode: replicated
+       replicas: 1
+       endpoint_mode: dnsrr
+       placement:
+         constraints: [ node.labels.location == local ]
+
+  danted-world:
+     hostname: danted-world.antizapret
+     extends:
+       file: services/danted/compose.yml
+       service: danted
+     deploy:
+       mode: replicated
+       replicas: 1
+       endpoint_mode: dnsrr
+       placement:
+         constraints: [ node.labels.location == world ]
+
 
