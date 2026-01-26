@@ -14,13 +14,18 @@ githubcopilot.com
 # AI / LLM / Support
 anthropic.com
 auth.grokusercontent.com
+augmentcode.com
+document360.com
+document360.io
 chatgpt.com
 claude.ai
 codeium.com
+data.cline.bot
 elevenlabs.io
 genspark.ai
 grok.com
 groq.com
+hume.ai
 intercom.com
 intercom.io
 jetbrains.ai
@@ -33,6 +38,8 @@ openrouter.ai
 recraft.ai
 reve.art
 sora.com
+sonara.ai
+support.anydesk.com
 trae.ai
 x.ai
 manus.im
@@ -82,6 +89,8 @@ browser-intake-us5.datadoghq.com
 challenges.cloudflare.com
 client.crisp.chat
 http-intake.logs.datadoghq.com
+mailerlite.com
+posthog.com
 sentry.dev
 sentry.io
 statsigapi.net
@@ -105,8 +114,13 @@ xsts.auth.xboxlive.com
 avcdn.net
 cloud.microsoft
 dc.services.visualstudio.com
+expandrive.com
+filebin.net
 habr.ru
+manybooks.net
+mailinator.com
 microsoftonline.com
+miracleptr.wordpress.com
 opencartforum.com
 player-auth.services.api.unity.com
 rebrand.ly
@@ -114,9 +128,17 @@ seekvectorlogo.net
 simsync.io
 smartbear.co
 smartbear.com
+synoforum.com
+swapd.co
 strava.com
 teslasoft.org
+typing.com
+habr.com
 hubspot.com
+indeed.com
+myqrcode.com
+wunderground.com
+weather.com
 
 # Security / AV / Networking Vendors
 arkoselabs.com
@@ -131,6 +153,7 @@ cisco.com
 ciscobinary.openh264.org
 clamav.net
 clamwin.com
+diabrowser.com
 emsisoft.com
 immunet.com
 malwarebytes.com
@@ -146,26 +169,35 @@ sophosxl.net
 sourcefire.com
 symantec.com
 symantecliveupdate.com
+vyos.io
 virustotal.com
+qwant.com
 
 # Productivity / Collaboration / Design
 adobe.com
 adobe.io
+all3dp.com
 assets.adobedtm.com
+affinity.studio
 capcut.com
 clickup.com
 cloudfunctions.net
 coda.io
 ecosia.org
 envato.com
+framer.com
+home.by.me
 miro.com
 myfonts.com
 myheritage.com
+mssg.me
 notion.com
 notion.io
 notion.so
 raycast.com
+remove.bg
 startpage.com
+snapgene.com
 trello.com
 typekit.net
 unscreen.com
@@ -205,11 +237,16 @@ brawlstarsgame.com
 cdn-webth.garenanow.com
 clashofclans.com
 clashroyaleapp.com
+gaming-sdk.com
+ghostrc.game.idtech.services
+marvelsnap.com
 doom.com
 elderscrolls.com
 global.platform.seconddinnertech.com
 haydaygame.com
 promods.net
+photonengine.com
+photonengine.io
 supercell.com
 wbagora.com
 wbgames.com
@@ -217,19 +254,34 @@ wbinsights.com
 
 # DevTools / Tech / IT Vendors
 analog.com
+ansys.com
 app.deepsource.com
+arduino.cc
 broadcom.com
+bitnami.com
+builds.parsec.app
+capacitorjs.com
 code.org
+connect.ngrok-agent.com
+corsair.com
+citrix.com
 cr-relay.com
 deepl.com
 deepsource.io
 dell.com
 dellcdn.com
+devexpress.com
 digikey.com
 docker.com
 drone-hacks.com
 easydmarc.com
+forum.netgate.com
+gpu-monkey.com
 hashicorp.com
+home-connect.com
+htmhell.dev
+hybrid-analysis.com
+hc-ping.com
 ibm.com
 intel.com
 ip.comss.net
@@ -246,10 +298,14 @@ ngrok.com
 nxp.com
 octopart-clicks.com
 octopart.com
+octopus.do
 octostatic.com
 oracle.com
+omnissa.com
 plesk.com
 pokerplanning.org
+public.parsec.app
+qt.io
 qualcomm.com
 sap.com
 schemaapp.com
@@ -260,6 +316,7 @@ t3.chat
 te.com
 terraform.io
 thanosjs.org
+tria.ge
 ti.com
 tutamail.com
 usablenet.com
@@ -315,15 +372,20 @@ g711.org
 m3u.in
 nvidianews.nvidia.com
 zedge.net
+xiaomi.eu
 
 # Finance / Payments
 adyen.com
 buymeacoffee.com
+exchanger.bits.media
 lemonsqueezy.com
 paynow.gg
 solidgate-dev.com
 solidgate.com
 stripe.com
+transferwise.com
+quicknode.com
+wise.com
 
 # Cloud / Hosting
 amazonaws.com
@@ -337,6 +399,7 @@ ionos.com
 kamatera.com
 livekit.cloud
 scaleway.com
+siteground.com
 
 # Autodesk
 autodesk.com
