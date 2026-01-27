@@ -1,6 +1,7 @@
 services:
   danted:
     image: alexunderboots/danted:latest
+    init: true
     build:
       context: .
       x-bake:
