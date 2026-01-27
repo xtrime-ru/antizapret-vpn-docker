@@ -1,6 +1,4 @@
-FROM debian:12
-
-COPY sources.list /etc/apt/
+FROM ubuntu:24.04
 
 RUN apt-get update && \
         apt-get install nano dante-server iproute2 iputils-ping ipcalc bind9utils dnsutils iptables -y --no-install-recommends && \
