@@ -121,10 +121,12 @@ func (rf *RegexFilter) Close() error {
 }
 
 func NewRegexFilter(file string) (*RegexFilter, error) {
-	out, err := exec.Command("sed", "-i", "s/\\s*$//", file).Output()
-
-	if err != nil {
+	if out, err := exec.Command("sed", "-i", "s/\\s*$//", file).Output(); err != nil {
 		return nil, fmt.Errorf("Failed to normalize line endings: %v, output: %s", err, string(out))
+	}
+
+	if out, err := exec.Command("gawk", "-i", "inplace", "NF", file).Output(); err != nil {
+		return nil, fmt.Errorf("Failed to remove empty lines: %v, output: %s", err, string(out))
 	}
 
 	cmd := exec.Command(
