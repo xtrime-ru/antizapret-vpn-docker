@@ -32,11 +32,6 @@ services:
       - FILEBROWSER_USERNAME=admin
       - FILEBROWSER_PASSWORD=password
 
-  # ipsec:
-  #   extends:
-  #     file: services/ipsec/docker-compose.yml
-  #     service: ipsec
-
   openvpn:
     extends:
       file: services/openvpn/docker-compose.yml
