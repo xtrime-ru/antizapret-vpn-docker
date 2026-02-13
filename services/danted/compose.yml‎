@@ -1,6 +1,6 @@
 services:
   danted:
-    image: xtrime/danted:6.0
+    image: xtrime/antizapret-danted:6.0.0
     init: true
     build:
       context: .
