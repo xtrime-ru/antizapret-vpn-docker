@@ -286,8 +286,8 @@ Adding large number of IPs to `include-ips-custom.txt` can cause issues with Ope
 3. All traffic from that application (including direct IP connections) will exit through the selected server node
 
 Two Dante containers are available:
-- **`danted-local.antizapret:8118`** — traffic exits through the **local** server (your country)
-- **`danted-world.antizapret:8118`** — traffic exits through the **foreign** server
+- **`danted-local.antizapret:8118`** — traffic exits through the **local** server
+- **`danted-world.antizapret:8118`** — traffic exits through the **world** server
 
 Authentication: SOCKS5 with username/password (configured via environment variables).
 
@@ -585,7 +585,6 @@ iperf3 server is included in antizapret-vpn container.
 - [Amnezia WireGuard VPN](https://github.com/w0rng/amnezia-wg-easy) — used for Amnezia Wireguard integration
 - [WireGuard VPN](https://github.com/wg-easy/wg-easy) — used for Wireguard integration
 - [OpenVPN](https://github.com/d3vilh/openvpn-ui) - used for OpenVPN integration
-- [IPsec VPN](https://github.com/hwdsl2/docker-ipsec-vpn-server) — used for IPsec integration
 - [AdGuardHome](https://github.com/AdguardTeam/AdGuardHome) - DNS resolver
 - [filebrowser](https://github.com/filebrowser/filebrowser) - web file browser & editor
 - [lighttpd](https://github.com/lighttpd/lighttpd1.4) - web server for unified dashboard
