@@ -15,6 +15,7 @@ https://t.me/antizapret_support
 - Multi-Server Architecture to bypass services geo restrictions. Different domains use different servers as exit nodes.
 - Firewall to protect from port scanning
 - Support for kernel modules for OpenVPN and Amnezia Wireguard to decrease CPU usage.
+- SOCKS5 proxy (Dante) for per-application routing through local or world exit nodes
 
 # How it works?
 
@@ -271,6 +272,88 @@ Containers periodically check changes in config folder (every 5-10 seconds) and 
 
 Trigger update manually: `docker exec $(docker ps -q --filter=name=az | head -n1) doall`
 
+## Dante SOCKS5 Proxy (per-application routing)
+
+AntiZapret uses DNS-based split tunneling, which works only for domain-based connections.
+If an application connects directly by IP address, DNS interception does not work and traffic is not routed through the VPN tunnel.
+
+Adding large number of IPs to `include-ips-custom.txt` can cause issues with OpenVPN (push routes limit), so Dante SOCKS5 proxy was added as an alternative solution.
+
+### How it works
+
+1. Connect to VPN (OpenVPN, WireGuard or Amnezia WireGuard)
+2. Configure your application to use SOCKS5 proxy via tools like ProxyBridge, Proxifier, or browser proxy settings
+3. All traffic from that application (including direct IP connections) will exit through the selected server node
+
+Two Dante containers are available:
+- **`danted-local.antizapret:8118`** — traffic exits through the **local** server (your country)
+- **`danted-world.antizapret:8118`** — traffic exits through the **foreign** server
+
+Authentication: SOCKS5 with username/password (configured via environment variables).
+
+### When to use Dante instead of DNS-based routing
+
+| Scenario | DNS routing | Dante SOCKS5 |
+|---|---|---|
+| Application connects by domain | ✅ Works | ✅ Works |
+| Application connects by IP | ❌ Not routed | ✅ Works |
+| Large number of IPs to route | ❌ OpenVPN push routes limit | ✅ No limit |
+| Per-application exit node selection | ❌ | ✅ Choose local or world per app |
+
+### Configuration
+
+Add Dante services to `docker-compose.override.yml`:
+```yml
+  danted-local:
+    hostname: danted-local.antizapret
+    extends:
+      file: services/danted/compose.yml
+      service: danted
+    environment:
+      - SOCKS_USERNAME=admin
+      - SOCKS_PASSWORD=password
+    deploy:
+      mode: replicated
+      replicas: 1
+      endpoint_mode: dnsrr
+      placement:
+        constraints: [ node.labels.location == local ]
+
+  danted-world:
+    hostname: danted-world.antizapret
+    extends:
+      file: services/danted/compose.yml
+      service: danted
+    environment:
+      - SOCKS_USERNAME=admin
+      - SOCKS_PASSWORD=password
+    deploy:
+      mode: replicated
+      replicas: 1
+      endpoint_mode: dnsrr
+      placement:
+        constraints: [ node.labels.location == world ]
+```
+
+> **Note:** `danted-world` requires [Docker Swarm mode](#docker-swarm-multiple-exit-nodes-advanced) with two nodes.
+> On a single server only `danted-local` will work.
+
+### Client setup
+
+1. Connect to VPN
+2. Configure SOCKS5 proxy in your application or proxy manager:
+   - **Host:** `danted-local.antizapret` or `danted-world.antizapret`
+   - **Port:** `8118`
+   - **Type:** SOCKS5
+   - **Username:** value of `SOCKS_USERNAME`
+   - **Password:** value of `SOCKS_PASSWORD`
+
+### Example use cases
+
+- **Game client** that connects to servers by IP — route through `danted-world` to bypass geo-restrictions
+- **Torrent client** — route through `danted-world` for foreign IP
+- **Browser** — use proxy extension to route specific sites through `danted-local` or `danted-world`
+- **Application with many hardcoded IPs** — instead of adding hundreds of IPs to `include-ips-custom.txt`, just proxy the whole app through Dante
 
 ## Environment Variables
 
@@ -324,6 +407,10 @@ Wireguard/Wireguard Amnezia
 - `PORT=51821` - admin panel port
 - `WG_PORT=51820` - wireguard server port
 - `WG_DEVICE=eth0`
+
+Dante SOCKS5 Proxy
+- `SOCKS_USERNAME` - username for SOCKS5 authentication
+- `SOCKS_PASSWORD` - password for SOCKS5 authentication
 
 ## DNS
 ### Adguard Upstream DNS
@@ -504,3 +591,4 @@ iperf3 server is included in antizapret-vpn container.
 - [lighttpd](https://github.com/lighttpd/lighttpd1.4) - web server for unified dashboard
 - [caddy](https://github.com/caddyserver/caddy) - reverse proxy
 - [No Thought Is a Crime](https://ntc.party) — a forum about technical, political and economical aspects of internet censorship in different countries
+- [Dante](https://www.inet.no/dante/) - SOCKS5 proxy server for per-application routing
