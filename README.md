@@ -68,7 +68,7 @@ Find full example in [docker-compose.override.sample.yml](./docker-compose.overr
 ```
 
 ## Docker Swarm, multiple exit nodes (Advanced)
-Version 5 comes with ability to forward traffic to different exit nodes for different domains. 
+Version 5 and 6 comes with ability to forward traffic to different exit nodes for different domains. 
 For example, YouTube works best if exit node is close to client and other services require foreign IP to work. 
 Docker swarm is used to build unified network between containers.
 
@@ -96,7 +96,7 @@ Some of the sites, which use geoip to block users, will be proxied through **for
     ```
 1. [Primary] Add labels for nodes `docker node update --label-add location=local az-local && docker node update --label-add location=world az-world`
 1. [Primary, Secondary]: create config folders on **both nodes**: ```docker compose pull; docker compose up -d; sleep 60; docker compose down;```
-1. [Primary]: start swarm `docker compose config | docker run --rm -i xtrime/antizapret-vpn:5 compose2swarm | docker stack deploy --prune -c - antizapret `
+1. [Primary]: start swarm `docker compose config | docker run --rm -i xtrime/antizapret-vpn:6 compose2swarm | docker stack deploy --prune -c - antizapret `
 
 ## Next steps:
  - Install DKMS module for [openvpn](#enable-openvpn-data-channel-offload-dco) 
