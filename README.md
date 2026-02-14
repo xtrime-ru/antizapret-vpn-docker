@@ -3,6 +3,44 @@
 Antizapret created to redirect only blocked domains to VPN tunnel. Its called split tunneling.
 This repo is based on idea from original [AntiZapret LXD image](https://bitbucket.org/anticensority/antizapret-vpn-container/src/master/)
 
+## Table of contents
+
+- [Support and discussions group](#support-and-discussions-group)
+- [Features](#features)
+- [How it works](#how-it-works)
+- [Installation](#installation)
+  - [Single Server (Easy)](#single-server-easy)
+  - [Docker Swarm, multiple exit nodes (Advanced)](#docker-swarm-multiple-exit-nodes-advanced)
+  - [After installation](#after-installation)
+  - [Access admin panels](#access-admin-panels)
+    - [HTTPS](#https)
+    - [Local network](#local-network)
+    - [HTTP](#http)
+  - [Update](#update)
+    - [Upgrade from v5](#upgrade-from-v5)
+  - [Reset](#reset)
+- [Documentation](#documentation)
+  - [DNS resolving algorithm](#dns-resolving-algorithm)
+  - [Adding Domains](#adding-domains)
+    - [Adding Domains via rules](#adding-domains-via-rules)
+    - [Adding Domains via lists](#adding-domains-via-lists)
+  - [Adding IPs/Subnets](#adding-ipssubnets)
+  - [Environment Variables](#environment-variables)
+  - [DNS](#dns)
+    - [Adguard Upstream DNS](#adguard-upstream-dns)
+    - [CDN + ECS](#cdn--ecs)
+  - [OpenVPN](#openvpn)
+    - [Create client certificates](#create-client-certificates)
+    - [Enable OpenVPN Data Channel Offload (DCO)](#enable-openvpn-data-channel-offload-dco)
+    - [Legacy clients support](#legacy-clients-support)
+  - [Amnezia Wireguard](#amnezia-wireguard)
+    - [Enable Amnezia Wireguard Kernel Extension](#enable-amnezia-wireguard-kernel-extension)
+    - [Amnezia Wireguard Block Size](#amnezia-wireguard-block-size)
+    - [VPN / Hosting block](#vpn--hosting-block)
+  - [Extra information](#extra-information)
+  - [Test speed with iperf3](#test-speed-with-iperf3)
+- [Credits](#credits)
+
 # Support and discussions group:
 https://t.me/antizapret_support
 
@@ -99,12 +137,14 @@ Some of the sites, which use geoip to block users, will be proxied through **for
 1. [Primary, Secondary]: create config folders on **both nodes**: ```docker compose pull; docker compose up -d; sleep 60; docker compose down;```
 1. [Primary]: start swarm `docker compose config | docker run --rm -i xtrime/antizapret-vpn:5 compose2swarm | docker stack deploy --prune -c - antizapret `
 
-## Next steps:
- - Install DKMS module for [openvpn](#enable-openvpn-data-channel-offload-dco) 
- - Install DKMS module for [amnezia-wireguard](#enable-amnezia-wireguard-kernel-extension)
- - Create VPN profiles for clients in VPN admin panels. 
+## After installation
+1. Make sure Secure DNS is disabled in your browser settings. 
+   In chrome: Navigate to Settings > Privacy and security > Security, scroll to the "Advanced" section, and toggle off "Use secure DNS"
+2. Install DKMS modules for openvpn and/or amnezia wireguard (if you use them): 
+    - [Enable OpenVPN Data Channel Offload (DCO)](#enable-openvpn-data-channel-offload-dco)
+    - [Enable Amnezia Wireguard Kernel Extension](#enable-amnezia-wireguard-kernel-extension)
 
-## Access admin panels:
+## Access admin panels
 
 ### HTTPS
 By default, all container can be accessed via https. For certificated management separate `https` container is used.
