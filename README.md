@@ -25,6 +25,7 @@ This repo is based on idea from original [AntiZapret LXD image](https://bitbucke
     - [Adding Domains via rules](#adding-domains-via-rules)
     - [Adding Domains via lists](#adding-domains-via-lists)
   - [Adding IPs/Subnets](#adding-ipssubnets)
+  - [Dante SOCKS5 Proxy (per-application routing)](#dante-socks5-proxy-per-application-routing)
   - [Environment Variables](#environment-variables)
   - [DNS](#dns)
     - [Adguard Upstream DNS](#adguard-upstream-dns)
