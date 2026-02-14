@@ -26,7 +26,7 @@ This repo is based on idea from original [AntiZapret LXD image](https://bitbucke
     - [Adding Domains via lists](#adding-domains-via-lists)
   - [Adding IPs/Subnets](#adding-ipssubnets)
   - [Dante SOCKS5 Proxy (per-application routing)](#dante-socks5-proxy-per-application-routing)
-    - [How it works](#how-it-works)
+    - [How it works](#how-it-works-1)
     - [When to use Dante instead of DNS-based routing](#when-to-use-dante-instead-of-dns-based-routing)
     - [Configuration](#configuration)
     - [Client setup](#client-setup)
