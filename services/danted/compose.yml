@@ -1,0 +1,27 @@
+services:
+  danted:
+    image: alexunderboots/danted:latest
+    init: true
+    build:
+      context: .
+      x-bake:
+        platforms:
+          - linux/amd64
+          - linux/arm64
+    restart: unless-stopped
+#    ports:
+#      - 8118:8118
+    cap_add:
+      - NET_ADMIN
+    sysctls:
+      - net.ipv4.ip_forward=1
+      - net.ipv4.conf.all.src_valid_mark=1
+    environment:
+      - |
+        ROUTES=
+        openvpn:10.1.165.0/24;
+        wireguard:10.1.166.0/24;
+        wireguard-amnezia:10.1.167.0/24;
+        adguard:10.224.0.1;
+        az-local:10.224.0.0/15;
+        az-world:10.226.0.0/15;
