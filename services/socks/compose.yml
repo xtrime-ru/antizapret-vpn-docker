@@ -1,6 +1,6 @@
 services:
-  danted:
-    image: alexunderboots/danted:latest
+  socks:
+    image: xtrime/antizapret-vpn-socks:5.0.1
     init: true
     build:
       context: .
@@ -9,14 +9,19 @@ services:
           - linux/amd64
           - linux/arm64
     restart: unless-stopped
-#    ports:
-#      - 8118:8118
+    logging:
+      driver: json-file
+      options:
+        max-size: 100k
+        max-file: 2
     cap_add:
       - NET_ADMIN
     sysctls:
       - net.ipv4.ip_forward=1
       - net.ipv4.conf.all.src_valid_mark=1
     environment:
+      - SOCKS_USERNAME
+      - SOCKS_PASSWORD
       - |
         ROUTES=
         openvpn:10.1.165.0/24;

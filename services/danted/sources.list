@@ -1,8 +1,0 @@
-deb http://ftp.ru.debian.org/debian/ bookworm main non-free-firmware
-deb-src http://ftp.ru.debian.org/debian/ bookworm main non-free-firmware
-
-deb http://ftp.ru.debian.org/debian-security/ bookworm-security main non-free-firmware
-deb-src http://ftp.ru.debian.org/debian-security/ bookworm-security main non-free-firmware
-
-deb http://ftp.ru.debian.org/debian/ bookworm-updates main non-free-firmware
-deb-src http://ftp.ru.debian.org/debian/ bookworm-updates main non-free-firmware

@@ -32,11 +32,6 @@ services:
       - FILEBROWSER_USERNAME=admin
       - FILEBROWSER_PASSWORD=password
 
-  # ipsec:
-  #   extends:
-  #     file: services/ipsec/docker-compose.yml
-  #     service: ipsec
-
   openvpn:
     extends:
       file: services/openvpn/docker-compose.yml
@@ -65,28 +60,32 @@ services:
     environment:
       - WIREGUARD_PASSWORD=password
 
-  danted-local:
-     hostname: danted-local.antizapret
-     extends:
-       file: services/danted/compose.yml
-       service: danted
-     deploy:
-       mode: replicated
-       replicas: 1
-       endpoint_mode: dnsrr
-       placement:
-         constraints: [ node.labels.location == local ]
+  socks-local:
+    hostname: socks-local.antizapret
+    extends:
+      file: services/socks/compose.yml
+      service: socks
+    environment:
+      - SOCKS_USERNAME=admin
+      - SOCKS_PASSWORD=password
+    deploy:
+      mode: replicated
+      replicas: 1
+      endpoint_mode: dnsrr
+      placement:
+        constraints: [ node.labels.location == local ]
 
-  danted-world:
-     hostname: danted-world.antizapret
-     extends:
-       file: services/danted/compose.yml
-       service: danted
-     deploy:
-       mode: replicated
-       replicas: 1
-       endpoint_mode: dnsrr
-       placement:
-         constraints: [ node.labels.location == world ]
-
-
+  socks-world:
+    hostname: socks-world.antizapret
+    extends:
+      file: services/socks/compose.yml
+      service: socks
+    environment:
+      - SOCKS_USERNAME=admin
+      - SOCKS_PASSWORD=password
+    deploy:
+      mode: replicated
+      replicas: 1
+      endpoint_mode: dnsrr
+      placement:
+        constraints: [ node.labels.location == world ]

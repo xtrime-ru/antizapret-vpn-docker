@@ -25,6 +25,12 @@ This repo is based on idea from original [AntiZapret LXD image](https://bitbucke
     - [Adding Domains via rules](#adding-domains-via-rules)
     - [Adding Domains via lists](#adding-domains-via-lists)
   - [Adding IPs/Subnets](#adding-ipssubnets)
+  - [SOCKS5 Proxy (per-application routing)](#socks5-proxy-per-application-routing)
+    - [How it works](#how-it-works-1)
+    - [When to use Dante instead of DNS-based routing](#when-to-use-dante-instead-of-dns-based-routing)
+    - [Configuration](#configuration)
+    - [Client setup](#client-setup)
+    - [Example use cases](#example-use-cases)     
   - [Environment Variables](#environment-variables)
   - [DNS](#dns)
     - [Adguard Upstream DNS](#adguard-upstream-dns)
@@ -51,6 +57,7 @@ https://t.me/antizapret_support
 - Multi-Server Architecture to bypass services geo restrictions. Different domains use different servers as exit nodes.
 - Firewall to protect from port scanning
 - Support for kernel modules for OpenVPN and Amnezia Wireguard to decrease CPU usage.
+- SOCKS5 proxy (Dante) for per-application routing through local or world exit nodes
 
 # How it works?
 
@@ -317,6 +324,88 @@ Containers periodically check changes in config folder (every 5-10 seconds) and 
 
 Trigger update manually: `docker exec $(docker ps -q --filter=name=az | head -n1) doall`
 
+## SOCKS5 Proxy (per-application routing)
+
+AntiZapret uses DNS-based split tunneling, which works only for domain-based connections.
+If an application connects directly by IP address, DNS interception does not work and traffic is not routed through the VPN tunnel.
+
+Adding large number of IPs to `include-ips-custom.txt` can cause issues with OpenVPN (push routes limit), so Dante SOCKS5 proxy was added as an alternative solution.
+
+### How it works
+
+1. Connect to VPN (OpenVPN, WireGuard or Amnezia WireGuard)
+2. Configure your application to use SOCKS5 proxy via tools like ProxyBridge, Proxifier, or browser proxy settings
+3. All traffic from that application (including direct IP connections) will exit through the selected server node
+
+Two socks5 proxy containers are available:
+- **`socks-local.antizapret:8118`** — traffic exits through the **local** server
+- **`socks-world.antizapret:8118`** — traffic exits through the **world** server
+
+Authentication: SOCKS5 with username/password (configured via environment variables).
+
+### When to use Dante instead of DNS-based routing
+
+| Scenario | DNS routing | Dante SOCKS5 |
+|---|---|---|
+| Application connects by domain | ✅ Works | ✅ Works |
+| Application connects by IP | ❌ Not routed | ✅ Works |
+| Large number of IPs to route | ❌ OpenVPN push routes limit | ✅ No limit |
+| Per-application exit node selection | ❌ | ✅ Choose local or world per app |
+
+### Configuration
+
+Add Dante services to `docker-compose.override.yml`:
+```yml
+  socks-local:
+    hostname: socks-local.antizapret
+    extends:
+      file: services/socks/compose.yml
+      service: socks
+    environment:
+      - SOCKS_USERNAME=admin
+      - SOCKS_PASSWORD=password
+    deploy:
+      mode: replicated
+      replicas: 1
+      endpoint_mode: dnsrr
+      placement:
+        constraints: [ node.labels.location == local ]
+
+  socks-world:
+    hostname: socks-world.antizapret
+    extends:
+      file: services/socks/compose.yml
+      service: socks
+    environment:
+      - SOCKS_USERNAME=admin
+      - SOCKS_PASSWORD=password
+    deploy:
+      mode: replicated
+      replicas: 1
+      endpoint_mode: dnsrr
+      placement:
+        constraints: [ node.labels.location == world ]
+```
+
+> **Note:** `socks-world` requires [Docker Swarm mode](#docker-swarm-multiple-exit-nodes-advanced) with two nodes.
+> On a single server only `socks-local` will work.
+
+### Client setup
+
+1. Connect to VPN
+2. Configure SOCKS5 proxy in your application or proxy manager:
+   - **Host:** `socks-local.antizapret` or `socks-world.antizapret`
+   - **Port:** `8118`
+   - **Type:** SOCKS5
+   - **Username:** value of `SOCKS_USERNAME`
+   - **Password:** value of `SOCKS_PASSWORD`
+
+### Example use cases
+
+- **Game client** that connects to servers by IP — route through `socks-world` to bypass geo-restrictions
+- **Torrent client** — route through `socks-world` for foreign IP
+- **Browser** — use proxy extension to route specific sites through `socks-local` or `socks-world`
+- **Application with many hardcoded IPs** — instead of adding hundreds of IPs to `include-ips-custom.txt`, just proxy the whole app through socks5
 
 ## Environment Variables
 
@@ -372,6 +461,10 @@ Wireguard/Wireguard Amnezia
 - `PORT=51821` - admin panel port
 - `WG_PORT=51820` - wireguard server port
 - `WG_DEVICE=eth0`
+
+Dante SOCKS5 Proxy
+- `SOCKS_USERNAME` - username for SOCKS5 authentication
+- `SOCKS_PASSWORD` - password for SOCKS5 authentication
 
 ## DNS
 ### Adguard Upstream DNS
@@ -546,9 +639,9 @@ iperf3 server is included in antizapret-vpn container.
 - [Amnezia WireGuard VPN](https://github.com/w0rng/amnezia-wg-easy) — used for Amnezia Wireguard integration
 - [WireGuard VPN](https://github.com/wg-easy/wg-easy) — used for Wireguard integration
 - [OpenVPN](https://github.com/d3vilh/openvpn-ui) - used for OpenVPN integration
-- [IPsec VPN](https://github.com/hwdsl2/docker-ipsec-vpn-server) — used for IPsec integration
 - [AdGuardHome](https://github.com/AdguardTeam/AdGuardHome) - DNS resolver
 - [filebrowser](https://github.com/filebrowser/filebrowser) - web file browser & editor
 - [lighttpd](https://github.com/lighttpd/lighttpd1.4) - web server for unified dashboard
 - [caddy](https://github.com/caddyserver/caddy) - reverse proxy
 - [No Thought Is a Crime](https://ntc.party) — a forum about technical, political and economical aspects of internet censorship in different countries
+- [Dante](https://www.inet.no/dante/) - SOCKS5 proxy server for per-application routing
