@@ -1,6 +1,6 @@
 services:
   socks:
-    image: xtrime/antizapret-vpn-socks:5.0.1
+    image: xtrime/antizapret-vpn-socks:5.0.2
     init: true
     build:
       context: .
@@ -22,6 +22,7 @@ services:
     environment:
       - SOCKS_USERNAME
       - SOCKS_PASSWORD
+      - SOCKS_EXTERNAL_IFACES
       - |
         ROUTES=
         openvpn:10.1.165.0/24;
