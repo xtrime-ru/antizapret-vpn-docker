@@ -8,6 +8,6 @@ COPY danted.conf /etc/danted.conf
 COPY init.sh /
 COPY routes.sh /
 
-EXPOSE 8118
+EXPOSE 8118/tcp 8118/udp
 
 CMD ["/init.sh"]
