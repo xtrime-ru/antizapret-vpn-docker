@@ -66,6 +66,7 @@ services:
       file: services/socks/compose.yml
       service: socks
     environment:
+      # Omit SOCKS_USERNAME and SOCKS_PASSWORD to disable authentication
       - SOCKS_USERNAME=admin
       - SOCKS_PASSWORD=password
     deploy:
@@ -81,6 +82,7 @@ services:
       file: services/socks/compose.yml
       service: socks
     environment:
+      # Omit SOCKS_USERNAME and SOCKS_PASSWORD to disable authentication
       - SOCKS_USERNAME=admin
       - SOCKS_PASSWORD=password
     deploy:

@@ -5,7 +5,7 @@ internal: 0.0.0.0 port = 8118
 ${EXTERNAL_IFACES}
 external.rotation: route
 
-socksmethod: username
+socksmethod: ${SOCKS_METHOD}
 user.privileged: root
 user.unprivileged: nobody
 
@@ -23,7 +23,7 @@ socks pass {
     from: 0.0.0.0/0 to: 0.0.0.0/0
     command: bind connect udpassociate
     log: error connect disconnect
-    socksmethod: username
+    socksmethod: ${SOCKS_METHOD}
 }
 
 socks pass {
