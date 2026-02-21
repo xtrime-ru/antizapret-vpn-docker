@@ -29,10 +29,13 @@ generate_external_lines() {
     envsubst < /danted.conf.template  > /etc/danted.conf
 }
 
-# create the user if credentials are supplied
-if [ -n "$SOCKS_USERNAME" ] && [ -n "$SOCKS_PASSWORD" ]; then
+# create the user if credentials are supplied; otherwise disable authentication
+if [ -n "${SOCKS_USERNAME:-}" ] && [ -n "${SOCKS_PASSWORD:-}" ]; then
     useradd -r -s /usr/sbin/nologin "$SOCKS_USERNAME" 2>/dev/null || true
     echo "$SOCKS_USERNAME:$SOCKS_PASSWORD" | chpasswd
+    export SOCKS_METHOD="username"
+else
+    export SOCKS_METHOD="none"
 fi
 
 # inject external interface lines into the config
