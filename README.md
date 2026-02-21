@@ -336,6 +336,7 @@ Two socks5 proxy containers are available:
 - **`socks-world.antizapret:8118`** — traffic exits through the **world** server
 
 Authentication: SOCKS5 with username/password (configured via environment variables).
+To disable authentication, omit `SOCKS_USERNAME` and `SOCKS_PASSWORD` (or leave them empty).
 
 ### When to use Dante instead of DNS-based routing
 
@@ -455,8 +456,8 @@ Wireguard/Wireguard Amnezia
 - `WG_DEVICE=eth0`
 
 Dante SOCKS5 Proxy
-- `SOCKS_USERNAME` - username for SOCKS5 authentication
-- `SOCKS_PASSWORD` - password for SOCKS5 authentication
+- `SOCKS_USERNAME` - username for SOCKS5 authentication (omit to disable authentication)
+- `SOCKS_PASSWORD` - password for SOCKS5 authentication (omit to disable authentication)
 
 ## DNS
 ### Adguard Upstream DNS
