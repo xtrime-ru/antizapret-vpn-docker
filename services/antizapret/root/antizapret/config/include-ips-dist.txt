@@ -15,7 +15,7 @@
 172.64.0.0/13
 131.0.72.0/22
 
-#Telegram (https://core.telegram.org/resources/cidr.txt)
+#Telegram (https://core.telegram.org/resources/cidr.txt) + AS62041
 91.108.56.0/22
 91.108.4.0/22
 91.108.8.0/22
@@ -24,6 +24,7 @@
 149.154.160.0/20
 91.105.192.0/23
 91.108.20.0/22
+95.161.64.0/20
 185.76.151.0/24
 
 #Meta (AS32934)
