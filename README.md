@@ -651,7 +651,6 @@ iperf3 server is included in antizapret-vpn container.
 - [ProstoVPN](https://antizapret.prostovpn.org) — the original project
 - [AntiZapret VPN Container](https://bitbucket.org/anticensority/antizapret-vpn-container/src/master/) — source code of the LXD-based container
 - [AntiZapret PAC Generator](https://bitbucket.org/anticensority/antizapret-pac-generator-light/src/master/) — proxy auto-configuration generator to bypass censorship of Russian Federation
-- [Amnezia WireGuard VPN](https://github.com/w0rng/amnezia-wg-easy) — used for Amnezia Wireguard integration
 - [WireGuard VPN](https://github.com/wg-easy/wg-easy) — used for Wireguard integration
 - [OpenVPN](https://github.com/d3vilh/openvpn-ui) - used for OpenVPN integration
 - [AdGuardHome](https://github.com/AdguardTeam/AdGuardHome) - DNS resolver
