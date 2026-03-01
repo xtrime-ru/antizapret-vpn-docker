@@ -458,6 +458,7 @@ Wireguard/Wireguard Amnezia
 - `DISABLE_IPV6=true` - disable IPv6 support
 - `WG_PORT=51820` - wireguard server port
 - `EXPERIMENTAL_AWG=true` - enable AmneziaWG support (wireguard-amnezia only)
+- `OVERRIDE_AUTO_AWG=awg`- environment variable to force the tunnel type: `awg` to always use AmneziaWG, `wg` to always use standard WireGuard; by default it’s unset and automatic detection is used, useful to override auto-selection and lock the mode.
 
 Dante SOCKS5 Proxy
 - `SOCKS_USERNAME` - username for SOCKS5 authentication (omit to disable authentication)
@@ -495,7 +496,7 @@ https://github.com/d3vilh/openvpn-ui?tab=readme-ov-file#generating-ovpn-client-p
 
 Kernel extensions can be installed only on <u>a host machine</u>, not in a container.
 
-#### Ubuntu 24.04 (OpenVPN 2.7 — new ovpn-dkms module)
+#### Ubuntu 24.04
 ```bash
 sudo mkdir -p /etc/apt/keyrings
 curl -fsSL https://swupdate.openvpn.net/repos/repo-public.gpg \
@@ -506,7 +507,28 @@ http://build.openvpn.net/debian/openvpn/release/2.7 noble main" \
 sudo apt update
 sudo apt install -y ovpn-dkms
 ```
-
+#### Ubuntu 22.04
+```bash
+sudo mkdir -p /etc/apt/keyrings
+curl -fsSL https://swupdate.openvpn.net/repos/repo-public.gpg \
+  | sudo gpg --dearmor -o /etc/apt/keyrings/openvpn-repo-public.asc
+echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/openvpn-repo-public.asc] \
+http://build.openvpn.net/debian/openvpn/release/2.7 jammy main" \
+  | sudo tee /etc/apt/sources.list.d/openvpn-aptrepo.list
+sudo apt update
+sudo apt install -y ovpn-dkms
+```
+#### Ubuntu 20.04
+```bash
+sudo mkdir -p /etc/apt/keyrings
+curl -fsSL https://swupdate.openvpn.net/repos/repo-public.gpg \
+  | sudo gpg --dearmor -o /etc/apt/keyrings/openvpn-repo-public.asc
+echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/openvpn-repo-public.asc] \
+http://build.openvpn.net/debian/openvpn/release/2.7 focal main" \
+  | sudo tee /etc/apt/sources.list.d/openvpn-aptrepo.list
+sudo apt update
+sudo apt install -y ovpn-dkms
+```
 ### Legacy clients support
 If your clients do not have GCM ciphers support you can use legacy CBC ciphers.
 DCO is incompatible with legacy ciphers and will be disabled. This is also increase CPU load.
