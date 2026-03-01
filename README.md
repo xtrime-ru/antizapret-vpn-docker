@@ -493,20 +493,16 @@ https://github.com/d3vilh/openvpn-ui?tab=readme-ov-file#generating-ovpn-client-p
 
 Kernel extensions can be installed only on <u>a host machine</u>, not in a container.
 
-#### Ubuntu 24.04
+#### Ubuntu 24.04 (OpenVPN 2.7 — new ovpn-dkms module)
 ```bash
-sudo apt install -y openvpn-dco-dkms
-```
-
-#### Ubuntu 20.04, 22.04
-```bash
+sudo mkdir -p /etc/apt/keyrings
+curl -fsSL https://swupdate.openvpn.net/repos/repo-public.gpg \
+  | sudo gpg --dearmor -o /etc/apt/keyrings/openvpn-repo-public.asc
+echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/openvpn-repo-public.asc] \
+http://build.openvpn.net/debian/openvpn/release/2.7 noble main" \
+  | sudo tee /etc/apt/sources.list.d/openvpn-aptrepo.list
 sudo apt update
-sudo apt upgrade
-echo "#### Please reboot your system after upgrade ###" && sleep 100
-deb=openvpn-dco-dkms_0.0+git20231103-1_all.deb
-sudo apt install -y efivar dkms linux-headers-$(uname -r)
-wget http://archive.ubuntu.com/ubuntu/pool/universe/o/openvpn-dco-dkms/$deb
-sudo dpkg -i $deb
+sudo apt install -y ovpn-dkms
 ```
 
 ### Legacy clients support
