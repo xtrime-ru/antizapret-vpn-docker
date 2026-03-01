@@ -560,7 +560,7 @@ https://github.com/amnezia-vpn/amneziawg-linux-kernel-module?tab=readme-ov-file#
 9. check the list of kernel modules `dkms status`, 
    and check that bunch of `[kworker/X:X-wg-crypt-wg0]` processes are now running.
    
-# AmneziaWG Parameters
+### AmneziaWG Parameters
 
 Parameter descriptions can be found in the [AmneziaWG documentation](https://docs.amnezia.org/documentation/amnezia-wg) and on the kernel module page.
 
