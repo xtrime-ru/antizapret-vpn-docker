@@ -448,14 +448,16 @@ Openvpn-ui
 
 Wireguard/Wireguard Amnezia
 - `ROUTES` 
-- `WIREGUARD_PASSWORD=` - password for admin panel
-- `WIREGUARD_PASSWORD_HASH=` - [hashed password](https://github.com/wg-easy/wg-easy/blob/v14.0.0/How_to_generate_an_bcrypt_hash.md) for admin panel
+- `WIREGUARD_PASSWORD=` - password for admin panel (used during initial setup only, change password via web UI afterwards)
+- `WIREGUARD_USERNAME=admin` - username for admin panel (used during initial setup only)
 - `AZ_SUBNET=14.16.0.0/14` - subnet for virtual blocked ips.
 - `WG_DEFAULT_DNS=14.16.0.1` - DNS address for clients. Must be in `ANTIZAPRET_SUBNET`
 - `WG_PERSISTENT_KEEPALIVE=25`
 - `PORT=51821` - admin panel port
+- `INSECURE=true` - allow HTTP access to admin panel
+- `DISABLE_IPV6=true` - disable IPv6 support
 - `WG_PORT=51820` - wireguard server port
-- `WG_DEVICE=eth0`
+- `EXPERIMENTAL_AWG=true` - enable AmneziaWG support (wireguard-amnezia only)
 
 Dante SOCKS5 Proxy
 - `SOCKS_USERNAME` - username for SOCKS5 authentication (omit to disable authentication)
@@ -543,17 +545,17 @@ Large junk packets can help to bypass DPI, but some firewalls can block them as 
 Use env variables to change their size if you have issues with amnezia connection:
 
 ```
-Jc=3
-Jmin=20
-Jmax=100
+JC=3
+JMIN=20
+JMAX=100
 ```
 or
 ```
-Jc=2
-Jmin=10
-Jmax=20
+JC=2
+JMIN=10
+JMAX=20
 ```
-Example part of docker-compose.override.yml with JMIN and JMAX:
+Example part of docker-compose.override.yml with JC, JMIN and JMAX:
 ```yml
   wireguard-amnezia:
     environment:
