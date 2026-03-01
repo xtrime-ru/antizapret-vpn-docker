@@ -562,7 +562,7 @@ https://github.com/amnezia-vpn/amneziawg-linux-kernel-module?tab=readme-ov-file#
    
 # AmneziaWG Parameters
 
-Parameter descriptions can be found in the [AmneziaWG documentation](#) and on the kernel module page.
+Parameter descriptions can be found in the [AmneziaWG documentation](https://docs.amnezia.org/documentation/amnezia-wg) and on the kernel module page.
 
 All parameters **except I1–I5** will be set automatically at first startup. For instructions on configuring I1–I5, refer to the AmneziaWG documentation.
 
