@@ -41,6 +41,7 @@ services:
       - WG_PORT=51830
       - WG_DEFAULT_ADDRESS=10.1.167.x
       - EXPERIMENTAL_AWG=true
+      - OVERRIDE_AUTO_AWG=awg
       - JC=3
       - JMIN=20
       - JMAX=100
