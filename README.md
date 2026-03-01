@@ -41,6 +41,7 @@ This repo is based on idea from original [AntiZapret LXD image](https://bitbucke
     - [Legacy clients support](#legacy-clients-support)
   - [Amnezia Wireguard](#amnezia-wireguard)
     - [Enable Amnezia Wireguard Kernel Extension](#enable-amnezia-wireguard-kernel-extension)
+    - [AmneziaWG Parameters](#amneziawg-parameters)
     - [Amnezia Wireguard Block Size](#amnezia-wireguard-block-size)
     - [VPN / Hosting block](#vpn--hosting-block)
   - [Extra information](#extra-information)
@@ -558,6 +559,32 @@ https://github.com/amnezia-vpn/amneziawg-linux-kernel-module?tab=readme-ov-file#
 8. restart server or `docker compose restart wireguard-amnezia`
 9. check the list of kernel modules `dkms status`, 
    and check that bunch of `[kworker/X:X-wg-crypt-wg0]` processes are now running.
+   
+# AmneziaWG Parameters
+
+Parameter descriptions can be found in the [AmneziaWG documentation](#) and on the kernel module page.
+
+All parameters **except I1–I5** will be set automatically at first startup. For instructions on configuring I1–I5, refer to the AmneziaWG documentation.
+
+- If a parameter is **not set**, it will not be included in the configuration.
+- If **all AmneziaWG-specific parameters are absent**, AmneziaWG is fully compatible with standard WireGuard.
+
+## Parameter Compatibility Table
+
+| Parameter | Can differ between server and client | Configurable on server | Configurable on client |
+|-----------|-------------------------------------|----------------------|----------------------|
+| Jc        | ✅ Yes                               | ✅ Yes               | ✅ Yes               |
+| Jmin      | ✅ Yes                               | ✅ Yes               | ✅ Yes               |
+| Jmax      | ✅ Yes                               | ✅ Yes               | ✅ Yes               |
+| S1–S4     | ❌ No, must match                    | ✅ Yes               | ❌ No (copied from server) |
+| H1–H4     | ❌ No, must match                    | ✅ Yes               | ❌ No (copied from server) |
+| I1–I5     | ✅ Yes                               | ✅ Yes               | ✅ Yes               |
+
+## Notes
+
+- Parameters Jc, Jmin, Jmax, I1–I5 can be configured independently on server and client if needed.
+- Parameters S1–S4 and H1–H4 **must match** between server and client; client copies them automatically from the server.
+- Use I1–I5 only if you need advanced customization. Otherwise, default automatic values are sufficient.
 
 ### Amnezia Wireguard Block Size
 Amnezia adds random packets to change signature of wireguard protocol and bypass DPI. 
