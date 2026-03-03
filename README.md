@@ -499,33 +499,36 @@ Kernel extensions can be installed only on <u>a host machine</u>, not in a conta
 
 #### Ubuntu 24.04
 ```bash
+sudo rm -f /etc/apt/sources.list.d/openvpn.list
 sudo mkdir -p /etc/apt/keyrings
 curl -fsSL https://swupdate.openvpn.net/repos/repo-public.gpg \
-  | sudo gpg --dearmor -o /etc/apt/keyrings/openvpn-repo-public.asc
-echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/openvpn-repo-public.asc] \
-http://build.openvpn.net/debian/openvpn/release/2.7 noble main" \
+
+  | sudo gpg --dearmor --yes -o /etc/apt/keyrings/openvpn-repo-public.asc
+echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/openvpn-repo-public.asc] http://build.openvpn.net/debian/openvpn/release/2.7 noble main" \
   | sudo tee /etc/apt/sources.list.d/openvpn-aptrepo.list
 sudo apt update
 sudo apt install -y ovpn-dkms
 ```
 #### Ubuntu 22.04
 ```bash
+sudo rm -f /etc/apt/sources.list.d/openvpn.list
 sudo mkdir -p /etc/apt/keyrings
 curl -fsSL https://swupdate.openvpn.net/repos/repo-public.gpg \
-  | sudo gpg --dearmor -o /etc/apt/keyrings/openvpn-repo-public.asc
-echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/openvpn-repo-public.asc] \
-http://build.openvpn.net/debian/openvpn/release/2.7 jammy main" \
+
+  | sudo gpg --dearmor --yes -o /etc/apt/keyrings/openvpn-repo-public.asc
+echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/openvpn-repo-public.asc] http://build.openvpn.net/debian/openvpn/release/2.7 jammy main" \
   | sudo tee /etc/apt/sources.list.d/openvpn-aptrepo.list
 sudo apt update
 sudo apt install -y ovpn-dkms
 ```
 #### Ubuntu 20.04
 ```bash
+sudo rm -f /etc/apt/sources.list.d/openvpn.list
 sudo mkdir -p /etc/apt/keyrings
 curl -fsSL https://swupdate.openvpn.net/repos/repo-public.gpg \
-  | sudo gpg --dearmor -o /etc/apt/keyrings/openvpn-repo-public.asc
-echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/openvpn-repo-public.asc] \
-http://build.openvpn.net/debian/openvpn/release/2.7 focal main" \
+
+  | sudo gpg --dearmor --yes -o /etc/apt/keyrings/openvpn-repo-public.asc
+echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/openvpn-repo-public.asc] http://build.openvpn.net/debian/openvpn/release/2.7 focal main" \
   | sudo tee /etc/apt/sources.list.d/openvpn-aptrepo.list
 sudo apt update
 sudo apt install -y ovpn-dkms
