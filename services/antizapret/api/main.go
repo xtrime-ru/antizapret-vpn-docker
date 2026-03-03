@@ -73,6 +73,7 @@ type RegexFilter struct {
 
 var excludeMatcherDist *RegexFilter
 var excludeMatcherCustom *RegexFilter
+var excludeMatcherCustomWorld *RegexFilter
 
 const delim = "__DELIM__"
 
