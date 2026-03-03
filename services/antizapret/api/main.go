@@ -271,6 +271,9 @@ func adaptList(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			filtered, _ = excludeMatcherCustom.Filter(filtered)
+			if excludeMatcherCustomWorld != nil {
+				filtered, _ = excludeMatcherCustomWorld.Filter(filtered)
+			}
 		}
 
 		for _, line := range filtered {
@@ -377,6 +380,21 @@ func updateRegexFilter() error {
 	excludeMatcherCustom, error = NewRegexFilter(
 		"/root/antizapret/config/custom/exclude-hosts-custom.txt",
 	)
+	if error != nil {
+		return error
+	}
+
+	if DefaultClient == "az-world" {
+		if excludeMatcherCustomWorld != nil {
+			if err := excludeMatcherCustomWorld.Close(); err != nil {
+				return err
+			}
+		}
+
+		excludeMatcherCustomWorld, error = NewRegexFilter(
+			"/root/antizapret/config/custom/exclude-hosts-world-custom.txt",
+		)
+	}
 	return error
 }
 
@@ -460,6 +478,9 @@ func main() {
 		}
 		if excludeMatcherCustom != nil {
 			excludeMatcherCustom.Close()
+		}
+		if excludeMatcherCustomWorld != nil {
+			excludeMatcherCustomWorld.Close()
 		}
 	}()
 	// Create a mux so we can wrap all handlers with logging
