@@ -112,7 +112,7 @@ filters:
     name: Custom Local Rules
     id: 4
   - enabled: true
-    url: http://az-world.antizapret/list/?file=/root/antizapret/config/custom/include-hosts-custom.txt
+    url: http://az-world.antizapret/list/?file=/root/antizapret/config/custom/include-hosts-world-custom.txt
     name: Custom World Rules
     id: 5
   - enabled: true
