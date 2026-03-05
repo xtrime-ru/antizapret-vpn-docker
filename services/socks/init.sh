@@ -3,7 +3,7 @@ set -e
 
 # Detect external network interfaces and inject `external:` lines into /etc/danted.conf
 # - Override with SOCKS_EXTERNAL_IFACES (comma-separated list)
-# - Otherwise auto-detect non-loopback interfaces present in the container
+# - Otherwise auto-detect non-loopback interfaces with an IPv4 address
 # - Fallback to eth0 when none are detected
 generate_external_lines() {
     if [ -n "${SOCKS_EXTERNAL_IFACES:-}" ]; then
@@ -14,6 +14,10 @@ generate_external_lines() {
             case "$ifname" in
                 lo|veth*|docker*|br-*|virbr*|sit*|tun*|tap*|wg*) continue ;;
             esac
+            # skip interfaces without an IPv4 address
+            if ! ip -4 addr show dev "$ifname" 2>/dev/null | grep -q 'inet '; then
+                continue
+            fi
             IFACES+=("$ifname")
         done
     fi
