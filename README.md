@@ -328,7 +328,7 @@ Adding large number of IPs to `include-ips-custom.txt` can cause issues with Ope
 ### How it works
 
 1. Connect to VPN (OpenVPN, WireGuard or Amnezia WireGuard)
-2. Configure your application to use SOCKS5 proxy via tools like ProxyBridge, Proxifier, or browser proxy settings
+2. Configure your application to use SOCKS5 proxy via tools like [AntizapretSOCKS5](https://github.com/danayer/AntizapretSOCKS5) (Windows), ProxyBridge, Proxifier, or browser proxy settings
 3. All traffic from that application (including direct IP connections) will exit through the selected server node
 
 Two socks5 proxy containers are available:
@@ -394,6 +394,15 @@ Add socks5 services to `docker-compose.override.yml`:
     - **Type:** SOCKS5
     - **Username:** value of `SOCKS_USERNAME`
     - **Password:** value of `SOCKS_PASSWORD`
+
+#### Windows
+
+For Windows clients, use [AntizapretSOCKS5](https://github.com/danayer/AntizapretSOCKS5) — a GUI application for configuring per-application SOCKS5 routing using [ProxiFyre](https://github.com/wiresock/proxifyre).
+
+1. Download and extract [AntizapretSOCKS5](https://github.com/danayer/AntizapretSOCKS5)
+2. Run `ConfigEditor.exe` and install the Windows Packet Filter driver when prompted
+3. Add proxy configurations — select applications, choose proxy server (`socks-local.antizapret:8118` or `socks-world.antizapret:8118`), and set credentials
+4. Save configuration and start ProxiFyre
 
 ### Example use cases
 
