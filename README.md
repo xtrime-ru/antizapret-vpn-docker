@@ -430,6 +430,7 @@ Filebrowser:
 Proxy:
 - `PROXY_DOMAIN=` - create letsencrypt https certificate for domain. If not set host ip is used for self-signed certificate.
 - `PROXY_EMAIL=` - email for letsecnrypt certificate.
+- `SOCKS_EXTERNAL_IFACES` - comma-separated list of external network interfaces for the SOCKS proxy (e.g. `eth0,eth1`). If omitted, interfaces are auto-detected; falls back to `eth0` when none are found
 
 Openvpn
 - `ROUTES`
