@@ -173,6 +173,8 @@ symantecliveupdate.com
 vyos.io
 virustotal.com
 qwant.com
+ubnt.com
+ui.com
 
 # Productivity / Collaboration / Design
 adobe.com
