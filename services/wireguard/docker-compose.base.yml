@@ -2,6 +2,15 @@ services:
   base:
     init: true
     restart: unless-stopped
+    image: xtrime/antizapret-vpn-wireguard:6.1.0
+    build:
+      context: .
+      args:
+        - IMAGE=ghcr.io/wg-easy/wg-easy:15
+      x-bake:
+        platforms:
+          - linux/amd64
+          - linux/arm64
     logging:
       driver: json-file
       options:
@@ -16,6 +25,8 @@ services:
     cap_add:
       - NET_ADMIN
       - SYS_MODULE
+    devices:
+      - /dev/net/tun:/dev/net/tun
     sysctls:
       - net.ipv4.ip_forward=1
       - net.ipv4.conf.all.src_valid_mark=1

@@ -86,7 +86,9 @@ update_db() {
         JC_VAL=${JC:-3}
         JMIN_VAL=${JMIN:-20}
         JMAX_VAL=${JMAX:-100}
+        I1_VAL="${I1}"
         sqlite3 "$DB_FILE" "UPDATE interfaces_table SET j_c=${JC_VAL}, j_min=${JMIN_VAL}, j_max=${JMAX_VAL} WHERE name='wg0';"
+        sqlite3 "$DB_FILE" "UPDATE user_configs_table SET default_j_c=${JC_VAL}, default_j_min=${JMIN_VAL}, default_j_max=${JMAX_VAL}, default_i1='${I1_VAL}' WHERE name='wg0';"
     fi
 }
 
