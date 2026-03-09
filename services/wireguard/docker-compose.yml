@@ -4,11 +4,11 @@ services:
       file: docker-compose.base.yml
       service: base
     hostname: wireguard.antizapret
-    image: xtrime/antizapret-vpn-wireguard:6.0.6
+    image: xtrime/antizapret-vpn-wireguard:6.1.0
     build:
       context: .
       args:
-        - IMAGE=ghcr.io/wg-easy/wg-easy:14
+        - IMAGE=ghcr.io/wg-easy/wg-easy:15
       x-bake:
         platforms:
           - linux/amd64
@@ -26,22 +26,24 @@ services:
       file: docker-compose.base.yml
       service: base
     hostname: wireguard-amnezia.antizapret
-    image: xtrime/antizapret-vpn-wireguard-amnezia:6.0.6
+    image: xtrime/antizapret-vpn-wireguard-amnezia:6.1.0
     build:
       context: .
       args:
-        - IMAGE=xtrime/amnezia-wg-easy:0.2.16
+        - IMAGE=ghcr.io/wg-easy/wg-easy:15
       x-bake:
         platforms:
           - linux/amd64
+          - linux/arm64
     ports:
       - "51830:51830/udp"
     environment:
       - WG_PORT=51830
       - WG_DEFAULT_ADDRESS=10.1.167.x
+      - EXPERIMENTAL_AWG=true
+      - OVERRIDE_AUTO_AWG=awg
+      - JC=3
       - JMIN=20
       - JMAX=100
-    devices:
-      - /dev/net/tun:/dev/net/tun
     volumes:
       - $PWD/config/wireguard_amnezia:/etc/wireguard

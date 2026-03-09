@@ -32,6 +32,8 @@ services:
         constraints: [ node.labels.location == local ]
     environment:
       - PORT=51821
+      - INSECURE=true
+      - DISABLE_IPV6=true
       - WG_PORT=51820
       - WG_DEFAULT_DNS=14.16.0.1
       - AZ_SUBNET=14.16.0.0/14

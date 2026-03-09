@@ -1,8 +1,8 @@
-ARG IMAGE=ghcr.io/wg-easy/wg-easy:14
+ARG IMAGE=ghcr.io/wg-easy/wg-easy:15
 
 FROM ${IMAGE}
 
-RUN apk add -U --no-cache curl bind-tools ipcalc
+RUN apk add -U --no-cache curl bind-tools ipcalc sqlite
 
 COPY init.sh /
 COPY routes.sh /
