@@ -43,6 +43,13 @@ export INIT_IPV4_CIDR="$WG_IPV4_CIDR"
 export INIT_IPV6_CIDR="${WG_IPV6_CIDR:-fdcc:ad94:bacf:61a4::cafe:0/112}"
 export INIT_ALLOWED_IPS="$WG_ALLOWED_IPS"
 
+I1_VAL="${I1}"
+if [ -n "$I1_VAL" ]; then
+  I1_VAL="'$(sql_escape "$I1_VAL")'"
+else
+  I1_VAL=null
+fi
+
 # Make sure v14 env vars are not set (v15 throws error if these exist)
 unset PASSWORD
 unset PASSWORD_HASH
@@ -52,6 +59,7 @@ CUSTOM_POST_UP="iptables -t nat -N masq_not_local; iptables -t nat -A POSTROUTIN
 CUSTOM_POST_DOWN="iptables -t nat -D POSTROUTING -s ${WG_IPV4_CIDR} -j masq_not_local; iptables -t nat -F masq_not_local; iptables -t nat -X masq_not_local; iptables -D FORWARD -i wg0 -j ACCEPT; iptables -D FORWARD -o wg0 -j ACCEPT;"
 
 DB_FILE="/etc/wireguard/wg-easy.db"
+WG_JSON="/etc/wireguard/wg0.json"
 
 # Convert allowed IPs to JSON array for database
 ALLOWED_IPS_JSON="[$(echo "$WG_ALLOWED_IPS" | tr ',' '\n' | awk '{printf "\"%s\",", $1}' | sed 's/,$//')]"
@@ -86,9 +94,76 @@ update_db() {
         JC_VAL=${JC:-3}
         JMIN_VAL=${JMIN:-20}
         JMAX_VAL=${JMAX:-100}
-        I1_VAL="${I1}"
+
         sqlite3 "$DB_FILE" "UPDATE interfaces_table SET j_c=${JC_VAL}, j_min=${JMIN_VAL}, j_max=${JMAX_VAL} WHERE name='wg0';"
-        sqlite3 "$DB_FILE" "UPDATE user_configs_table SET default_j_c=${JC_VAL}, default_j_min=${JMIN_VAL}, default_j_max=${JMAX_VAL}, default_i1='${I1_VAL}' WHERE name='wg0';"
+        sqlite3 "$DB_FILE" "UPDATE user_configs_table SET default_j_c=${JC_VAL}, default_j_min=${JMIN_VAL}, default_j_max=${JMAX_VAL}, default_i1=${I1_VAL} WHERE id='wg0';"
+    fi
+
+    # migrate legacy wg0.json server and client entries if present
+    if [ -f "$WG_JSON" ]; then
+        # server migration
+        srv_priv=$(jq -r '.server.privateKey // empty' "$WG_JSON")
+        srv_jc=$(jq -r '.server.jc // empty' "$WG_JSON")
+        srv_jmin=$(jq -r '.server.jmin // empty' "$WG_JSON")
+        srv_jmax=$(jq -r '.server.jmax // empty' "$WG_JSON")
+        if [ -n "$srv_priv" ]; then
+            srv_pub=$(jq -r '.server.publicKey // empty' "$WG_JSON")
+
+            update_query="UPDATE interfaces_table SET"
+            update_query+=" private_key='$(sql_escape "$srv_priv")'"
+            update_query+=" , public_key='$(sql_escape "$srv_pub")'"
+            [ -n "$srv_jc" ] && update_query+=" , j_c=${srv_jc}"
+            [ -n "$srv_jmin" ] && update_query+=" , j_min='${srv_jmin}'"
+            [ -n "$srv_jmax" ] && update_query+=" , j_max='${srv_jmax}'"
+            update_query+=" WHERE name='wg0';"
+            sqlite3 "$DB_FILE" "$update_query"
+        fi
+
+        # client migration (only if table currently empty to avoid duplicates)
+        # ensure clients_table exists before attempting to insert
+        if sqlite3 "$DB_FILE" "PRAGMA table_info('clients_table');" | grep -q .; then
+            clients_cnt=$(sqlite3 "$DB_FILE" "SELECT count(*) FROM clients_table;" )
+        else
+            clients_cnt=0
+        fi
+
+        if [ "$clients_cnt" -eq 0 ]; then
+            cid=0
+            jq -c '.clients[]' "$WG_JSON" | while read -r c; do
+                ((cid += 1))
+                cname=$(echo "$c" | jq -r '.name')
+                caddr=$(echo "$c" | jq -r '.address')
+                cpriv=$(echo "$c" | jq -r '.privateKey')
+                cpub=$(echo "$c" | jq -r '.publicKey')
+                cpsk=$(echo "$c" | jq -r '.preSharedKey')
+                ccreated=$(echo "$c" | jq -r '.createdAt')
+                cupdated=$(echo "$c" | jq -r '.updatedAt')
+                cexpire=$(echo "$c" | jq -r '.expiredAt')
+                if [ "$cexpire" != 'null' ]; then
+                  cexpire="'$cexpire'";
+                fi
+                cenabled=$(echo "$c" | jq -r '.enabled')
+                if [ "$cenabled" = "true" ]; then
+                    c_enabled_val=1
+                else
+                    c_enabled_val=0
+                fi
+
+                if [ -n "$srv_jc" ]; then
+                  awg_keys=',j_c,j_min,j_max,i1'
+                  awg_values=",${srv_jc},'${srv_jmin}','${srv_jmax}',${I1_VAL}"
+                else
+                  awg_keys=''
+                  awg_values=''
+                fi
+                sqlite3 "$DB_FILE" "INSERT INTO
+                  clients_table(user_id,interface_id,name,ipv4_address,ipv6_address, server_allowed_ips,persistent_keepalive,mtu,private_key,public_key,pre_shared_key,expires_at,enabled,created_at,updated_at${awg_keys})
+                  VALUES(1,'wg0','$(sql_escape "$cname")','${caddr}','::${cid}','[]',${WG_PERSISTENT_KEEPALIVE},1420,'$(sql_escape "$cpriv")','$(sql_escape "$cpub")','$(sql_escape "$cpsk")',${cexpire},${c_enabled_val},'${ccreated}','${cupdated}'${awg_values});
+                "
+            done
+        fi
+
+        mv -f "$WG_JSON" "$WG_JSON.backup"
     fi
 }
 
