@@ -4,6 +4,7 @@ set -euo pipefail
 
 # Configuration
 EASY_RSA="/usr/share/easy-rsa"
+export EASYRSA_PKI="/etc/openvpn/pki"
 CRL_PATH="/etc/openvpn/pki/crl.pem"       # Where OpenVPN looks for the CRL
 THRESHOLD=604800                          # Update if less than 1 week hours (604800 sec) remain
 
