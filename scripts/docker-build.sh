@@ -31,7 +31,7 @@ fi
 
 # If no versions specified, default to "latest"
 if [ ${#SERVICES[@]} -eq 0 ]; then
-  SERVICES=(antizapret adguard coredns wireguard wireguard-amnezia openvpn openvpn-ui https firewall socks cloak filebrowser dashboard)
+  SERVICES=(antizapret adguard coredns wireguard openvpn openvpn-ui https firewall socks cloak filebrowser dashboard)
 fi
 
 # Build each service for all versions at once
