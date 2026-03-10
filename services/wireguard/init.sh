@@ -27,6 +27,9 @@ fi
 
 /routes.sh --vpn &
 
+# Escape single quotes in values for SQLite
+sql_escape() { echo "$1" | sed "s/'/''/g"; }
+
 # wg-easy v15 environment variables
 export PORT=${PORT:-51821}
 export INSECURE=${INSECURE:-true}
@@ -69,9 +72,6 @@ WG_JSON="/etc/wireguard/wg0.json"
 # Convert allowed IPs to JSON array for database
 ALLOWED_IPS_JSON="[$(echo "$WG_ALLOWED_IPS" | tr ',' '\n' | awk '{printf "\"%s\",", $1}' | sed 's/,$//')]"
 DNS_JSON="[\"${WG_DEFAULT_DNS_VALUE}\"]"
-
-# Escape single quotes in values for SQLite
-sql_escape() { echo "$1" | sed "s/'/''/g"; }
 
 update_db() {
     local post_up
@@ -133,7 +133,8 @@ update_db() {
         fi
 
         if [ "$clients_cnt" -eq 0 ]; then
-            cid=0
+            ipv6_prefix=${INIT_IPV6_CIDR%:*}
+            cid=1
             jq -c '.clients[]' "$WG_JSON" | while read -r c; do
                 ((cid += 1))
                 cname=$(echo "$c" | jq -r '.name')
@@ -163,7 +164,7 @@ update_db() {
                 fi
                 sqlite3 "$DB_FILE" "INSERT INTO
                   clients_table(user_id,interface_id,name,ipv4_address,ipv6_address, server_allowed_ips,persistent_keepalive,mtu,private_key,public_key,pre_shared_key,expires_at,enabled,created_at,updated_at${awg_keys})
-                  VALUES(1,'wg0','$(sql_escape "$cname")','${caddr}','::${cid}','[]',${WG_PERSISTENT_KEEPALIVE},1420,'$(sql_escape "$cpriv")','$(sql_escape "$cpub")','$(sql_escape "$cpsk")',${cexpire},${c_enabled_val},'${ccreated}','${cupdated}'${awg_values});
+                  VALUES(1,'wg0','$(sql_escape "$cname")','${caddr}','$(printf "$ipv6_prefix:%x" ${cid})','[]',${WG_PERSISTENT_KEEPALIVE},1420,'$(sql_escape "$cpriv")','$(sql_escape "$cpub")','$(sql_escape "$cpsk")',${cexpire},${c_enabled_val},'${ccreated}','${cupdated}'${awg_values});
                 "
             done
         fi
