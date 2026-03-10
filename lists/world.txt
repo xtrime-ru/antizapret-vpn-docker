@@ -82,6 +82,8 @@ scone-pa.clients6.google.com
 signaler-pa.clients6.google.com
 waa-pa.clients6.google.com
 webchannel-alkalimakersuite-pa.clients6.google.com
+subscriptionsfirstparty-pa.googleapis.com
+robinfrontend-pa.googleapis.com
 
 # Telemetry / Analytics / Monitoring
 101555001786.collect.observeinc.com
