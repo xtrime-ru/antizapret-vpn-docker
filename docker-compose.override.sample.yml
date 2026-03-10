@@ -51,14 +51,14 @@ services:
        file: services/wireguard/docker-compose.yml
        service: wireguard
      environment:
-       - WIREGUARD_PASSWORD=password
+       - WIREGUARD_PASSWORD=strongpassword
 
   wireguard-amnezia:
     extends:
       file: services/wireguard/docker-compose.yml
       service: wireguard-amnezia
     environment:
-      - WIREGUARD_PASSWORD=password
+      - WIREGUARD_PASSWORD=strongpassword
 
   socks-local:
     hostname: socks-local.antizapret

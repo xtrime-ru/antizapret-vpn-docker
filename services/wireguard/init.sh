@@ -34,8 +34,8 @@ export DISABLE_IPV6=${DISABLE_IPV6:-true}
 
 # Unattended initial setup (only used on first run when DB does not exist)
 export INIT_ENABLED=true
-export INIT_USERNAME=${WIREGUARD_USERNAME:-admin}
-export INIT_PASSWORD="${WIREGUARD_PASSWORD:-password}"
+export INIT_USERNAME="${WIREGUARD_USERNAME:-admin}"
+export INIT_PASSWORD="${WIREGUARD_PASSWORD}"
 export INIT_HOST="$WG_HOST"
 export INIT_PORT="$WG_PORT"
 export INIT_DNS="$WG_DEFAULT_DNS_VALUE"
@@ -48,6 +48,11 @@ if [ -n "$I1_VAL" ]; then
   I1_VAL="'$(sql_escape "$I1_VAL")'"
 else
   I1_VAL=null
+fi
+
+if [ ${#INIT_PASSWORD} -lt 12 ]; then
+    echo "Error: Password must be at least 12 characters long."
+    exit 1
 fi
 
 # Make sure v14 env vars are not set (v15 throws error if these exist)
