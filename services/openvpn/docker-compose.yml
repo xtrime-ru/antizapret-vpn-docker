@@ -39,7 +39,7 @@ services:
       placement:
         constraints: [ node.labels.location == local ]
     environment:
-      - OBFUSCATE_TYPE=0
+      - OBFUSCATE_TYPE=2
       - |
         ROUTES=
         openvpn:10.1.165.0/24;

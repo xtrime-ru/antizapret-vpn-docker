@@ -145,9 +145,10 @@ Some of the sites, which use geoip to block users, will be proxied through **for
 1. [Primary]: start swarm `docker compose config | docker run --rm -i xtrime/antizapret-vpn:6 compose2swarm | docker stack deploy --prune -c - antizapret `
 
 ## After installation
-1. Make sure Secure DNS is disabled in your browser settings. 
+1. If you use  openvpn client on your microtic router and having issues with UDP connection, try to reduce [OBFUSCATE_TYPE](#openvpn) env variable from default `2` (strong) to `1` (light) or `0` (off).
+2. Make sure Secure DNS is disabled in your browser settings. 
    In chrome: Navigate to Settings > Privacy and security > Security, scroll to the "Advanced" section, and toggle off "Use secure DNS"
-2. Install DKMS modules for openvpn and/or amnezia wireguard (if you use them): 
+3. Install DKMS modules for openvpn and/or amnezia wireguard (if you use them): 
     - [Enable OpenVPN Data Channel Offload (DCO)](#enable-openvpn-data-channel-offload-dco)
     - [Enable Amnezia Wireguard Kernel Extension](#enable-amnezia-wireguard-kernel-extension)
 
@@ -416,48 +417,48 @@ For Windows clients, use [AntizapretSOCKS5](https://github.com/danayer/Antizapre
 
 You can define these variables in docker-compose.override.yml file for your needs:
 
-Antizapret:
+### Antizapret:
 Consists of two containers: az-local and az-world. This is VPN exit nodes.
 - `DNS=adguard` - Upstream DNS for resolving blocked sites (adguard by default)
 - `AZ_SUBNET=14.16.0.0/14` Subnet for virtual addresses for blocked hosts.
 - `ROUTES` - list of VPN containers and their virtual addresses. Used for iperf3 server.
 - `DOALL_DISABLED=` - skip run on az-world node.
 
-Adguard: 
+### Adguard: 
 - `ROUTES` - list of VPN containers and their virtual addresses. Used for unique client addresses in adguard logs
 - `ADGUARDHOME_PORT=3000`
 - `ADGUARDHOME_USERNAME=admin`
 - `ADGUARDHOME_PASSWORD=`
 - `ADGUARDHOME_PASSWORD_HASH=` - hashed password, taken from the AdGuardHome.yaml file after the first run using `ADGUARDHOME_PASSWORD`. Dollar sign `$` in hash must be escaped with another dollar sign: `$$`
 
-CoreDNS: 
+### CoreDNS: 
 - None
 
-Filebrowser:
+### Filebrowser:
 - `FILEBROWSER_PORT=admin`
 - `FILEBROWSER_PASSWORD=password`
 
-Proxy:
+### Proxy:
 - `PROXY_DOMAIN=` - create letsencrypt https certificate for domain. If not set host ip is used for self-signed certificate.
 - `PROXY_EMAIL=` - email for letsecnrypt certificate.
 - `SOCKS_EXTERNAL_IFACES` - comma-separated list of external network interfaces for the SOCKS proxy (e.g. `eth0,eth1`). If omitted, interfaces are auto-detected; falls back to `eth0` when none are found
 
-Openvpn
+### Openvpn
 - `ROUTES`
-- `OBFUSCATE_TYPE=0` - custom obfuscation level of openvpn protocol.
+- `OBFUSCATE_TYPE=2` - custom obfuscation level of openvpn protocol.
    0 - disable.Act as regular openvpn client, support by all clients.
-   1 - light obfuscation, works with microtics
-   2 - strong obfuscation, works with some clients: openvpn gui client, asuswrt client...
+   1 - light obfuscation, works with microtic routers
+   2 - strong obfuscation, works with most of the clients: openvpn official gui client, asus routers, keenetic routers, openwrt routers.
 - `AZ_SUBNET=14.16.0.0/14` - subnet for virtual blocked ips.
 
-Openvpn-ui
+### Openvpn-ui
 - `OPENVPN_ADMIN_USERNAME=` - replace default username with your username
 - `OPENVPN_ADMIN_PASSWORD=` - replace default password with your password
 - `OPENVPN_EXTERNAL_IP` - external ip of your server, by default detected automatically
 - `OPENVPN_DNS=14.16.0.1` - DNS address for clients. Must be in `ANTIZAPRET_SUBNET`
 - `OPENVPN_LOCAL_IP_RANGE=10.1.165.0` - subnet for ovpn clients. Subnet can be viewed in adguard journal or in ovpn-ui panel
 
-Wireguard/Wireguard Amnezia
+### Wireguard/Wireguard Amnezia
 - `ROUTES` 
 - `WIREGUARD_PASSWORD=` - password for admin panel (used during initial setup only, change password via web UI afterwards)
 - `WIREGUARD_USERNAME=admin` - username for admin panel (used during initial setup only)
@@ -471,7 +472,7 @@ Wireguard/Wireguard Amnezia
 - `EXPERIMENTAL_AWG=true` - enable AmneziaWG support (wireguard-amnezia only)
 - `OVERRIDE_AUTO_AWG=awg`- environment variable to force the tunnel type: `awg` to always use AmneziaWG, `wg` to always use standard WireGuard; by default it’s unset and automatic detection is used, useful to override auto-selection and lock the mode.
 
-Dante SOCKS5 Proxy
+### SOCKS5 Proxy
 - `SOCKS_USERNAME` - username for SOCKS5 authentication (omit to disable authentication)
 - `SOCKS_PASSWORD` - password for SOCKS5 authentication (omit to disable authentication)
 
