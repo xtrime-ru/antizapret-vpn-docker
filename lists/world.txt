@@ -52,6 +52,7 @@ alkalicore-pa.clients6.google.com
 alkalimakersuite-pa.clients6.google.com
 alkalimetricsink-pa.clients6.google.com
 android.googleapis.com
+antigravity.google
 apis.google.com
 appcatalyst.pa.googleapis.com
 assistant-s3-pa.googleapis.com
@@ -80,6 +81,7 @@ people-pa.googleapis.com
 proactivebackend-pa.googleapis.com
 scone-pa.clients6.google.com
 signaler-pa.clients6.google.com
+stitch.withgoogle.com
 waa-pa.clients6.google.com
 webchannel-alkalimakersuite-pa.clients6.google.com
 subscriptionsfirstparty-pa.googleapis.com
@@ -122,6 +124,7 @@ filebin.net
 habr.ru
 manybooks.net
 mailinator.com
+medicube-pro.com
 microsoftonline.com
 miracleptr.wordpress.com
 opencartforum.com
@@ -131,6 +134,8 @@ seekvectorlogo.net
 simsync.io
 smartbear.co
 smartbear.com
+snapchat.com
+snap.com
 synoforum.com
 swapd.co
 strava.com
@@ -140,6 +145,7 @@ habr.com
 hubspot.com
 indeed.com
 myqrcode.com
+vpci.yves-rocher.com
 wunderground.com
 weather.com
 
@@ -311,9 +317,11 @@ sap.com
 schemaapp.com
 singlekey-id.com
 smartsheet.com
+soapui.org
 swagger.io
 t3.chat
 te.com
+telerik.com
 terraform.io
 thanosjs.org
 tria.ge
