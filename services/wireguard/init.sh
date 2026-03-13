@@ -62,9 +62,27 @@ fi
 unset PASSWORD
 unset PASSWORD_HASH
 
-# Compute custom PostUp/PostDown for iptables
-CUSTOM_POST_UP="iptables -t nat -N masq_not_local; iptables -t nat -A POSTROUTING -s ${WG_IPV4_CIDR} -j masq_not_local; iptables -t nat -A masq_not_local -d ${DOCKER_SUBNET} -p tcp --dport 53 -j RETURN; iptables -t nat -A masq_not_local -d ${DOCKER_SUBNET} -p udp --dport 53 -j RETURN; iptables -t nat -A masq_not_local -d ${DOCKER_SUBNET} -j MASQUERADE; iptables -t nat -A masq_not_local -d ${AZ_SUBNET} -j RETURN; iptables -t nat -A masq_not_local -j MASQUERADE; iptables -A FORWARD -i wg0 -j ACCEPT; iptables -A FORWARD -o wg0 -j ACCEPT;"
-CUSTOM_POST_DOWN="iptables -t nat -D POSTROUTING -s ${WG_IPV4_CIDR} -j masq_not_local; iptables -t nat -F masq_not_local; iptables -t nat -X masq_not_local; iptables -D FORWARD -i wg0 -j ACCEPT; iptables -D FORWARD -o wg0 -j ACCEPT;"
+CUSTOM_POST_UP=$(tr '\n' ' ' << EOF
+iptables -t nat -N masq_not_local;
+iptables -t nat -A POSTROUTING -s ${WG_IPV4_CIDR} -j masq_not_local;
+iptables -t nat -A masq_not_local -d ${DOCKER_SUBNET} -p tcp --dport 53 -j RETURN;
+iptables -t nat -A masq_not_local -d ${DOCKER_SUBNET} -p udp --dport 53 -j RETURN;
+iptables -t nat -A masq_not_local -d ${DOCKER_SUBNET} -j MASQUERADE;
+iptables -t nat -A masq_not_local -d ${AZ_SUBNET} -j RETURN;
+iptables -t nat -A masq_not_local -j MASQUERADE;
+iptables -A FORWARD -i wg0 -j ACCEPT;
+iptables -A FORWARD -o wg0 -j ACCEPT;
+EOF
+)
+
+CUSTOM_POST_DOWN=$(tr '\n' ' ' << EOF
+iptables -t nat -D POSTROUTING -s ${WG_IPV4_CIDR} -j masq_not_local;
+iptables -t nat -F masq_not_local;
+iptables -t nat -X masq_not_local;
+iptables -D FORWARD -i wg0 -j ACCEPT;
+iptables -D FORWARD -o wg0 -j ACCEPT;
+EOF
+)
 
 DB_FILE="/etc/wireguard/wg-easy.db"
 WG_JSON="/etc/wireguard/wg0.json"
