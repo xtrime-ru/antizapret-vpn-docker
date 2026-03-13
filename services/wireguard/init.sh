@@ -111,6 +111,12 @@ update_db() {
         srv_jc=$(jq -r '.server.jc // empty' "$WG_JSON")
         srv_jmin=$(jq -r '.server.jmin // empty' "$WG_JSON")
         srv_jmax=$(jq -r '.server.jmax // empty' "$WG_JSON")
+        srv_s1=$(jq -r '.server.s1 // empty' "$WG_JSON")
+        srv_s2=$(jq -r '.server.s2 // empty' "$WG_JSON")
+        srv_h1=$(jq -r '.server.h1 // empty' "$WG_JSON")
+        srv_h2=$(jq -r '.server.h2 // empty' "$WG_JSON")
+        srv_h3=$(jq -r '.server.h3 // empty' "$WG_JSON")
+        srv_h4=$(jq -r '.server.h4 // empty' "$WG_JSON")
         if [ -n "$srv_priv" ]; then
             srv_pub=$(jq -r '.server.publicKey // empty' "$WG_JSON")
 
@@ -120,6 +126,12 @@ update_db() {
             [ -n "$srv_jc" ] && update_query+=" , j_c=${srv_jc}"
             [ -n "$srv_jmin" ] && update_query+=" , j_min='${srv_jmin}'"
             [ -n "$srv_jmax" ] && update_query+=" , j_max='${srv_jmax}'"
+            [ -n "$srv_s1" ] && update_query+=" , s1='${srv_s1}'"
+            [ -n "$srv_s2" ] && update_query+=" , s2='${srv_s2}'"
+            [ -n "$srv_h1" ] && update_query+=" , h1='${srv_h1}'"
+            [ -n "$srv_h2" ] && update_query+=" , h2='${srv_h2}'"
+            [ -n "$srv_h3" ] && update_query+=" , h3='${srv_h3}'"
+            [ -n "$srv_h4" ] && update_query+=" , h4='${srv_h4}'"
             update_query+=" WHERE name='wg0';"
             sqlite3 "$DB_FILE" "$update_query"
         fi
