@@ -16,6 +16,22 @@ DOCKER_SUBNET="$(ipcalc "$(ip -4 addr show dev eth0 | awk '$1=="inet" {print $2;
 
 WG_IPV4_CIDR="${WG_DEFAULT_ADDRESS/"x"/"0"}/24"
 
+# BGP
+sort -V $CONFIG_FILES | sed 's_.*_route & reject;_' > /etc/az_bgp.txt
+for route in ${ROUTES//;/ }; do
+  if [ "az-local" = ${route%:*} ]; then 
+    echo "route" ${route#*:} 'reject;' >> /etc/az_bgp.txt
+  fi
+  if [ "az-world" = ${route%:*} ]; then 
+    echo "route" ${route#*:} 'reject;' >> /etc/az_bgp.txt
+  fi
+done
+echo "route" $(ip route show scope link src $(ifconfig eth0 | awk '/inet /{print $2}' | sed 's/.*://') | awk '{print $1}') 'reject;' >> /etc/az_bgp.txt
+
+export AZ_WG=${WG_DEFAULT_ADDRESS/"x"/"0"}/24
+export WG_GW=${WG_DEFAULT_ADDRESS/"x"/"1"}
+envsubst < /bird.conf.template  > /etc/bird.conf
+
 # Compute allowed IPs
 if [ -z "$WG_ALLOWED_IPS" ]; then
     WG_ALLOWED_IPS="${WG_IPV4_CIDR},${AZ_SUBNET},${DOCKER_SUBNET}"
@@ -218,4 +234,6 @@ else
     ) &
 fi
 
+/usr/sbin/bird -p
+/usr/sbin/bird -d &
 exec /usr/bin/dumb-init node server/index.mjs
