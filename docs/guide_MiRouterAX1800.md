@@ -95,21 +95,10 @@ opkg install openssh-sftp-server
 opkg update
 opkg install openvpn-openssl
 ```
-2. Исправить файл конфигурации OpenVPN. Шапка конфигурации должна выглядеть так
+2. Добавить в файл конфигурации OpenVPN строки.
 ```
-nobind
-client
-remote <ip> <port>
-remote-cert-tls server
-dev tun
-proto udp
-cipher AES-128-CBC
-resolv-retry infinite
-persist-tun
-persist-key
-
+pull-filter ignore block-outside-dns
 route 77.88.8.8
-<ca>
 ....
 ```
 3. Файл конфигурации .ovpn разместить в /etc/openvpn/
