@@ -112,6 +112,7 @@ office.com
 oneclient.sfx.ms
 picassostaticassetsstg.azureedge.net
 studiostaticassetsprod.azureedge.net
+xgpuweb.gssv-play-prod.xboxlive.com
 xsts.auth.xboxlive.com
 
 # Misc / Other
