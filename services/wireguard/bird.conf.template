@@ -1,0 +1,34 @@
+router id ${WG_GW};
+log stderr all;
+debug protocols { states, routes, filters, interfaces, events, packets };
+
+protocol kernel {
+    scan time 60;
+    ipv4 {
+        import none;
+        export none;
+    };
+}
+
+protocol device {
+    scan time 60;
+}
+
+protocol static az_bgp {
+    ipv4;
+    include "az_bgp.txt";
+}
+
+protocol bgp AZ {
+    description "AZ-WG";
+    neighbor range ${AZ_WG} as 64999;
+    local as 64999;
+    source address ${WG_GW};
+    passive off;
+
+    ipv4 {
+        import none;
+        export where proto = "az_bgp";
+        next hop self;
+    };
+}
