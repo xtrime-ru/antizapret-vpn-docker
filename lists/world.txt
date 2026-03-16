@@ -99,6 +99,8 @@ posthog.com
 sentry.dev
 sentry.io
 statsigapi.net
+turn.cloudflare.com
+stun.cloudflare.com
 
 # Microsoft / Azure / Xbox / Unity
 bing.com
@@ -464,10 +466,4 @@ ctfassets.net
 cdn.tagdeliver.com
 
 #Fastly
-fastly.net
 fastly.com
-fastly-edge.com
-fastly-terrarium.com
-fastly.io
-fastlylabs.com
-fastlylb.net
