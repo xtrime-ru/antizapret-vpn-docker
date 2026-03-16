@@ -78,12 +78,11 @@ discord.media
 discordcdn.com
 discord-attachments-uploads-prd.storage.googleapis.com
 
-# video
-hdrezka.me
+#video
 voidboost.cc
 voidboost.in
 
-# roblox
+#roblox
 roblox.com
 rbxcdn.com
 

@@ -234,10 +234,14 @@ spotify.com
 #twitch
 ttvnw.net
 
-#netflix
+#video
 netflix.com
 nflxso.net
 nflxvideo.net
+
+hdrezka.me
+rezka.ag
+hdrezka.ac
 
 # Games / Gaming Platforms
 brawlstarsgame.com
