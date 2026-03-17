@@ -108,7 +108,7 @@ bing.net
 bingapis.com
 in.appcenter.ms
 live.com
-microsoft.com
+www.microsoft.com
 msn.com
 office.com
 oneclient.sfx.ms
@@ -116,6 +116,13 @@ picassostaticassetsstg.azureedge.net
 studiostaticassetsprod.azureedge.net
 xgpuweb.gssv-play-prod.xboxlive.com
 xsts.auth.xboxlive.com
+windowsupdate.microsoft.com
+update.microsoft.com
+windowsupdate.com
+download.windowsupdate.com
+download.microsoft.com
+wustat.windows.com
+ntservicepack.microsoft.com
 
 # Misc / Other
 4pda.to
@@ -151,6 +158,7 @@ myqrcode.com
 vpci.yves-rocher.com
 wunderground.com
 weather.com
+ru-board.com
 
 # Security / AV / Networking Vendors
 arkoselabs.com
