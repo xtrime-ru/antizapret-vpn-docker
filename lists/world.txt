@@ -475,3 +475,7 @@ cdn.tagdeliver.com
 
 #Fastly
 fastly.com
+
+#Patreon
+patreon.com
+patreonusercontent.com
