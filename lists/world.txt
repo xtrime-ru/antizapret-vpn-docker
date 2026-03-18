@@ -410,6 +410,8 @@ stripe.com
 transferwise.com
 quicknode.com
 wise.com
+patreon.com
+patreonusercontent.com
 
 # Cloud / Hosting
 contabo.com
@@ -472,10 +474,4 @@ rythm.fm
 contentful.com
 ctfassets.net
 cdn.tagdeliver.com
-
-#Fastly
 fastly.com
-
-#Patreon
-patreon.com
-patreonusercontent.com
