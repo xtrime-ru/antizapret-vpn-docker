@@ -30,7 +30,7 @@ This repo is based on idea from original [AntiZapret LXD image](https://bitbucke
     - [When to use Dante instead of DNS-based routing](#when-to-use-dante-instead-of-dns-based-routing)
     - [Configuration](#configuration)
     - [Client setup](#client-setup)
-    - [Example use cases](#example-use-cases)     
+    - [Example use cases](#example-use-cases)
   - [Environment Variables](#environment-variables)
   - [DNS](#dns)
     - [Adguard Upstream DNS](#adguard-upstream-dns)
@@ -53,7 +53,7 @@ https://t.me/antizapret_support
 
 # Features
 
-- Modular design. External and high quality opensource modules/containers are used as builing blocks of our system. 
+- Modular design. External and high quality opensource modules/containers are used as builing blocks of our system.
 - User friendly web panels for administration of VPN's and DNS.
 - Multiple VPN transports: Wireguard, Amnezia Wireguard, OpenVPN
 - AdguardHome as main DNS resolver and blocked domains manager
@@ -79,7 +79,7 @@ https://t.me/antizapret_support
 
 ## Single Server (Easy)
 
-Recommended to use server located in western countries. Some sites will block users from other countries. 
+Recommended to use server located in western countries. Some sites will block users from other countries.
 
 0. Install [Docker Engine](https://docs.docker.com/engine/install/):
    ```bash
@@ -114,18 +114,18 @@ Find full example in [docker-compose.override.sample.yml](./docker-compose.overr
 ```
 
 ## Docker Swarm, multiple exit nodes (Advanced)
-Version 5 and 6 comes with ability to forward traffic to different exit nodes for different domains. 
-For example, YouTube works best if exit node is close to client and other services require foreign IP to work. 
+Version 5 and 6 comes with ability to forward traffic to different exit nodes for different domains.
+For example, YouTube works best if exit node is close to client and other services require foreign IP to work.
 Docker swarm is used to build unified network between containers.
 
 Its recommended to use local server as manager/primary node for VPN's, DNS and az-local containers.
 Foreign server - as secondary/worker node for az-world container.
 
-Most of the domains will be proxied through **local** server for maximum speed and performance. 
+Most of the domains will be proxied through **local** server for maximum speed and performance.
 Some of the sites, which use geoip to block users, will be proxied through **foreign** server.
 
 0. Repeat steps 0 and 1 from single server installation on **both servers**:
-   - Install docker 
+   - Install docker
    - Checkout project in same location on both servers.
 1. [Primary] Create docker-compose.override.yml on primary node and define which services you need. See step 2 from single server installation.
 1. [Primary] Change hostnames of servers to az-local and az-world for ease of use: `hostnamectl set-hostname az-local`
@@ -145,13 +145,13 @@ Some of the sites, which use geoip to block users, will be proxied through **for
 1. [Primary]: start swarm `docker compose config | docker run --rm -i xtrime/antizapret-vpn:6 compose2swarm | docker stack deploy --prune -c - antizapret `
 
 ## After installation
-1. By default, an openvpn container uses light obfuscation of UDP packets.  
-    It works on most clients (including routers) but can be blocked by providers.   
-    If you're having issues with ovpn connection see [OBFUSCATE_TYPE](#openvpn) env. 
+1. By default, an openvpn container uses light obfuscation of UDP packets.
+    It works on most clients (including routers) but can be blocked by providers.
+    If you're having issues with ovpn connection see [OBFUSCATE_TYPE](#openvpn) env.
     Try to change it from default `1` (light) to `2` (strong) or `0` (off).
-2. Make sure Secure DNS is disabled in your browser settings. 
+2. Make sure Secure DNS is disabled in your browser settings.
    In chrome: Navigate to Settings > Privacy and security > Security, scroll to the "Advanced" section, and toggle off "Use secure DNS"
-3. Install DKMS modules for openvpn and/or amnezia wireguard (if you use them): 
+3. Install DKMS modules for openvpn and/or amnezia wireguard (if you use them):
     - [Enable OpenVPN Data Channel Offload (DCO)](#enable-openvpn-data-channel-offload-dco)
     - [Enable Amnezia Wireguard Kernel Extension](#enable-amnezia-wireguard-kernel-extension)
 
@@ -190,7 +190,7 @@ services:
         - "3000:3000/tcp"
 ```
 
-List of default ports: 
+List of default ports:
 
 - adguard: http://<your-server-ip>:3000
 - dashboard: http://<your-server-ip>:80
@@ -210,7 +210,7 @@ Some containers have same ports. So you need to choose unique external port in d
    docker compose up -d --remove-orphans
    docker system prune -af
    ```
-- Swarm mode: 
+- Swarm mode:
    ```shell
    git pull --rebase
    docker pull xtrime/antizapret-vpn:6
@@ -262,13 +262,13 @@ rm -rf config/*
 1. If domain in whitelist - adguard will resolve its address and return to dnsmap.py
 1. If domain not in whitelist adguard return SERVFAIL
 1. dnsmap.py send response to adguard:
-   1. If it is valid IP, then replaces it with "internal" IP from `14.16.0.0/15` subnet, add masquerade to iptables and return internal ip to adguard 
+   1. If it is valid IP, then replaces it with "internal" IP from `14.16.0.0/15` subnet, add masquerade to iptables and return internal ip to adguard
    1. If is is SERVFAIL it sends this response to client.
 1. If CoreDNS receives SERVFAIL it retries request and send it directly to Adguard. In this case rules with `$client=az-local` do not applied and request processed normally.
 
-Why so complicated? 
-- Windows and some other clients do not retry to Fallback DNS, even if  SERVFAIL received. So we added CoreDNS for that. 
-- Adguard don't allow to redefine upstream in blacklist/whitelist rules. 
+Why so complicated?
+- Windows and some other clients do not retry to Fallback DNS, even if  SERVFAIL received. So we added CoreDNS for that.
+- Adguard don't allow to redefine upstream in blacklist/whitelist rules.
   But this rules have regex support and updated automatically, so we want to use them.
   So multiple requests from different clients are made internally.
 - Adguard allows different upstreams for different clients. So we can use different DNS for blocked and non blocked domains.
@@ -306,7 +306,7 @@ Need to use adapter, to parse and adapt list in different formats.
 Supported formats: simple list of domains, adguard format, hosts format, json array of domains, regex list.
 
 
-Options for adapter: 
+Options for adapter:
  - `url` - download list from url
  - `file` - read local file. Used for include-host-{custom,dist}.txt
  - `filter_custom=1` - filter lists with rules from exclude-hosts-custom.txt.
@@ -318,7 +318,7 @@ Options for adapter:
  - `suffix=1` - add "$dnsrewrite,client=xxx" to rules
 
 ## Adding IPs/Subnets
-Add ips and subnets to `./config/antizapret/custom/include-ips-custom.txt`. 
+Add ips and subnets to `./config/antizapret/custom/include-ips-custom.txt`.
 Containers periodically check changes in config folder (every 5-10 seconds) and restart/update after any change.
 
 Trigger update manually: `docker exec $(docker ps -q --filter=name=az | head -n1) doall`
@@ -416,6 +416,39 @@ For Windows clients, use [AntizapretSOCKS5](https://github.com/danayer/Antizapre
 - **Browser** — use proxy extension to route specific sites through `socks-local` or `socks-world`
 - **Application with many hardcoded IPs** — instead of adding hundreds of IPs to `include-ips-custom.txt`, just proxy the whole app through socks5
 
+## HTTP(S) Proxy
+
+HTTP proxy works the same way as the SOCKS5 proxy described above, but uses Squid instead of Dante. Use it when your software only supports HTTP proxy (e.g. some browsers, CLI tools, or enterprise applications that lack SOCKS5 support).
+
+Two HTTP proxy containers are available:
+- **`http-proxy-local.antizapret:3128`** — traffic exits through the **local** server
+- **`http-proxy-world.antizapret:3128`** — traffic exits through the **world** server
+
+HTTPS proxy port (`3129` by default) is also available with a self-signed TLS certificate for secure external access. If you use these proxies only inside VPN, you probably don't need it.
+
+Authentication: HTTP Basic (configured via environment variables).
+To disable authentication, omit `HTTP_PROXY_USERNAME` and `HTTP_PROXY_PASSWORD` (or leave them empty).
+
+> [!CAUTION]
+> When using HTTP (not HTTPS) proxy with access from the Internet, credentials are transmitted in plain text and can be intercepted. To restrict access securely, use the HTTPS port (`3129`) or keep the HTTP port (`3128`) accessible only through VPN.
+
+### Configuration
+
+Example available in [`docker-compose.override.sample.yml`](docker-compose.override.sample.yml).
+
+> [!NOTE]
+> `http-proxy-world` requires [Docker Swarm mode](#docker-swarm-multiple-exit-nodes-advanced) with two nodes.
+> On a single server only `http-proxy-local` will work.
+
+### Client setup
+
+1. Connect to VPN
+2. Configure an HTTP proxy in your application or browser:
+    - **Host:** `http-proxy-local.antizapret` or `http-proxy-world.antizapret`
+    - **Port:** `3128` (HTTP) or `3129` (HTTPS)
+    - **Username:** value of `HTTP_PROXY_USERNAME`
+    - **Password:** value of `HTTP_PROXY_PASSWORD`
+
 ## Environment Variables
 
 You can define these variables in docker-compose.override.yml file for your needs:
@@ -427,14 +460,14 @@ Consists of two containers: az-local and az-world. This is VPN exit nodes.
 - `ROUTES` - list of VPN containers and their virtual addresses. Used for iperf3 server.
 - `DOALL_DISABLED=` - skip run on az-world node.
 
-### Adguard: 
+### Adguard:
 - `ROUTES` - list of VPN containers and their virtual addresses. Used for unique client addresses in adguard logs
 - `ADGUARDHOME_PORT=3000`
 - `ADGUARDHOME_USERNAME=admin`
 - `ADGUARDHOME_PASSWORD=`
 - `ADGUARDHOME_PASSWORD_HASH=` - hashed password, taken from the AdGuardHome.yaml file after the first run using `ADGUARDHOME_PASSWORD`. Dollar sign `$` in hash must be escaped with another dollar sign: `$$`
 
-### CoreDNS: 
+### CoreDNS:
 - None
 
 ### Filebrowser:
@@ -462,7 +495,7 @@ Consists of two containers: az-local and az-world. This is VPN exit nodes.
 - `OPENVPN_LOCAL_IP_RANGE=10.1.165.0` - subnet for ovpn clients. Subnet can be viewed in adguard journal or in ovpn-ui panel
 
 ### Wireguard/Wireguard Amnezia
-- `ROUTES` 
+- `ROUTES`
 - `WIREGUARD_PASSWORD=` - password for admin panel (used during initial setup only, change password via web UI afterwards)
 - `WIREGUARD_USERNAME=admin` - username for admin panel (used during initial setup only)
 - `AZ_SUBNET=14.16.0.0/14` - subnet for virtual blocked ips.
@@ -479,10 +512,16 @@ Consists of two containers: az-local and az-world. This is VPN exit nodes.
 - `SOCKS_USERNAME` - username for SOCKS5 authentication (omit to disable authentication)
 - `SOCKS_PASSWORD` - password for SOCKS5 authentication (omit to disable authentication)
 
+### HTTP Proxy
+- `HTTP_PROXY_USERNAME` - username for HTTP authentication (omitting disable authentication)
+- `HTTP_PROXY_PASSWORD` - password for HTTP authentication (omitting disable authentication)
+- `HTTP_PROXY_PORT=3128` - HTTP port to listen
+- `HTTPS_PROXY_PORT=3129` - HTTPS port to listen
+
 ## DNS
 ### Adguard Upstream DNS
 Adguard uses Google DNS and Quad9 DNS to resolve unblocked domains. This upstreams support ECS requests (more info below).
-Cloudflare DNS do not support ECS and is not recommended for use.  
+Cloudflare DNS do not support ECS and is not recommended for use.
 
 Source code: [Adguard upstream DNS](./antizapret/root/adguardhome/upstream_dns_file_basis)
 After container is started working copy is located here: `./config/adguard/conf/upstream_dns_file_basis`
@@ -553,7 +592,7 @@ https://github.com/amnezia-vpn/amneziawg-linux-kernel-module?tab=readme-ov-file#
 1. `sudo add-apt-repository ppa:amnezia/ppa`
 2. `sudo apt install -y amneziawg`
 3. restart server or `docker compose restart wireguard-amnezia`
-4. check the list of kernel modules `dkms status`, 
+4. check the list of kernel modules `dkms status`,
    and check that bunch of `[kworker/X:X-wg-crypt-wg0]` processes are now running.
 
 #### Ubuntu 20.04, 22.04
@@ -565,9 +604,9 @@ https://github.com/amnezia-vpn/amneziawg-linux-kernel-module?tab=readme-ov-file#
 6. `sudo apt install -y amneziawg`
 7. `sudo dkms install -m amneziawg -v 1.0.0`
 8. restart server or `docker compose restart wireguard-amnezia`
-9. check the list of kernel modules `dkms status`, 
+9. check the list of kernel modules `dkms status`,
    and check that bunch of `[kworker/X:X-wg-crypt-wg0]` processes are now running.
-   
+
 ### AmneziaWG Parameters
 
 Parameter descriptions can be found in the [AmneziaWG documentation](https://docs.amnezia.org/documentation/amnezia-wg) and on the kernel module page.
@@ -595,7 +634,7 @@ All parameters **except I1–I5** will be set automatically at first startup. Fo
 - Use I1–I5 only if you need advanced customization. Otherwise, default automatic values are sufficient.
 
 ### Amnezia Wireguard Block Size
-Amnezia adds random packets to change signature of wireguard protocol and bypass DPI. 
+Amnezia adds random packets to change signature of wireguard protocol and bypass DPI.
 By default we use `JMIN=20; JMAX=100` for junk packet size in bytes.
 
 Large junk packets can help to bypass DPI, but some firewalls can block them as DDOS attack.
@@ -634,7 +673,7 @@ docker compose down && rm -rf ./config/wireguard_amnezia/ && docker compose up -
 Most providers now block vpn to foreign IPs. Obfuscation in amnezia or openvpn not always fix the issue.
 For stable vpn operation you can try to connect to  VPS inside of your country and then proxy  traffic to foreign server.
 
-There are two ways: 
+There are two ways:
 1. [Recommended] Install in [docker swarm mode](#docker-swarm-multiple-exit-nodes-advanced)
 1. Proxy all traffic via local proxy. See below.
 
@@ -676,7 +715,7 @@ iperf3 server is included in antizapret-vpn container.
     # local node
     iperf3 -c az-local.antizapret -i1 -t10 -P10
     iperf3 -c az-local.antizapret -i1 -t10 -P10 -R
-   
+
    # world node
     iperf3 -c az-world.antizapret -i1 -t10 -P10
     iperf3 -c az-world.antizapret -i1 -t10 -P10 -R
