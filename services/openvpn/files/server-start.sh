@@ -6,6 +6,49 @@ EASY_RSA=/usr/share/easy-rsa
 OPENVPN_DIR=/etc/openvpn
 echo "EasyRSA path: $EASY_RSA OVPN path: $OPENVPN_DIR"
 
+detect_tls_mode() {
+    local tls_line
+    tls_line=$(grep -E '^[[:space:]]*(tls-auth|tls-crypt|tls-crypt-v2)[[:space:]]+' "$OPENVPN_DIR/server.conf" | tail -1 || true)
+    case "$tls_line" in
+        tls-crypt-v2\ *) printf '%s\n' "tls-crypt-v2" ;;
+        tls-auth\ *) printf '%s\n' "tls-auth" ;;
+        *) printf '%s\n' "tls-crypt" ;;
+    esac
+}
+
+ensure_tls_crypt_v2_client_keys() {
+    local issued_dir server_key cert_path client_name client_key
+    issued_dir="$OPENVPN_DIR/pki/issued"
+    server_key="$OPENVPN_DIR/pki/private/tls-crypt-v2-server.key"
+
+    [[ -d "$issued_dir" ]] || return 0
+    [[ -f "$server_key" ]] || return 0
+
+    for cert_path in "$issued_dir"/*.crt; do
+        [[ -f "$cert_path" ]] || continue
+        client_name="$(basename "$cert_path" .crt)"
+        [[ "$client_name" = "server" ]] && continue
+        client_key="$OPENVPN_DIR/pki/private/${client_name}.tls-crypt-v2.key"
+        if [[ ! -f "$client_key" || "$server_key" -nt "$client_key" ]]; then
+            echo "Generating tls-crypt-v2 client key for $client_name..."
+            openvpn --tls-crypt-v2 "$server_key" --genkey tls-crypt-v2-client "$client_key"
+        fi
+    done
+}
+
+generate_tls_server_material() {
+    local tls_mode
+    tls_mode="$(detect_tls_mode)"
+    mkdir -p "$EASY_RSA/pki/private" "$OPENVPN_DIR/pki/private"
+    if [[ "$tls_mode" = "tls-crypt-v2" ]]; then
+        echo 'Generate tls-crypt-v2 server key...'
+        openvpn --genkey tls-crypt-v2-server "$EASY_RSA/pki/private/tls-crypt-v2-server.key"
+    else
+        echo 'Generate HMAC signature...'
+        openvpn --genkey --secret "$EASY_RSA/pki/ta.key"
+    fi
+}
+
 INIT_FILE="/.inited"
 rm -f "$INIT_FILE"
 CONFIG_FILE="/opt/antizapret/result/openvpn-blocked-ranges.txt"
@@ -46,8 +89,7 @@ if [[ ! -f $OPENVPN_DIR/pki/ca.crt ]] || [[ ! -f $OPENVPN_DIR/pki/crl.pem ]]; th
     echo 'Generate Diffie-Hellman key...'
     $EASY_RSA/easyrsa gen-dh
 
-    echo 'Generate HMAC signature...'
-    openvpn --genkey --secret $EASY_RSA/pki/ta.key
+    generate_tls_server_material
 
     echo 'Create certificate revocation list (CRL)...'
     $EASY_RSA/easyrsa gen-crl
@@ -57,6 +99,19 @@ if [[ ! -f $OPENVPN_DIR/pki/ca.crt ]] || [[ ! -f $OPENVPN_DIR/pki/crl.pem ]]; th
     cp -r $EASY_RSA/pki/. $OPENVPN_DIR/pki
 else
     echo 'PKI already set up.'
+    TLS_MODE="$(detect_tls_mode)"
+    if [[ "$TLS_MODE" = "tls-crypt-v2" && ! -f $OPENVPN_DIR/pki/private/tls-crypt-v2-server.key ]]; then
+        echo 'Missing tls-crypt-v2 server key. Generating...'
+        mkdir -p "$OPENVPN_DIR/pki/private"
+        openvpn --genkey tls-crypt-v2-server "$OPENVPN_DIR/pki/private/tls-crypt-v2-server.key"
+    elif [[ "$TLS_MODE" != "tls-crypt-v2" && ! -f $OPENVPN_DIR/pki/ta.key ]]; then
+        echo 'Missing shared TLS key. Generating...'
+        openvpn --genkey --secret "$OPENVPN_DIR/pki/ta.key"
+    fi
+fi
+
+if [[ "$(detect_tls_mode)" = "tls-crypt-v2" ]]; then
+    ensure_tls_crypt_v2_client_keys
 fi
 
 # Listing env parameters:

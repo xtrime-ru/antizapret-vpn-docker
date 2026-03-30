@@ -1,4 +1,4 @@
-FROM d3vilh/openvpn-server:0.5.5
+FROM local/openvpn-server:latest
 
 RUN apk add -U --no-cache ipcalc grep moreutils inotify-tools && apk del openvpn
 
