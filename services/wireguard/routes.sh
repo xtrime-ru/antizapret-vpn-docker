@@ -71,15 +71,20 @@ function update_addresses() {
         subnet=${route#*:}
         current_gateway=$(ip route show "$subnet" | awk '/via/ {print $3; exit}')
         if [ "$current_gateway" = "$gateway" ]; then
-                # Route unchanged
-                continue
+            # Route unchanged
+            continue
         elif [ -z "$current_gateway" ]; then
             ip route add "$subnet" via "$gateway"
             echo "Route added: $subnet via $gateway"
 
             if [ "$VPN" = true ] && [ "$host" = "adguard" ]; then
-                iptables -t nat -A PREROUTING -p tcp --dport 53 -j DNAT --to-destination $gateway
-                iptables -t nat -A PREROUTING -p udp --dport 53 -j DNAT --to-destination $gateway
+                if [ -n "$USE_NFT" ]; then
+                    nft add rule ip nat prerouting tcp dport 53 dnat to $gateway
+                    nft add rule ip nat prerouting udp dport 53 dnat to $gateway
+                else
+                    iptables -t nat -A PREROUTING -p tcp --dport 53 -j DNAT --to-destination $gateway
+                    iptables -t nat -A PREROUTING -p udp --dport 53 -j DNAT --to-destination $gateway
+                fi
             fi
 
             if [ "$VPN" = true ] && [ "$host" = "az-local" ]; then
@@ -97,10 +102,17 @@ function update_addresses() {
             fi
         else
             if [ "$VPN" = true ] && [ "$host" = "adguard" ]; then
-                iptables -t nat -D PREROUTING -p tcp --dport 53 -j DNAT --to-destination $current_gateway || true
-                iptables -t nat -D PREROUTING -p udp --dport 53 -j DNAT --to-destination $current_gateway || true
-                iptables -t nat -A PREROUTING -p tcp --dport 53 -j DNAT --to-destination $gateway
-                iptables -t nat -A PREROUTING -p udp --dport 53 -j DNAT --to-destination $gateway
+                if [ -n "$USE_NFT" ]; then
+                    nft delete rule ip nat prerouting tcp dport 53 dnat to $current_gateway || true
+                    nft delete rule ip nat prerouting udp dport 53 dnat to $current_gateway || true
+                    nft add rule ip nat prerouting tcp dport 53 dnat to $gateway
+                    nft add rule ip nat prerouting udp dport 53 dnat to $gateway
+                else
+                    iptables -t nat -D PREROUTING -p tcp --dport 53 -j DNAT --to-destination $current_gateway || true
+                    iptables -t nat -D PREROUTING -p udp --dport 53 -j DNAT --to-destination $current_gateway || true
+                    iptables -t nat -A PREROUTING -p tcp --dport 53 -j DNAT --to-destination $gateway
+                    iptables -t nat -A PREROUTING -p udp --dport 53 -j DNAT --to-destination $gateway
+                fi
             fi
             ip route change "$subnet" via "$gateway"
             echo "Route changed: $subnet via $gateway"

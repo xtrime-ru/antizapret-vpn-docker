@@ -19,12 +19,12 @@ WG_IPV4_CIDR="${WG_DEFAULT_ADDRESS/"x"/"0"}/24"
 # BGP
 sort -V $CONFIG_FILES | sed 's_.*_route & reject;_' > /etc/az_bgp.txt
 for route in ${ROUTES//;/ }; do
-  if [ "az-local" = ${route%:*} ]; then 
-    echo "route" ${route#*:} 'reject;' >> /etc/az_bgp.txt
-  fi
-  if [ "az-world" = ${route%:*} ]; then 
-    echo "route" ${route#*:} 'reject;' >> /etc/az_bgp.txt
-  fi
+    if [ "az-local" = ${route%:*} ]; then 
+        echo "route" ${route#*:} 'reject;' >> /etc/az_bgp.txt
+    fi
+    if [ "az-world" = ${route%:*} ]; then 
+        echo "route" ${route#*:} 'reject;' >> /etc/az_bgp.txt
+    fi
 done
 echo "route" $(ip route show scope link src $(ifconfig eth0 | awk '/inet /{print $2}' | sed 's/.*://') | awk '{print $1}') 'reject;' >> /etc/az_bgp.txt
 
@@ -63,9 +63,9 @@ export INIT_ALLOWED_IPS="$WG_ALLOWED_IPS"
 
 I1_VAL="${I1}"
 if [ -n "$I1_VAL" ]; then
-  I1_VAL="'$(sql_escape "$I1_VAL")'"
+    I1_VAL="'$(sql_escape "$I1_VAL")'"
 else
-  I1_VAL=null
+    I1_VAL=null
 fi
 
 if [ ${#INIT_PASSWORD} -lt 12 ]; then
@@ -90,6 +90,25 @@ iptables -A FORWARD -o wg0 -j ACCEPT;
 EOF
 )
 
+if [ -n "$USE_NFT" ]; then
+    CUSTOM_POST_UP=$(tr '\n' ' ' << EOF
+    nft add table ip nat;
+    nft add chain ip nat masq_not_local;
+    nft add chain ip nat postrouting { type nat hook postrouting priority 100 \; };
+    nft add rule ip nat postrouting ip saddr ${WG_IPV4_CIDR} jump masq_not_local;
+    nft add rule ip nat masq_not_local ip daddr ${DOCKER_SUBNET} tcp dport 53 return;
+    nft add rule ip nat masq_not_local ip daddr ${DOCKER_SUBNET} udp dport 53 return;
+    nft add rule ip nat masq_not_local ip daddr ${DOCKER_SUBNET} masquerade;
+    nft add rule ip nat masq_not_local ip daddr ${AZ_SUBNET} return;
+    nft add rule ip nat masq_not_local masquerade;
+    nft add table ip filter;
+    nft add chain ip filter forward { type filter hook forward priority 0 \; policy accept \; };
+    nft add rule ip filter forward iif wg0 accept;
+    nft add rule ip filter forward oif wg0 accept;
+EOF
+)
+fi
+
 CUSTOM_POST_DOWN=$(tr '\n' ' ' << EOF
 iptables -t nat -D POSTROUTING -s ${WG_IPV4_CIDR} -j masq_not_local;
 iptables -t nat -F masq_not_local;
@@ -98,6 +117,17 @@ iptables -D FORWARD -i wg0 -j ACCEPT;
 iptables -D FORWARD -o wg0 -j ACCEPT;
 EOF
 )
+
+if [ -n "$USE_NFT" ]; then
+    CUSTOM_POST_DOWN=$(tr '\n' ' ' << EOF
+    nft delete rule ip nat postrouting ip saddr ${WG_IPV4_CIDR} jump masq_not_local;
+    nft flush chain ip nat masq_not_local;
+    nft delete chain ip nat masq_not_local;
+    nft delete rule ip filter forward iif "wg0" accept;
+    nft delete rule ip filter forward oif "wg0" accept;
+EOF
+)
+fi
 
 DB_FILE="/etc/wireguard/wg-easy.db"
 WG_JSON="/etc/wireguard/wg0.json"
@@ -181,37 +211,37 @@ update_db() {
             ipv6_prefix=${INIT_IPV6_CIDR%:*}
             cid=1
             jq -c '.clients[]' "$WG_JSON" | while read -r c; do
-                ((cid += 1))
-                cname=$(echo "$c" | jq -r '.name')
-                caddr=$(echo "$c" | jq -r '.address')
-                cpriv=$(echo "$c" | jq -r '.privateKey')
-                cpub=$(echo "$c" | jq -r '.publicKey')
-                cpsk=$(echo "$c" | jq -r '.preSharedKey')
-                ccreated=$(echo "$c" | jq -r '.createdAt')
-                cupdated=$(echo "$c" | jq -r '.updatedAt')
-                cexpire=$(echo "$c" | jq -r '.expiredAt')
-                if [ "$cexpire" != 'null' ]; then
-                  cexpire="'$cexpire'";
-                fi
-                cenabled=$(echo "$c" | jq -r '.enabled')
-                if [ "$cenabled" = "true" ]; then
-                    c_enabled_val=1
-                else
-                    c_enabled_val=0
-                fi
+            ((cid += 1))
+            cname=$(echo "$c" | jq -r '.name')
+            caddr=$(echo "$c" | jq -r '.address')
+            cpriv=$(echo "$c" | jq -r '.privateKey')
+            cpub=$(echo "$c" | jq -r '.publicKey')
+            cpsk=$(echo "$c" | jq -r '.preSharedKey')
+            ccreated=$(echo "$c" | jq -r '.createdAt')
+            cupdated=$(echo "$c" | jq -r '.updatedAt')
+            cexpire=$(echo "$c" | jq -r '.expiredAt')
+            if [ "$cexpire" != 'null' ]; then
+                cexpire="'$cexpire'";
+            fi
+            cenabled=$(echo "$c" | jq -r '.enabled')
+            if [ "$cenabled" = "true" ]; then
+                c_enabled_val=1
+            else
+                c_enabled_val=0
+            fi
 
-                if [ -n "$srv_jc" ]; then
-                  awg_keys=',j_c,j_min,j_max,i1'
-                  awg_values=",${srv_jc},'${srv_jmin}','${srv_jmax}',${I1_VAL}"
-                else
-                  awg_keys=''
-                  awg_values=''
-                fi
-                sqlite3 "$DB_FILE" "INSERT INTO
-                  clients_table(user_id,interface_id,name,ipv4_address,ipv6_address, server_allowed_ips,persistent_keepalive,mtu,private_key,public_key,pre_shared_key,expires_at,enabled,created_at,updated_at${awg_keys})
-                  VALUES(1,'wg0','$(sql_escape "$cname")','${caddr}','$(printf "$ipv6_prefix:%x" ${cid})','[]',${WG_PERSISTENT_KEEPALIVE},1420,'$(sql_escape "$cpriv")','$(sql_escape "$cpub")','$(sql_escape "$cpsk")',${cexpire},${c_enabled_val},'${ccreated}','${cupdated}'${awg_values});
-                "
-            done
+            if [ -n "$srv_jc" ]; then
+                awg_keys=',j_c,j_min,j_max,i1'
+                awg_values=",${srv_jc},'${srv_jmin}','${srv_jmax}',${I1_VAL}"
+            else
+                awg_keys=''
+                awg_values=''
+            fi
+            sqlite3 "$DB_FILE" "INSERT INTO
+            clients_table(user_id,interface_id,name,ipv4_address,ipv6_address, server_allowed_ips,persistent_keepalive,mtu,private_key,public_key,pre_shared_key,expires_at,enabled,created_at,updated_at${awg_keys})
+            VALUES(1,'wg0','$(sql_escape "$cname")','${caddr}','$(printf "$ipv6_prefix:%x" ${cid})','[]',${WG_PERSISTENT_KEEPALIVE},1420,'$(sql_escape "$cpriv")','$(sql_escape "$cpub")','$(sql_escape "$cpsk")',${cexpire},${c_enabled_val},'${ccreated}','${cupdated}'${awg_values});
+            "
+        done
         fi
 
         mv -f "$WG_JSON" "$WG_JSON.backup"
@@ -230,12 +260,12 @@ else
         sleep 3
         update_db
         kill -TERM 1
-    ) &
+        ) &
 fi
 
 if [[ "${BGP_ENABLE:-false}" == "true" ]]; then
-  envsubst < /bird.conf.template  > /etc/bird.conf
-  /usr/sbin/bird -p
-  /usr/sbin/bird -d &
+    envsubst < /bird.conf.template  > /etc/bird.conf
+    /usr/sbin/bird -p
+    /usr/sbin/bird -d &
 fi
 exec /usr/bin/dumb-init node server/index.mjs
