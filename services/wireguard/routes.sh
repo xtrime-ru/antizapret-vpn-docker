@@ -138,6 +138,12 @@ function update_addresses() {
 mkdir -p "$(dirname "$DNS_FILE")"
 touch "$DNS_FILE"
 
+
+if [ -n "$USE_NFT" ]; then
+    nft add table ip nat
+    nft add chain ip nat prerouting { type nat hook prerouting priority 0 \; }
+fi
+
 # Initial update
 update_addresses
 

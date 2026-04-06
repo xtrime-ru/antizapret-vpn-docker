@@ -211,37 +211,37 @@ update_db() {
             ipv6_prefix=${INIT_IPV6_CIDR%:*}
             cid=1
             jq -c '.clients[]' "$WG_JSON" | while read -r c; do
-            ((cid += 1))
-            cname=$(echo "$c" | jq -r '.name')
-            caddr=$(echo "$c" | jq -r '.address')
-            cpriv=$(echo "$c" | jq -r '.privateKey')
-            cpub=$(echo "$c" | jq -r '.publicKey')
-            cpsk=$(echo "$c" | jq -r '.preSharedKey')
-            ccreated=$(echo "$c" | jq -r '.createdAt')
-            cupdated=$(echo "$c" | jq -r '.updatedAt')
-            cexpire=$(echo "$c" | jq -r '.expiredAt')
-            if [ "$cexpire" != 'null' ]; then
-                cexpire="'$cexpire'";
-            fi
-            cenabled=$(echo "$c" | jq -r '.enabled')
-            if [ "$cenabled" = "true" ]; then
-                c_enabled_val=1
-            else
-                c_enabled_val=0
-            fi
+                ((cid += 1))
+                cname=$(echo "$c" | jq -r '.name')
+                caddr=$(echo "$c" | jq -r '.address')
+                cpriv=$(echo "$c" | jq -r '.privateKey')
+                cpub=$(echo "$c" | jq -r '.publicKey')
+                cpsk=$(echo "$c" | jq -r '.preSharedKey')
+                ccreated=$(echo "$c" | jq -r '.createdAt')
+                cupdated=$(echo "$c" | jq -r '.updatedAt')
+                cexpire=$(echo "$c" | jq -r '.expiredAt')
+                if [ "$cexpire" != 'null' ]; then
+                    cexpire="'$cexpire'";
+                fi
+                cenabled=$(echo "$c" | jq -r '.enabled')
+                if [ "$cenabled" = "true" ]; then
+                    c_enabled_val=1
+                else
+                    c_enabled_val=0
+                fi
 
-            if [ -n "$srv_jc" ]; then
-                awg_keys=',j_c,j_min,j_max,i1'
-                awg_values=",${srv_jc},'${srv_jmin}','${srv_jmax}',${I1_VAL}"
-            else
-                awg_keys=''
-                awg_values=''
-            fi
-            sqlite3 "$DB_FILE" "INSERT INTO
-            clients_table(user_id,interface_id,name,ipv4_address,ipv6_address, server_allowed_ips,persistent_keepalive,mtu,private_key,public_key,pre_shared_key,expires_at,enabled,created_at,updated_at${awg_keys})
-            VALUES(1,'wg0','$(sql_escape "$cname")','${caddr}','$(printf "$ipv6_prefix:%x" ${cid})','[]',${WG_PERSISTENT_KEEPALIVE},1420,'$(sql_escape "$cpriv")','$(sql_escape "$cpub")','$(sql_escape "$cpsk")',${cexpire},${c_enabled_val},'${ccreated}','${cupdated}'${awg_values});
-            "
-        done
+                if [ -n "$srv_jc" ]; then
+                    awg_keys=',j_c,j_min,j_max,i1'
+                    awg_values=",${srv_jc},'${srv_jmin}','${srv_jmax}',${I1_VAL}"
+                else
+                    awg_keys=''
+                    awg_values=''
+                fi
+                sqlite3 "$DB_FILE" "INSERT INTO
+                clients_table(user_id,interface_id,name,ipv4_address,ipv6_address, server_allowed_ips,persistent_keepalive,mtu,private_key,public_key,pre_shared_key,expires_at,enabled,created_at,updated_at${awg_keys})
+                VALUES(1,'wg0','$(sql_escape "$cname")','${caddr}','$(printf "$ipv6_prefix:%x" ${cid})','[]',${WG_PERSISTENT_KEEPALIVE},1420,'$(sql_escape "$cpriv")','$(sql_escape "$cpub")','$(sql_escape "$cpsk")',${cexpire},${c_enabled_val},'${ccreated}','${cupdated}'${awg_values});
+                "
+            done
         fi
 
         mv -f "$WG_JSON" "$WG_JSON.backup"
@@ -260,7 +260,7 @@ else
         sleep 3
         update_db
         kill -TERM 1
-        ) &
+    ) &
 fi
 
 if [[ "${BGP_ENABLE:-false}" == "true" ]]; then
