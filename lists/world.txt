@@ -252,6 +252,8 @@ nflxvideo.net
 hdrezka.me
 rezka.ag
 hdrezka.ac
+voidboost.cc
+voidboost.in
 
 # Games / Gaming Platforms
 brawlstarsgame.com
@@ -485,3 +487,7 @@ contentful.com
 ctfassets.net
 cdn.tagdeliver.com
 fastly.com
+
+# shopping
+shein.com
+ltwebstatic.com

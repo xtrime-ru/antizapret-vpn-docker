@@ -40,7 +40,7 @@ if [ -z "$WG_ALLOWED_IPS" ]; then
     fi
 fi
 
-/routes.sh --vpn &
+/routes.sh --vpn --dns-file /opt/antizapret/result/dns.txt &
 
 # Escape single quotes in values for SQLite
 sql_escape() { echo "$1" | sed "s/'/''/g"; }
