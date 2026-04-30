@@ -1,3 +1,5 @@
+[English](README.md) | [Русский](README_RU.md)
+
 # AntiZapret VPN in Docker
 
 Antizapret created to redirect only blocked domains to VPN tunnel. Its called split tunneling.
