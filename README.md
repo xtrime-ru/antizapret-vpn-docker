@@ -192,12 +192,12 @@ apt install -y iptables-persistent
 By default, all container can be accessed via https. For certificated management separate `https` container is used.
 If you did not provide domain and email in its env it will generate self-signed certificates
 
-- dashboard: https://<your-server-ip>:443
-- adguard: https://<your-server-ip>:1443
-- filebrowser: https://<your-server-ip>:2443
-- openvpn: https://<your-server-ip>:3443
-- wireguard: https://<your-server-ip>:4443
-- wireguard-amnezia: https://<your-server-ip>:5443
+- dashboard: https://%your-server-ip%:443
+- adguard: https://%your-server-ip%:1443
+- filebrowser: https://%your-server-ip%:2443
+- openvpn: https://%your-server-ip%:3443
+- wireguard: https://%your-server-ip%:4443
+- wireguard-amnezia: https://%your-server-ip%:5443
 
 
 ### Local network
@@ -223,12 +223,12 @@ services:
 
 List of default ports: 
 
-- adguard: http://<your-server-ip>:3000
-- dashboard: http://<your-server-ip>:80
-- wireguard-amnezia: http://<your-server-ip>:51821
-- wireguard: http://<your-server-ip>:51821
-- openvpn-ui: http://<your-server-ip>:8080
-- filebrowser: http://<your-server-ip>:80
+- adguard: http://%your-server-ip%:3000
+- dashboard: http://%your-server-ip%:80
+- wireguard-amnezia: http://%your-server-ip%:51821
+- wireguard: http://%your-server-ip%:51821
+- openvpn-ui: http://%your-server-ip%:8080
+- filebrowser: http://%your-server-ip%:80
 
 Some containers have same ports. So you need to choose unique external port in docker-compose.override.yml.
 
@@ -285,13 +285,13 @@ rm -rf config/*
 
 1. How to get VPN configs?
     - OVPN:
-        1. https://<your-server-ip>:3443/certificates
+        1. https://%your-server-ip%:3443/certificates
         1. Create Certificate
         1. Enter Any Name and leave all other fields as is
         1. Click "Create". New certificate will appear in the list.
         1. Click on certificate name in the list to download it.
     - Wireguard or Amnezia:
-        1. Go to https://<your-server-ip>:4443 or https://<your-server-ip>:5443
+        1. Go to https://%your-server-ip%:4443 or https://%your-server-ip%:5443
         2. Click "New"
         3. Enter any name.
         4. Create client

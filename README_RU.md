@@ -191,12 +191,12 @@ apt install -y iptables-persistent
 По умолчанию все контейнеры доступны через https. Для управления сертификатами используется отдельный контейнер `https`.
 Если вы не предоставили домен и email в его переменных окружения, он сгенерирует самоподписанные сертификаты.
 
-- dashboard: https://<your-server-ip>:443
-- adguard: https://<your-server-ip>:1443
-- filebrowser: https://<your-server-ip>:2443
-- openvpn: https://<your-server-ip>:3443
-- wireguard: https://<your-server-ip>:4443
-- wireguard-amnezia: https://<your-server-ip>:5443
+- dashboard: https://%your-server-ip%:443
+- adguard: https://%your-server-ip%:1443
+- filebrowser: https://%your-server-ip%:2443
+- openvpn: https://%your-server-ip%:3443
+- wireguard: https://%your-server-ip%:4443
+- wireguard-amnezia: https://%your-server-ip%:5443
 
 
 ### Локальная сеть
@@ -222,12 +222,12 @@ services:
 
 Список портов по умолчанию:
 
-- adguard: http://<your-server-ip>:3000
-- dashboard: http://<your-server-ip>:80
-- wireguard-amnezia: http://<your-server-ip>:51821
-- wireguard: http://<your-server-ip>:51821
-- openvpn-ui: http://<your-server-ip>:8080
-- filebrowser: http://<your-server-ip>:80
+- adguard: http://%your-server-ip%:3000
+- dashboard: http://%your-server-ip%:80
+- wireguard-amnezia: http://%your-server-ip%:51821
+- wireguard: http://%your-server-ip%:51821
+- openvpn-ui: http://%your-server-ip%:8080
+- filebrowser: http://%your-server-ip%:80
 
 Некоторые контейнеры используют одинаковые порты. Поэтому вам нужно выбрать уникальный внешний порт в docker-compose.override.yml.
 
@@ -284,13 +284,13 @@ rm -rf config/*
 
 1. Как получить VPN-конфигурации?
     - OVPN:
-        1. https://<your-server-ip>:3443/certificates
+        1. https://%your-server-ip%:3443/certificates
         1. Создать сертификат
         1. Введите любое имя и оставьте остальные поля как есть
         1. Нажмите "Create". Новый сертификат появится в списке.
         1. Нажмите на имя сертификата в списке, чтобы скачать его.
     - Wireguard или Amnezia:
-        1. Перейдите на https://<your-server-ip>:4443 или https://<your-server-ip>:5443
+        1. Перейдите на https://%your-server-ip%:4443 или https://%your-server-ip%:5443
         2. Нажмите "New"
         3. Введите любое имя.
         4. Создайте клиента
