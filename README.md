@@ -11,6 +11,7 @@ This repo is based on idea from original [AntiZapret LXD image](https://bitbucke
 - [Installation](#installation)
   - [Single Server (Easy)](#single-server-easy)
   - [Docker Swarm, multiple exit nodes (Advanced)](#docker-swarm-multiple-exit-nodes-advanced)
+  - [VPN / Hosting block](#vpn--hosting-block)
   - [After installation](#after-installation)
   - [Access admin panels](#access-admin-panels)
     - [HTTPS](#https)
@@ -20,6 +21,7 @@ This repo is based on idea from original [AntiZapret LXD image](https://bitbucke
     - [Upgrade from v5](#upgrade-from-v5)
   - [Reset](#reset)
 - [Documentation](#documentation)
+  - [FAQ (Frequently Asked Questions)](#faq-frequently-asked-questions)-
   - [DNS resolving algorithm](#dns-resolving-algorithm)
   - [Adding Domains](#adding-domains)
     - [Adding Domains via rules](#adding-domains-via-rules)
@@ -43,7 +45,6 @@ This repo is based on idea from original [AntiZapret LXD image](https://bitbucke
     - [Enable Amnezia Wireguard Kernel Extension](#enable-amnezia-wireguard-kernel-extension)
     - [AmneziaWG Parameters](#amneziawg-parameters)
     - [Amnezia Wireguard Block Size](#amnezia-wireguard-block-size)
-    - [VPN / Hosting block](#vpn--hosting-block)
   - [Extra information](#extra-information)
   - [Test speed with iperf3](#test-speed-with-iperf3)
 - [Credits](#credits)
@@ -143,14 +144,43 @@ Some of the sites, which use geoip to block users, will be proxied through **for
 1. [Primary] Add labels for nodes `docker node update --label-add location=local az-local && docker node update --label-add location=world az-world`
 1. [Primary]: start swarm `docker compose config | docker run --rm -i xtrime/antizapret-vpn:6 compose2swarm | docker stack deploy --prune -c - antizapret `
 
+## VPN / Hosting block
+Most providers now block vpn connections to foreign IPs. Obfuscation in Amnezia or OpenVpn not always fix the issue.
+For stable vpn operation you can try to connect to VPS inside your country and then proxy traffic to foreign server.
+
+There are two ways:
+1. [Recommended] Installation in [docker swarm mode](#docker-swarm-multiple-exit-nodes-advanced)
+1. Proxy all traffic via local proxy. See below.
+
+Example of startup script.
+Replace <SERVER_IP> with IP address of your server and run it on fresh VPS (ubuntu 24.04 is recommended):
+
+```shell
+#!/bin/sh
+
+# Fill with your foreign server ip
+export VPN_IP=<SERVER_IP>
+
+echo "net.ipv4.ip_forward=1" >> /etc/sysctl.d/99-sysctl.conf
+sysctl -w net.ipv4.ip_forward=1
+
+# DNAT rules
+iptables -t nat -A PREROUTING -p tcp ! --dport 22 -j DNAT --to-destination "$VPN_IP"
+iptables -t nat -A PREROUTING -p udp ! --dport 22 -j DNAT --to-destination "$VPN_IP"
+# MASQUERADE rules
+iptables -t nat -A POSTROUTING -p tcp -d "$VPN_IP" -j MASQUERADE
+iptables -t nat -A POSTROUTING -p udp -d "$VPN_IP"  -j MASQUERADE
+
+echo iptables-persistent iptables-persistent/autosave_v4 boolean true | sudo debconf-set-selections
+echo iptables-persistent iptables-persistent/autosave_v6 boolean false | sudo debconf-set-selections
+apt install -y iptables-persistent
+
+```
+
 ## After installation
-1. By default, an openvpn container uses light obfuscation of UDP packets.  
-    It works on most clients (including routers) but can be blocked by providers.   
-    If you're having issues with ovpn connection see [OBFUSCATE_TYPE](#openvpn) env. 
-    Try to change it from default `1` (light) to `2` (strong) or `0` (off).
-2. Make sure Secure DNS is disabled in your browser settings. 
+1. Make sure Secure DNS is disabled in your browser settings. 
    In chrome: Navigate to Settings > Privacy and security > Security, scroll to the "Advanced" section, and toggle off "Use secure DNS"
-3. Install DKMS modules for openvpn and/or amnezia wireguard (if you use them): 
+2. Install DKMS modules for openvpn and/or amnezia wireguard (if you use them): 
     - [Enable OpenVPN Data Channel Offload (DCO)](#enable-openvpn-data-channel-offload-dco)
     - [Enable Amnezia Wireguard Kernel Extension](#enable-amnezia-wireguard-kernel-extension)
 
@@ -248,6 +278,61 @@ rm -rf config/*
 ```
 
 # Documentation
+
+## FAQ (Frequently Asked Questions)
+
+1. How to get VPN configs?
+    - OVPN:
+        1. https://<your-server-ip>:3443/certificates
+        1. Create Certificate
+        1. Enter Any Name and leave all other fields as is
+        1. Click "Create". New certificate will appear in the list.
+        1. Click on certificate name in the list to download it.
+    - Wireguard or Amnezia:
+        1. Go to https://<your-server-ip>:4443 or https://<your-server-ip>:5443
+        2. Click "New"
+        3. Enter any name.
+        4. Create client
+        5. Click download button in the list.
+        6. QR Codes dont work for Amnezia Wireguard, because config is too big for QR code
+2. Which Amnezia Wireguard client to use?
+   A recommended client for Amnezia Wireguard is AmneziaWG:
+    - [Android (Google Play)](https://play.google.com/store/apps/details?id=org.amnezia.awg)
+    - [iOS (App Store)](https://apps.apple.com/app/amneziawg/id6478942365)
+    - [Windows (GitHub)](https://github.com/amnezia-vpn/amneziawg-windows-client/releases)
+3. Why don't OpenVPN client connect to server?
+   Most providers block openvpn protocol, especially to foreign IPs. 
+   The symptoms are: client connects, but after few transferred bytes server stops responding and connection is terminated.
+   
+   - By default, an openvpn container uses light obfuscation of UDP packets.  
+     It works on most clients (including routers) but still can be blocked by providers.  
+     See [OBFUSCATE_TYPE](#openvpn) env.  
+     Try to change it from default `1` (light) to `2` (strong) or `0` (off).
+   - Setup cascade VPS. Use swarm 
+4. Why can VPN connection be slow and have a lot of dropped packets?
+   1. First, use reproducible test to detect issues: [Test speed with iperf3](#test-speed-with-iperf3)
+   2. Check if CPU on your hosting is not overloaded during iperf test. 
+   3. Ensure kernel modules for your VPN are installed and working: [OVPN DCO](#enable-openvpn-data-channel-offload-dco),  [Amnezia Wireguard Kernel Extension](#enable-amnezia-wireguard-kernel-extension). 
+   4. Some inexpensive hostings have very slow CPUs, so even with all kernel modules installed, connection speed will not exceed 100 Mbit/s.
+   5. Most routers have slow CPUs and provide only 30-60 Mbit/s via openvpn. Try to use Wireguard or Amnezia Wireguard if router supports it or update router to newer model.
+   6. In rare cases low MTU between client and server can cause packet fragmentation.
+      First, check if your VPN connection has issues with default MTU.  
+      - MacOs: `ping -D -s 1420 google.com`
+      - Linux: `ping -M -s 1420 google.com`
+      - Windows: `ping google.com -f -l 1420`
+      
+      If this command returns errors, then keep lowering the value until it works. Then lower MTU in VPN settings.
+      - Wireguard/Amezia:
+        MTU Must be lower on both server and client.
+          1. Go to http://wireguard.antizapret:51821 or http://wireguard-amnezia.antizapret:51821 and click on client config icon.
+          1. Lower MTU to 1200 and save. MTU is client-specific.
+          1. Download and apply new config to your client.
+          1. [Test speed with iperf3](#test-speed-with-iperf3)
+      - OpenVPN:
+          1. Go to http://openvpn-ui.antizapret:8080/ov/config and add `link-mtu 1200` to your server config.
+          1. Save Config and restart server.
+          1. Add `link-mtu 1200` to your client.conf
+   7. If nothing helps, try another hosting and/or [cascade](#vpn--hosting-block)
 
 ## DNS resolving algorithm
 
@@ -630,38 +715,6 @@ This will also remove all existing clients/certificates.
 docker compose down && rm -rf ./config/wireguard_amnezia/ && docker compose up -d
 ```
 
-### VPN / Hosting block
-Most providers now block vpn to foreign IPs. Obfuscation in amnezia or openvpn not always fix the issue.
-For stable vpn operation you can try to connect to  VPS inside of your country and then proxy  traffic to foreign server.
-
-There are two ways: 
-1. [Recommended] Install in [docker swarm mode](#docker-swarm-multiple-exit-nodes-advanced)
-1. Proxy all traffic via local proxy. See below.
-
-Example of startup script.
-Replace <SERVER_IP> with IP address of your server and run it on fresh VPS (ubuntu 24.04 is recommended):
-
-```shell
-#!/bin/sh
-
-# Fill with your foreign server ip
-export VPN_IP=<SERVER_IP>
-
-echo "net.ipv4.ip_forward=1" >> /etc/sysctl.d/99-sysctl.conf
-sysctl -w net.ipv4.ip_forward=1
-
-# DNAT rules
-iptables -t nat -A PREROUTING -p tcp ! --dport 22 -j DNAT --to-destination "$VPN_IP"
-iptables -t nat -A PREROUTING -p udp ! --dport 22 -j DNAT --to-destination "$VPN_IP"
-# MASQUERADE rules
-iptables -t nat -A POSTROUTING -p tcp -d "$VPN_IP" -j MASQUERADE
-iptables -t nat -A POSTROUTING -p udp -d "$VPN_IP"  -j MASQUERADE
-
-echo iptables-persistent iptables-persistent/autosave_v4 boolean true | sudo debconf-set-selections
-echo iptables-persistent iptables-persistent/autosave_v6 boolean false | sudo debconf-set-selections
-apt install -y iptables-persistent
-
-```
 
 ## Extra information
 - [OpenWrt setup guide](./docs/guide_OpenWrt.md) - how to setup OpenWrt router with this solution to keep LAN clients happy.
