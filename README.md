@@ -310,7 +310,7 @@ rm -rf config/*
      It works on most clients (including routers) but still can be blocked by providers.  
      See [OBFUSCATE_TYPE](#openvpn) env.  
      Try to change it from default `1` (light) to `2` (strong) or `0` (off).
-   - Setup cascade VPS. Use swarm 
+   - Use cascade connection or swarm mode [cascade](#vpn--hosting-block)
 4. Why can VPN connection be slow and have a lot of dropped packets?
    1. First, use reproducible test to detect issues: [Test speed with iperf3](#test-speed-with-iperf3)
    2. Check if CPU on your hosting is not overloaded during iperf test. 
@@ -335,6 +335,23 @@ rm -rf config/*
           1. Save Config and restart server.
           1. Add `link-mtu 1200` to your client.conf
    7. If nothing helps, try another hosting and/or [cascade](#vpn--hosting-block)
+5. How to debug issues with VPN?
+   1. Check if the VPN connection is established and the DNS server is working:
+      ```shell
+      > nslookup youtube.com
+      
+      Server:		14.16.0.1
+      Address:	14.16.0.1#53
+      
+      Non-authoritative answer:
+      Name:	youtube.com
+      Address: 14.16.13.209
+      ```
+   2. Check if browser dont use DoH/Secure DNS.
+   3. Check DIST filters have loaded and have non 0 rule counters: http://adguard.antizapret:3000/#filters
+   4. Check DNS resolution steps: http://adguard.antizapret:3000/#logs?response_status=all&search=youtube.com
+      Each domain resolved via 2–4 DNS requests.
+      See: [DNS resolving algorithm](#dns-resolving-algorithm)
 
 ## DNS resolving algorithm
 
@@ -352,12 +369,54 @@ rm -rf config/*
    1. If is is SERVFAIL it sends this response to client.
 1. If CoreDNS receives SERVFAIL it retries request and send it directly to Adguard. In this case rules with `$client=az-local` do not applied and request processed normally.
 
-Why so complicated? 
+**Why so complicated?** 
 - Windows and some other clients do not retry to Fallback DNS, even if  SERVFAIL received. So we added CoreDNS for that. 
 - Adguard don't allow to redefine upstream in blacklist/whitelist rules. 
   But this rules have regex support and updated automatically, so we want to use them.
   So multiple requests from different clients are made internally.
 - Adguard allows different upstreams for different clients. So we can use different DNS for blocked and non blocked domains.
+
+**Example:**  
+We requested `youtube.com`, which should be routed via az-local node.
+1. DNS request from client to Adguard. Routed to coredns. Response will appear after all following requests are processed.
+   ```text
+   Status: Processed
+   DNS server: coredns:53
+   Elapsed: 91 ms
+   Served from cache: False
+   Response code: NOERROR
+   Response: 
+   A: 14.16.13.209 (ttl=300)
+   A: 14.16.13.207 (ttl=300)
+   A: 14.16.13.206 (ttl=300)
+   A: 14.16.13.208 (ttl=300)
+   ```
+2. DNS request from coredns to az-world. And az-world request to Adguard:
+   ```text
+   Status: Rewritten
+   Elapsed: 0.10 ms
+   Response code: SERVFAIL
+   Rule(s):
+   ||*^$dnsrewrite=SERVFAIL,client=az-world
+   Custom filtering rules
+   ```    
+   SERFAIL response means that this domains not routed via az-world.
+3. DNS request from coredns to az-local. And az-local request to Adguard:
+   ```text
+   Status: Processed
+   DNS server: 149.112.112.11:53
+   Elapsed: 50 ms
+   Response code: NOERROR
+   Response
+   A: 173.194.221.190 (ttl=300)
+   A: 173.194.221.91 (ttl=300)
+   A: 173.194.221.136 (ttl=300)
+   A: 173.194.221.93 (ttl=300)
+   ```   
+   In this case domain must be served via az-local and excluded from blacklist for az-local client. 
+   Adguard cant find this domain in blacklist for az-local and and return real addresses to az-local client.
+4. az-local container adds masquerade to iptables and return internal ip to coredns. 
+5. coredns send response to adguard and adguard caches it and return to client.
 
 
 ## Adding Domains
