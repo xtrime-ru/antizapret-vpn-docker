@@ -241,6 +241,12 @@ redgifs.com
 reverb.com
 spotify.com
 
+# rutracker
+t-ru.org
+rutracker.org
+rutracker.cc
+rutrk.org
+
 #twitch
 ttvnw.net
 
