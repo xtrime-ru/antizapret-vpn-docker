@@ -23,7 +23,7 @@ services:
     healthcheck:
       test: (/healthcheck.sh || kill -TERM 1) 2>&1 | tee /proc/1/fd/1
       interval: 10s
-      timeout: 10s
+      timeout: 5m
       start_period: 5s
       start_interval: 1s
     volumes:
