@@ -20,6 +20,7 @@ services:
     entrypoint: /root/entrypoint.sh
     environment:
       - INTERVAL=1d
+      - FAIL_LIMIT=10
       - V4_URL=https://raw.githubusercontent.com/C24Be/AS_Network_List/refs/heads/main/blacklists/blacklist-v4.txt
       - V4_FILE=blacklist-v4.txt
       - V6_URL=https://raw.githubusercontent.com/C24Be/AS_Network_List/refs/heads/main/blacklists/blacklist-v6.txt

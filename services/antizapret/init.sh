@@ -49,8 +49,10 @@ done
 /usr/bin/dns-watcher --output "$DNS_FILE" --interval 5s &
 /routes.sh --dns-file "$DNS_FILE" &
 
+/usr/bin/doall
+
 postrun 'while true; do /opt/api/app; done'
-postrun 'while true; do /usr/bin/doall; sleep 6h; done'
+postrun 'while true; do sleep 6h; /usr/bin/doall; done'
 postrun 'while true; do /usr/bin/iperf3 -s -1; done'
 
 exec /usr/bin/dnsmap -a 0.0.0.0 --iprange "$AZ_SUBNET"
