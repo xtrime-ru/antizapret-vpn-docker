@@ -1,7 +1,7 @@
 services:
   firewall:
     restart: unless-stopped
-    image: xtrime/antizapret-vpn-firewall:5.3.4
+    image: xtrime/antizapret-vpn-firewall:6.2.2
     init: true
     build:
       context: .
