@@ -1,6 +1,6 @@
 services:
   antizapret:
-    image: xtrime/antizapret-vpn:6.2.0
+    image: xtrime/antizapret-vpn:6.2.2
     restart: unless-stopped
     stop_signal: SIGRTMIN+4
     init: true
@@ -23,7 +23,7 @@ services:
     healthcheck:
       test: (/healthcheck.sh || kill -TERM 1) 2>&1 | tee /proc/1/fd/1
       interval: 10s
-      timeout: 10s
+      timeout: 15m
       start_period: 5s
       start_interval: 1s
     volumes:

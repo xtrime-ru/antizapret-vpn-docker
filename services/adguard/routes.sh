@@ -61,9 +61,10 @@ trap 'running=false' SIGTERM SIGINT SIGQUIT
 
 function update_addresses() {
     for route in ${ROUTES//;/ }; do
-
+        route=$(echo "$route" | tr -d '[:space:]')
+        if [ -z "$route" ]; then continue; fi
         host=${route%:*}
-        if [ "$host" = "$self" ]; then continue; fi
+        if [ -z "$host" ] || [ "$host" = "$self" ]; then continue; fi
 
         gateway=$(resolve $host '')
         if [ -z "$gateway" ]; then continue; fi

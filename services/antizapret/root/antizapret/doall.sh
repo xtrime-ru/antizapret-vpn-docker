@@ -14,8 +14,23 @@ if [ -n "$DOALL_DISABLED" ]; then
     exit 0
 fi
 
-echo "run download.sh" && ./download.sh || exit 1
+lock_file="/tmp/.doall_lock"
+while [ -f "$lock_file" ]; do
+  echo "DoAll already running. Waiting..."
+  sleep 5
+done
+
+touch "$lock_file"
+
+trap 'rm -f $lock_file' \
+    SIGTERM SIGINT SIGQUIT EXIT
+
+download_failed=false
+echo "run download.sh" && ./download.sh || download_failed=true
 echo "run parse.sh" && ./parse.sh || exit 2
 
 echo "Rules updated"
+if [ "$download_failed" = true ]; then
+  echo 'Warning: Cant download some lists'
+fi
 exit 0
