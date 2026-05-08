@@ -365,6 +365,8 @@ we.tl
 windsurf.com
 zencdn.net
 xdaforums.com
+raw.githubusercontent.com
+release-assets.githubusercontent.com
 
 # Xerox
 xerox.co.uk
