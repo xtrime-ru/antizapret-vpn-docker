@@ -277,6 +277,7 @@ Remove all settings, vpn configs and return initial state of service:
 ```shell
 docker stack rm antizapret || docker compose down --remove-orphans
 rm -rf config/*
+git restore config
 ```
 
 # Documentation

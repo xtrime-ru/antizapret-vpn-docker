@@ -276,6 +276,7 @@ services:
 ```shell
 docker stack rm antizapret || docker compose down --remove-orphans
 rm -rf config/*
+git restore config
 ```
 
 # Документация
