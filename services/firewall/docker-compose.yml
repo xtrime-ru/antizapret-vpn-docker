@@ -14,7 +14,7 @@ services:
       endpoint_mode: dnsrr
     network_mode: host
     extra_hosts:
-      - "raw.githubusercontent.com:185.199.108.133"
+      - "raw.githubusercontent.com=185.199.108.133"
     cap_add:
       - NET_ADMIN
       - SYS_MODULE

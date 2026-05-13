@@ -1,6 +1,6 @@
 services:
   antizapret:
-    image: xtrime/antizapret-vpn:6.2.2
+    image: xtrime/antizapret-vpn:6.2.3
     restart: unless-stopped
     stop_signal: SIGRTMIN+4
     init: true
@@ -10,7 +10,7 @@ services:
       - net.ipv4.ip_forward=1
       - net.ipv4.conf.all.src_valid_mark=1
     extra_hosts:
-      - "raw.githubusercontent.com:185.199.108.133"
+      - "raw.githubusercontent.com=185.199.108.133"
     build: 
       context: .
       x-bake:

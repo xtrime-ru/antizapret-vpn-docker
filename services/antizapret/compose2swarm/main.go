@@ -118,6 +118,21 @@ func main() {
 			panic(fmt.Sprintf("Unsupported network_mode: %s in service %s", service.NetworkMode, service.Name))
 		}
 
+		if len(service.ExtraHosts) > 0 {
+			newExtraHosts := make(map[string]string, len(service.ExtraHosts))
+
+			for host, val := range service.ExtraHosts {
+				if val == "" && strings.Contains(host, "=") {
+					parts := strings.SplitN(host, "=", 2)
+					if len(parts) == 2 {
+						newExtraHosts[parts[0]] = parts[1]
+					}
+				}
+			}
+
+			service.ExtraHosts = newExtraHosts
+		}
+
 		project.Services[name] = service
 	}
 

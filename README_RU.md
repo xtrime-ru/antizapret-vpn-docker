@@ -263,8 +263,7 @@ services:
    ```shell
    docker stack rm antizapret && sleep 10
    git fetch && git checkout v6 && git pull --rebase
-   docker pull xtrime/antizapret-vpn:6
-   docker compose config | docker run --rm -i xtrime/antizapret-vpn:6 compose2swarm | docker stack deploy --prune -c - antizapret
+   docker compose config | docker run --pull always --rm -i xtrime/antizapret-vpn:6 compose2swarm | docker stack deploy --prune -c - antizapret
    docker system prune -af
    ```
 2. Обновите клиентов:
