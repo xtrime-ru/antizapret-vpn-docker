@@ -4,7 +4,7 @@ set -ex
 first_run=true
 running=true
 trap 'running=false; ( [ -n "$sleep_pid" ] && kill "$sleep_pid" ); ./block.sh clear' \
-    SIGTERM SIGINT SIGQUIT EXIT
+    SIGTERM SIGINT SIGQUIT ERR EXIT
 
 fail_count=0
 while [ "$running" = true ]; do
