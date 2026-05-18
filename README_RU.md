@@ -144,7 +144,7 @@ Docker swarm используется для построения единой �
     vspy2m6w4tf7uv4ywgdnzttvr     az-world   Ready     Active                          29.0.1
     ```
 8. [Первичный] Добавьте метки для узлов `docker node update --label-add location=local az-local && docker node update --label-add location=world az-world`
-9. [Первичный]: запустите swarm `docker compose config | docker run --rm -i xtrime/antizapret-vpn:6 compose2swarm | docker stack deploy --prune -c - antizapret `
+9. [Первичный]: запустите swarm `   docker compose config | docker run --pull always --rm -i xtrime/antizapret-vpn:6 compose2swarm | docker stack deploy --prune -c - antizapret`
 
 ## Блокировка VPN / Хостинга
 Большинство провайдеров сейчас блокируют VPN-соединения с зарубежными IP-адресами. Обфускация в Amnezia или OpenVpn не всегда решает проблему.
@@ -244,7 +244,7 @@ services:
    ```shell
    git pull --rebase
    docker pull xtrime/antizapret-vpn:6
-   docker compose config | docker run --rm -i xtrime/antizapret-vpn:6 compose2swarm | docker stack deploy --prune -c - antizapret
+      docker compose config | docker run --pull always --rm -i xtrime/antizapret-vpn:6 compose2swarm | docker stack deploy --prune -c - antizapret
    docker system prune -af
    ```
 

@@ -144,7 +144,7 @@ Some of the sites, which use geoip to block users, will be proxied through **for
     vspy2m6w4tf7uv4ywgdnzttvr     az-world   Ready     Active                          29.0.1
     ```
 1. [Primary] Add labels for nodes `docker node update --label-add location=local az-local && docker node update --label-add location=world az-world`
-1. [Primary]: start swarm `docker compose config | docker run --rm -i xtrime/antizapret-vpn:6 compose2swarm | docker stack deploy --prune -c - antizapret `
+1. [Primary]: start swarm `   docker compose config | docker run --pull always --rm -i xtrime/antizapret-vpn:6 compose2swarm | docker stack deploy --prune -c - antizapret`
 
 ## VPN / Hosting block
 Most providers now block vpn connections to foreign IPs. Obfuscation in Amnezia or OpenVpn not always fix the issue.
@@ -245,7 +245,7 @@ Some containers have same ports. So you need to choose unique external port in d
    ```shell
    git pull --rebase
    docker pull xtrime/antizapret-vpn:6
-   docker compose config | docker run --rm -i xtrime/antizapret-vpn:6 compose2swarm | docker stack deploy --prune -c - antizapret
+   docker compose config | docker run --pull always --rm -i xtrime/antizapret-vpn:6 compose2swarm | docker stack deploy --prune -c - antizapret
    docker system prune -af
    ```
 
