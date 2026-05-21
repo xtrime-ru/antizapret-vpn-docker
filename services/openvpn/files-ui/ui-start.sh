@@ -9,21 +9,6 @@ echo "Init. OVPN path: $OPENVPN_DIR"
 # Change to the /opt directory
 cd /opt/
 
-# If the provisioned file does not exist in the OpenVPN directory, prepare the certificates and create the provisioned file
-if [ ! -f $OPENVPN_DIR/.provisioned ]; then
-  #echo "Preparing certificates"
-  mkdir -p $OPENVPN_DIR
-  mkdir -p $OPENVPN_DIR/log
-
-  # Uncomment line below to generate CA and server certificates (should be done on the side of OpenVPN container or server however)
-  #./scripts/generate_ca_and_server_certs.sh
-
-  # Create the provisioned file
-  touch $OPENVPN_DIR/.provisioned
-
-  echo "First OpenVPN UI start."
-fi
-
 # Change to the OpenVPN GUI directory
 cd /opt/openvpn-ui
 
