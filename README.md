@@ -34,7 +34,8 @@ This repo is based on idea from original [AntiZapret LXD image](https://bitbucke
     - [When to use Dante instead of DNS-based routing](#when-to-use-dante-instead-of-dns-based-routing)
     - [Configuration](#configuration)
     - [Client setup](#client-setup)
-    - [Example use cases](#example-use-cases)     
+    - [Example use cases](#example-use-cases)
+  - [HTTP(S) Proxy](#https-proxy)
   - [Environment Variables](#environment-variables)
   - [DNS](#dns)
     - [Adguard Upstream DNS](#adguard-upstream-dns)
@@ -561,6 +562,39 @@ For Windows clients, use [AntizapretSOCKS5](https://github.com/danayer/Antizapre
 - **Browser** — use proxy extension to route specific sites through `socks-local` or `socks-world`
 - **Application with many hardcoded IPs** — instead of adding hundreds of IPs to `include-ips-custom.txt`, just proxy the whole app through socks5
 
+## HTTP(S) Proxy
+
+HTTP proxy works the same way as the SOCKS5 proxy described above, but uses Squid instead of Dante. Use it when your software only supports HTTP proxy (e.g. some browsers, CLI tools, or enterprise applications that lack SOCKS5 support).
+
+Two HTTP proxy containers are available:
+- **`http-proxy-local.antizapret:3128`** — traffic exits through the **local** server
+- **`http-proxy-world.antizapret:3128`** — traffic exits through the **world** server
+
+HTTPS proxy port (`3129` by default) is also available with a self-signed TLS certificate for secure external access. If you use these proxies only inside VPN, you probably don't need it.
+
+Authentication: HTTP Basic (configured via environment variables).
+To disable authentication, omit `HTTP_PROXY_USERNAME` and `HTTP_PROXY_PASSWORD` (or leave them empty).
+
+> [!CAUTION]
+> When using HTTP (not HTTPS) proxy with access from the Internet, credentials are transmitted in plain text and can be intercepted. To restrict access securely, use the HTTPS port (`3129`) or keep the HTTP port (`3128`) accessible only through VPN.
+
+### Configuration
+
+Example available in [`docker-compose.override.sample.yml`](docker-compose.override.sample.yml).
+
+> [!NOTE]
+> `http-proxy-world` requires [Docker Swarm mode](#docker-swarm-multiple-exit-nodes-advanced) with two nodes.
+> On a single server only `http-proxy-local` will work.
+
+### Client setup
+
+1. Connect to VPN
+2. Configure an HTTP proxy in your application or browser:
+    - **Host:** `http-proxy-local.antizapret` or `http-proxy-world.antizapret`
+    - **Port:** `3128` (HTTP) or `3129` (HTTPS)
+    - **Username:** value of `HTTP_PROXY_USERNAME`
+    - **Password:** value of `HTTP_PROXY_PASSWORD`
+
 ## Environment Variables
 
 You can define these variables in docker-compose.override.yml file for your needs:
@@ -624,6 +658,12 @@ Consists of two containers: az-local and az-world. This is VPN exit nodes.
 ### SOCKS5 Proxy
 - `SOCKS_USERNAME` - username for SOCKS5 authentication (omit to disable authentication)
 - `SOCKS_PASSWORD` - password for SOCKS5 authentication (omit to disable authentication)
+
+### HTTP Proxy
+- `HTTP_PROXY_USERNAME` - username for HTTP authentication (omitting disable authentication)
+- `HTTP_PROXY_PASSWORD` - password for HTTP authentication (omitting disable authentication)
+- `HTTP_PROXY_PORT=3128` - HTTP port to listen
+- `HTTPS_PROXY_PORT=3129` - HTTPS port to listen
 
 ## DNS
 ### Adguard Upstream DNS

@@ -91,3 +91,55 @@ services:
       endpoint_mode: dnsrr
       placement:
         constraints: [ node.labels.location == world ]
+
+  http-proxy-local:
+    hostname: http-proxy-local.antizapret
+    extends:
+      file: services/http-proxy/compose.yml
+      service: http-proxy
+    # Uncomment to use from Internet (CAUTION: you should set username and password below)
+    # ports:
+      # HTTP port
+      # CAUTION: when using HTTP, your proxy's username/password will be available to everyone in the traffic route
+      # - "3128:3128"
+      # HTTPS port
+      # - "3129:3129"
+    environment:
+      # When using without VPN, you should set a long login/password (12+ chars)
+      # Omit HTTP_PROXY_USERNAME and HTTP_PROXY_PASSWORD to disable authentication
+      - HTTP_PROXY_USERNAME=admin
+      - HTTP_PROXY_PASSWORD=password
+      # - HTTP_PROXY_PORT=3128
+      # - HTTPS_PROXY_PORT=3129
+    deploy:
+      mode: replicated
+      replicas: 1
+      endpoint_mode: dnsrr
+      placement:
+        constraints: [ node.labels.location == local ]
+
+  http-proxy-world:
+    hostname: http-proxy-world.antizapret
+    extends:
+      file: services/http-proxy/compose.yml
+      service: http-proxy
+    # Uncomment to use from Internet (CAUTION: you should set username and password below)
+    # ports:
+      # HTTP port
+      # CAUTION: when using HTTP, your proxy's username/password will be available to everyone in the traffic route
+      # - "3128:3128"
+      # HTTPS port
+      # - "3129:3129"
+    environment:
+      # When using without VPN, you should set a long login/password (12+ chars)
+      # Omit HTTP_PROXY_USERNAME and HTTP_PROXY_PASSWORD to disable authentication
+      - HTTP_PROXY_USERNAME=admin
+      - HTTP_PROXY_PASSWORD=password
+      # - HTTP_PROXY_PORT=3128
+      # - HTTPS_PROXY_PORT=3129
+    deploy:
+      mode: replicated
+      replicas: 1
+      endpoint_mode: dnsrr
+      placement:
+        constraints: [ node.labels.location == world ]
