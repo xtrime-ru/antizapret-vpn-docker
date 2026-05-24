@@ -1,6 +1,6 @@
 module compose2swarm
 
-go 1.25.3
+go 1.26
 
 require (
 	github.com/compose-spec/compose-go v1.20.2

@@ -1,4 +1,4 @@
-FROM golang:1.25 AS builder
+FROM golang:1.26 AS builder
 
 ENV GOFLAGS="-buildvcs=false"
 ARG COREDNS_VERSION="v1.14.0"

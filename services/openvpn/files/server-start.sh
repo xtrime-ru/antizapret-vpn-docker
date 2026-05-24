@@ -81,7 +81,8 @@ mkdir -p $OPENVPN_DIR/clients
 mkdir -p $OPENVPN_DIR/staticclients
 
 echo 'Start openvpn process...'
-tail -f $OPENVPN_DIR/log/*.log &
+mkdir -p $OPENVPN_DIR/log
+while true; do tail -f $OPENVPN_DIR/log/*.log; sleep 1; done &
 
 touch "$INIT_FILE"
 

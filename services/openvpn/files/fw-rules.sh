@@ -24,4 +24,4 @@ iptables -t nat -A masq_not_local -d ${DOCKER_SUBNET} -j MASQUERADE;
 iptables -t nat -A masq_not_local -d ${AZ_SUBNET} -j RETURN;
 iptables -t nat -A masq_not_local -j MASQUERADE;
 
-./routes.sh --vpn &
+./routes.sh --vpn --dns-file /opt/antizapret/result/dns.txt &

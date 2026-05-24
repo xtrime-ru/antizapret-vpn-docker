@@ -241,6 +241,12 @@ redgifs.com
 reverb.com
 spotify.com
 
+# rutracker
+t-ru.org
+rutracker.org
+rutracker.cc
+rutrk.org
+
 #twitch
 ttvnw.net
 
@@ -252,6 +258,8 @@ nflxvideo.net
 hdrezka.me
 rezka.ag
 hdrezka.ac
+voidboost.cc
+voidboost.in
 
 # Games / Gaming Platforms
 brawlstarsgame.com
@@ -272,6 +280,15 @@ supercell.com
 wbagora.com
 wbgames.com
 wbinsights.com
+brawlstars.com
+brawlstarsgame.com
+supercell.com
+supercell.net
+supercellgames.com
+supercellid.com
+supercellstore.com
+gamesfirsthelsinki.com
+helpshift.com
 
 # DevTools / Tech / IT Vendors
 analog.com
@@ -347,6 +364,9 @@ veeam.com
 we.tl
 windsurf.com
 zencdn.net
+xdaforums.com
+raw.githubusercontent.com
+release-assets.githubusercontent.com
 
 # Xerox
 xerox.co.uk
@@ -475,3 +495,7 @@ contentful.com
 ctfassets.net
 cdn.tagdeliver.com
 fastly.com
+
+# shopping
+shein.com
+ltwebstatic.com

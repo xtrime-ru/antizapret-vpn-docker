@@ -3,13 +3,17 @@ package main
 import (
 	"bufio"
 	"compress/gzip"
+	"crypto/md5"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -386,7 +390,55 @@ func update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte("ok"))
+	fmt.Fprintln(w, "ok")
+}
+
+func configMd5Handler(w http.ResponseWriter, r *http.Request) {
+	configPaths := []string{"/root/antizapret/config/", "/root/antizapret/result/"}
+	md5s := []string{}
+
+	for _, configPath := range configPaths {
+		err := filepath.WalkDir(configPath, func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if d.IsDir() {
+				return nil
+			}
+
+			f, err := os.Open(path)
+			if err != nil {
+				return err
+			}
+			defer f.Close()
+
+			h := md5.New()
+			if _, err := io.Copy(h, f); err != nil {
+				return err
+			}
+
+			md5s = append(md5s, hex.EncodeToString(h.Sum(nil)))
+			return nil
+		})
+
+		if err != nil && !os.IsNotExist(err) {
+			http.Error(w, fmt.Sprintf("Failed to calculate md5 for %s: %v", configPath, err), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	if len(md5s) == 0 {
+		http.Error(w, "No config or result files found", http.StatusNotFound)
+		return
+	}
+
+	finalMd5 := md5.New()
+	for _, md5 := range md5s {
+		io.WriteString(finalMd5, md5)
+	}
+
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintln(w, hex.EncodeToString(finalMd5.Sum(nil)))
 }
 
 // responseWriterWrapper captures the status code and bytes written
@@ -468,6 +520,7 @@ func main() {
 	r.HandleFunc(`/list/`, adaptList)
 	r.HandleFunc(`/doall/`, doallHandler)
 	r.HandleFunc(`/update/`, update)
+	r.HandleFunc(`/config-md5/`, configMd5Handler)
 
 	fmt.Println("Starting server on http://localhost:80")
 	log.Fatal(http.ListenAndServe(":80", loggingMiddleware(r)))

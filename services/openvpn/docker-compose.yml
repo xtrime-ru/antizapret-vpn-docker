@@ -10,7 +10,7 @@ services:
       - net.ipv4.conf.all.src_valid_mark=1
     devices:
       - /dev/net/tun:/dev/net/tun
-    image: xtrime/antizapret-vpn-openvpn:6.1.0
+    image: xtrime/antizapret-vpn-openvpn:6.2.2
     build:
       context: .
       x-bake:
@@ -20,7 +20,7 @@ services:
     init: true
     healthcheck:
       test: (/opt/app/healthcheck.sh || kill -TERM 1) 2>&1 | tee /proc/1/fd/1
-      interval: 5s
+      interval: 10s
       timeout: 1s
       start_period: 5s
       start_interval: 1s
@@ -57,7 +57,7 @@ services:
     cap_add:
       - NET_ADMIN
       - SYS_MODULE
-    image: xtrime/antizapret-vpn-openvpn-ui:6.0.1
+    image: xtrime/antizapret-vpn-openvpn-ui:6.0.2
     build:
       context: .
       dockerfile: Dockerfile-ui

@@ -18,12 +18,16 @@ DOCKER_SUBNET=${DOCKER_SUBNET}
 DNS=${DNS:-"127.0.0.1"}
 CLIENT=${CLIENT:-"az-local"}
 DOALL_DISABLED=${DOALL_DISABLED:-""}
+IPS_URL='${IPS_URL:-""}'
+IPS_WORLD_URL='${IPS_WORLD_URL:-""}'
 AZ_SUBNET=${AZ_SUBNET:-"14.16.0.0/15"}
 LC_ALL=C.UTF-8
 EOF
 source /etc/default/antizapret
 # autoload vars when logging in into shell with 'bash -l'
 ln -sf /etc/default/antizapret /etc/profile.d/antizapret.sh
+
+DNS_FILE="/root/antizapret/result/dns.txt"
 
 
 # creating custom hosts files if they have not yet been initialized
@@ -32,7 +36,7 @@ for file in $(echo {exclude,include}-{hosts,ips,ips-world}-custom.txt); do
     [ ! -f $path ] && touch $path
 done
 
-( cat /root/antizapret/result/* /root/antizapret/config/custom/* | md5sum ) > /.config_md5
+( cat /root/antizapret/result/* /root/antizapret/config/custom/* 2>/dev/null | md5sum ) > /.config_md5
 
 # Prepare iptables for dnsmap.py
 iptables -t nat -N dnsmap
@@ -42,13 +46,13 @@ for eth in $(ip link | grep -oE "eth[0-9]"); do
     iptables -t nat -A POSTROUTING -o "$eth" -j MASQUERADE
 done
 
-/routes.sh &
+/usr/bin/dns-watcher --output "$DNS_FILE" --interval 5s &
+/routes.sh --dns-file "$DNS_FILE" &
 
-# output systemd logs to docker logs since container boot
+/usr/bin/doall
 
 postrun 'while true; do /opt/api/app; done'
-postrun 'while true; do /usr/bin/doall; sleep 6h; done'
+postrun 'while true; do sleep 6h; /usr/bin/doall; done'
 postrun 'while true; do /usr/bin/iperf3 -s -1; done'
 
-# systemd init
 exec /usr/bin/dnsmap -a 0.0.0.0 --iprange "$AZ_SUBNET"

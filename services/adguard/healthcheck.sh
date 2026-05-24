@@ -9,8 +9,9 @@ ADGUARDHOME_PORT=${ADGUARDHOME_PORT:-"3000"}
 
 AUTH=$(echo -n "$ADGUARDHOME_USERNAME:$ADGUARDHOME_PASSWORD" | base64)
 
-CONFIG_FILES="/root/antizapret/result/* /root/antizapret/config/custom/*"
-NEW_MD5=$(cat $CONFIG_FILES 2>/dev/null | md5sum | cut -d' ' -f1)
+CONFIG_LOCAL=$(curl -s "http://az-local.antizapret/config-md5/" || echo "")
+CONFIG_WORLD=$(curl -s "http://az-world.antizapret/config-md5/" || echo "")
+NEW_MD5="$CONFIG_LOCAL $CONFIG_WORLD"
 OLD_MD5=$(cat /.config_md5 2>/dev/null || echo "")
 
 if [ "$NEW_MD5" != "$OLD_MD5" ]; then

@@ -124,27 +124,29 @@ filters:
     name: Dist World Rules
     id: 7
   - enabled: true
+    url: https://raw.githubusercontent.com/xtrime-ru/antizapret-vpn-docker/v6/lists/block.txt
+    name: Block Spyware
+    id: 8
+  - enabled: true
     url: http://az-local.antizapret/list/?url=https://community.antifilter.download/list/domains.lst
     name: Antifilter Community Rules
-    id: 8
+    id: 9
   - enabled: true
     url: http://az-local.antizapret/list/?filter_dist=1&url=https://antifilter.download/list/domains.lst
     name: Antifilter Rules
-    id: 9
+    id: 10
   - enabled: false
     url: http://az-local.antizapret/list/?url=https://raw.githubusercontent.com/GubernievS/AntiZapret-VPN/refs/heads/main/setup/root/antizapret/download/include-hosts.txt
     name: GubernievS AntiZapret List
-    id: 10
+    id: 11
   - enabled: false
     url: http://az-local.antizapret/list/?filter_dist=1&url=https://blockedin.org/api/v3/domains/
     name: Blockedin.org List
-    id: 11
+    id: 12
 whitelist_filters: []
 user_rules:
   - '||*^$dnsrewrite=SERVFAIL,client=az-local'
   - '||*^$dnsrewrite=SERVFAIL,client=az-world'
-  - '@@||2ip.ru^$dnsrewrite,client=az-local'
-  - '@@||2ip.io^$dnsrewrite,client=az-world'
   - '||ntc.party^$dnsrewrite=130.255.77.28,client=az-local,important'
   - '#||*^$dnstype=HTTPS'
 dhcp:

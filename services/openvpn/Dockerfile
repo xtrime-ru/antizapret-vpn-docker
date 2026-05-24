@@ -1,8 +1,8 @@
 FROM d3vilh/openvpn-server:0.5.5
 
-RUN apk add -U --no-cache ipcalc grep moreutils && apk del openvpn
+RUN apk add -U --no-cache ipcalc grep moreutils inotify-tools && apk del openvpn
 
-ARG OPENVPN_VER=2.7.0
+ARG OPENVPN_VER=2.7.4
 ADD files/socket.patch /socket.patch
 # OpenVPN
 RUN <<-"EOT" bash -ex

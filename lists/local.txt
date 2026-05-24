@@ -59,12 +59,6 @@ x.com
 # signal
 signal.org
 
-# rutracker
-t-ru.org
-rutracker.org
-rutracker.cc
-rutrk.org
-
 # nnmclub
 nnm-club.ws
 nnmclub.ch
@@ -77,10 +71,6 @@ discordapp.com
 discord.media
 discordcdn.com
 discord-attachments-uploads-prd.storage.googleapis.com
-
-#video
-voidboost.cc
-voidboost.in
 
 #roblox
 roblox.com
