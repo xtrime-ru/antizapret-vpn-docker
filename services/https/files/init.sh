@@ -57,6 +57,12 @@ generate_global_config() {
         cat <<EOF >>"$CONFIG_FILE"
 {
   auto_https disable_redirects
+  servers {
+  		listener_wrappers {
+  			http_redirect
+  			tls
+  		}
+  }
 }
 EOF
     else
@@ -92,6 +98,9 @@ add_services_to_config() {
     -X-Frame-Options
   }
   reverse_proxy {
+    header_up Authorization {http.request.header.Authorization}
+    header_up Proxy-Authorization {http.request.header.Proxy-Authorization}
+
     dynamic a {
       name $internal_host
       port $internal_port

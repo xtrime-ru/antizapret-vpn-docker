@@ -1,9 +1,11 @@
 services:
-  http-proxy:
-    image: xtrime/antizapret-vpn-http-proxy:6.0.0
+  proxy:
+    image: xtrime/antizapret-vpn-proxy:6.3.0
     init: true
     build:
       context: .
+      args:
+        - IMAGE=ghcr.io/tarampampam/3proxy:2
       x-bake:
         platforms:
           - linux/amd64
@@ -19,11 +21,16 @@ services:
     sysctls:
       - net.ipv4.ip_forward=1
       - net.ipv4.conf.all.src_valid_mark=1
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - $PWD/config/antizapret/result:/root/antizapret/result
     environment:
-      - HTTP_PROXY_USERNAME
-      - HTTP_PROXY_PASSWORD
-      - HTTP_PROXY_PORT
-      - HTTPS_PROXY_PORT
+      - PRIMARY_RESOLVER=14.16.0.1
+      - PROXY_LOGIN=
+      - PROXY_PASSWORD=
+      - PROXY_PORT=8180
+      - SOCKS_PORT=8118
+      - EXTRA_ACCOUNTS=
       - |
         ROUTES=
         openvpn:10.1.165.0/24;

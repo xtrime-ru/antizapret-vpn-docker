@@ -16,6 +16,8 @@ services:
       - "3443:3443"
       - "4443:4443"
       - "5443:5443"
+      - "8143:8143"
+      - "8243:8243"
     environment:
       # If not set, will be created and used self-signed certificate
       - PROXY_DOMAIN=
@@ -28,6 +30,8 @@ services:
       - PROXY_SERVICE_4=OpenVPN UI:3443:openvpn-ui.antizapret:8080
       - PROXY_SERVICE_5=WireGuard:4443:wireguard.antizapret:51821
       - PROXY_SERVICE_6=WireGuard Amnezia:5443:wireguard-amnezia.antizapret:51821
+      - PROXY_SERVICE_7=HTTP PROXY LOCAL:8143:proxy-local.antizapret:8180
+      - PROXY_SERVICE_8=HTTP PROXY WORLD:8243:proxy-world.antizapret:8180
     volumes:
       - /etc/timezone:/etc/timezone:ro
       - $PWD/config/https/data:/data
