@@ -6,6 +6,6 @@ NEW=$( cat /root/antizapret/result/* /root/antizapret/config/custom/* 2>/dev/nul
 if [[ "$OLD" != "$NEW" ]]; then
     echo "config files changed"
     doall
-    curl -s "http://127.0.0.1/update/"
+    curl -sf "http://127.0.0.1/update/"
     ( cat /root/antizapret/result/* /root/antizapret/config/custom/* 2>/dev/null | md5sum ) > /.config_md5
 fi

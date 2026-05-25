@@ -504,6 +504,7 @@ func main() {
 	err := updateRegexFilter()
 	if err != nil {
 		log.Fatalf("Failed to initialize regex filters: %v", err)
+		panic(err)
 	}
 	defer func() {
 		if excludeMatcherDist != nil {
