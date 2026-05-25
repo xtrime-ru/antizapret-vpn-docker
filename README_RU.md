@@ -460,6 +460,7 @@ git restore config
  - `allow=1` - отключить эту опцию, чтобы блокировать домены из списка для этого узла выхода.
  - `raw=0` - не изменять правила
  - `suffix=1` - добавить "$dnsrewrite,client=xxx" в правила
+ - `dnsrewrite=SERVFAIL` - указать зачение директивы dnsrewrite
 
 ## Добавление IP/подсетей
 Добавьте ip и подсети в `./config/antizapret/custom/include-ips-custom.txt`.

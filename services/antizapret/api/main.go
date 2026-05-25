@@ -66,6 +66,7 @@ type ListRequest struct {
 	Allow        bool   `schema:"allow"`         //add @@ at the start of rule
 	Raw          bool   `schema:"raw"`           //dont modify rules
 	Suffix       bool   `schema:"suffix"`        //add $dnsrewrite,client=xxx to rules
+	DnsRewrite   string `schema:"dnsrewrite"`    //value for $dnsrewrite
 }
 
 type RegexFilter struct {
@@ -179,6 +180,7 @@ func adaptList(w http.ResponseWriter, r *http.Request) {
 		Allow:        true, // default (adds @@)
 		Suffix:       true,
 		Raw:          false,
+		DnsRewrite:   "SERVFAIL",
 	}
 
 	if err := decoder.Decode(&req, r.URL.Query()); err != nil {
@@ -284,12 +286,27 @@ func adaptList(w http.ResponseWriter, r *http.Request) {
 				if !strings.HasPrefix(line, "/") {
 					out = "||" + out + "^"
 				}
-				if req.Suffix {
-					out = fmt.Sprintf("%s$dnsrewrite,client=%s", out, req.Client)
-				}
-
 				if req.Allow {
 					out = "@@" + out
+				}
+				if req.Suffix {
+					suffix := ""
+
+					if len(req.DnsRewrite) > 0 {
+						if strings.HasPrefix(out, "@@") {
+                            suffix = "$dnsrewrite"
+                        } else {
+                            suffix = fmt.Sprintf("$dnsrewrite=%s", req.DnsRewrite)
+                        }
+					}
+
+					if len(req.Client) > 0 {
+						if len(suffix) > 0 {
+							suffix += ","
+						}
+						suffix += fmt.Sprintf("client=%s", req.Client)
+					}
+					out += suffix
 				}
 			}
 

@@ -462,6 +462,7 @@ Options for adapter:
  - `allow=1` - disable this option, to block domains from list for this exit node.
  - `raw=0` - dont modify rules
  - `suffix=1` - add "$dnsrewrite,client=xxx" to rules
+ - `dnsrewrite=SERVFAIL` - set custom dnsrewrite value
 
 ## Adding IPs/Subnets
 Add ips and subnets to `./config/antizapret/custom/include-ips-custom.txt`. 
