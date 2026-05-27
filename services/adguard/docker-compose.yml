@@ -1,6 +1,6 @@
 services:
   adguard:
-    image: xtrime/antizapret-vpn-adguard:6.2.1
+    image: xtrime/antizapret-vpn-adguard:6.2.2
     build: 
       context: .
       x-bake:
@@ -16,9 +16,9 @@ services:
       - net.ipv4.ip_forward=1
       - net.ipv4.conf.all.src_valid_mark=1
     healthcheck:
-      test: (timeout 2m /root/healthcheck.sh || kill -TERM 1) 2>&1 | tee /proc/1/fd/1
+      test: (timeout 10m /root/healthcheck.sh || kill -TERM 1) 2>&1 | tee /proc/1/fd/1
       interval: 10s
-      timeout: 3m
+      timeout: 15m
     logging:
       driver: json-file
       options:

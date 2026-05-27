@@ -14,6 +14,9 @@ CONFIG_WORLD=$(curl -s "http://az-world.antizapret/config-md5/" || echo "")
 NEW_MD5="$CONFIG_LOCAL $CONFIG_WORLD"
 OLD_MD5=$(cat /.config_md5 2>/dev/null || echo "")
 
+CLIENTS=$(curl -s -X GET "http://127.0.0.1:$ADGUARDHOME_PORT/control/clients" -H "Authorization: Basic $AUTH")
+[[ "$CLIENTS" == 404* ]] && echo 'Adguard not ready' && exit 0;
+
 if [ "$NEW_MD5" != "$OLD_MD5" ]; then
     echo "Config files changed"
 
@@ -24,9 +27,6 @@ if [ "$NEW_MD5" != "$OLD_MD5" ]; then
 
     curl -s "http://127.0.0.1:$ADGUARDHOME_PORT/control/cache_clear" -X 'POST' -H "Authorization: Basic $AUTH"
 fi
-
-CLIENTS=$(curl -s -X GET "http://127.0.0.1:$ADGUARDHOME_PORT/control/clients" -H "Authorization: Basic $AUTH")
-[[ "$CLIENTS" == 404* ]] && echo 'Adguard not ready' && exit 0;
 
 update_client() {
     client_name=$1

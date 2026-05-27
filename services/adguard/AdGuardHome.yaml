@@ -148,6 +148,7 @@ user_rules:
   - '||*^$dnsrewrite=SERVFAIL,client=az-local'
   - '||*^$dnsrewrite=SERVFAIL,client=az-world'
   - '||ntc.party^$dnsrewrite=130.255.77.28,client=az-local,important'
+  - '||raw.githubusercontent.com^$dnsrewrite=185.199.108.133,client=coredns,important'
   - '#||*^$dnstype=HTTPS'
 dhcp:
   enabled: false
