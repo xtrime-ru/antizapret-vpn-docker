@@ -1,6 +1,6 @@
 services:
   antizapret:
-    image: xtrime/antizapret-vpn:5.4.1
+    image: xtrime/antizapret-vpn:5.4.2
     restart: unless-stopped
     stop_signal: SIGRTMIN+4
     init: true
