@@ -1,8 +1,7 @@
 services:
   antizapret:
-    image: xtrime/antizapret-vpn:6.3.3
+    image: xtrime/antizapret-vpn:6.3.4
     restart: unless-stopped
-    stop_signal: SIGRTMIN+4
     init: true
     cap_add:
       - NET_ADMIN
@@ -32,9 +31,11 @@ services:
       - /etc/localtime:/etc/localtime:ro
       - $PWD/config/antizapret/custom:/root/antizapret/config/custom
       - $PWD/config/antizapret/result:/root/antizapret/result
+      - $PWD/config/antizapret/iptables:/root/antizapret/iptables
       - $PWD/config/adguard/conf:/opt/adguardhome/conf
       - $PWD/config/adguard/work:/opt/adguardhome/work
     environment:
+      - TINI_KILL_PROCESS_GROUP=1
       - |
         ROUTES=
         openvpn:10.1.165.0/24;

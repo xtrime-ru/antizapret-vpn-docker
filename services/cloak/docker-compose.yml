@@ -1,7 +1,6 @@
 services:
   cloak:
     restart: unless-stopped
-    stop_signal: SIGRTMIN+4
     image: xtrime/antizapret-vpn-cloak:5.0.0
     build: 
       context: .

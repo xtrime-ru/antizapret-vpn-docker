@@ -4,6 +4,7 @@ set -e
 set -x
 
 rm -rf /tmp/*
+
 # run commands after start
 function postrun () {
     nohup bash -c "$@" &
@@ -40,12 +41,42 @@ done
 ( cat /root/antizapret/result/* /root/antizapret/config/custom/* 2>/dev/null | md5sum ) > /.config_md5
 
 # Prepare iptables for dnsmap.py
-iptables -t nat -N dnsmap
-iptables -t nat -A PREROUTING -d "${AZ_SUBNET}" -j dnsmap
-iptables -t nat -A OUTPUT -d "${AZ_SUBNET}" -j dnsmap
+CHAIN=dnsmap
+iptables -t nat -N "$CHAIN"
+iptables -t nat -A PREROUTING -d "${AZ_SUBNET}" -j "$CHAIN"
+iptables -t nat -A OUTPUT -d "${AZ_SUBNET}" -j "$CHAIN"
 for eth in $(ip link | grep -oE "eth[0-9]"); do
     iptables -t nat -A POSTROUTING -o "$eth" -j MASQUERADE
 done
+
+HOSTNAME=$(hostname -s)
+IPTABLES_SAVE="/root/antizapret/iptables/$HOSTNAME.rules"
+
+if [ -f "$IPTABLES_SAVE" ]; then
+  LINES=$(cat "$IPTABLES_SAVE" | wc -l)
+  if [ "$LINES" -gt 130000 ]; then
+    echo "iptables-save too big. removing old file."
+    rm -rf "$IPTABLES_SAVE"
+  else
+    while IFS= read -r rule || [ -n "$rule" ]; do
+      if [[ "$rule" =~ ^-A[[:space:]]"$CHAIN" ]]; then
+        iptables -t "nat" $rule
+      fi
+    done < "$IPTABLES_SAVE"
+  fi
+fi
+SAVED=0
+function save_iptables () {
+    if [ "$SAVED" = 0 ]; then
+      SAVED=1
+    else
+      return 0
+    fi
+    echo "saving iptables..."
+    iptables-save -t "nat" | grep -E "^-A $CHAIN " > /tmp/iptables.rules && mv -f /tmp/iptables.rules "$IPTABLES_SAVE" && echo "iptables saved"
+}
+
+trap save_iptables SIGTERM SIGINT SIGQUIT EXIT
 
 /usr/bin/dns-watcher --output "$DNS_FILE" --interval 5s &
 /routes.sh --dns-file "$DNS_FILE" &
@@ -56,4 +87,4 @@ postrun 'while true; do /opt/api/app; done'
 postrun 'while true; do sleep 6h; timeout 10m /usr/bin/doall; done'
 postrun 'while true; do /usr/bin/iperf3 -s -1; done'
 
-exec /usr/bin/dnsmap -a 0.0.0.0 --iprange "$AZ_SUBNET"
+/usr/bin/dnsmap -a 0.0.0.0 --iprange "$AZ_SUBNET"

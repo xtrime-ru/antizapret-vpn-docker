@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"compress/gzip"
+	"context"
 	"crypto/md5"
 	"encoding/hex"
 	"encoding/json"
@@ -13,10 +14,12 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/gorilla/schema"
@@ -294,10 +297,10 @@ func adaptList(w http.ResponseWriter, r *http.Request) {
 
 					if len(req.DnsRewrite) > 0 {
 						if strings.HasPrefix(out, "@@") {
-                            suffix = "$dnsrewrite"
-                        } else {
-                            suffix = fmt.Sprintf("$dnsrewrite=%s", req.DnsRewrite)
-                        }
+							suffix = "$dnsrewrite"
+						} else {
+							suffix = fmt.Sprintf("$dnsrewrite=%s", req.DnsRewrite)
+						}
 					}
 
 					if len(req.Client) > 0 {
@@ -540,6 +543,31 @@ func main() {
 	r.HandleFunc(`/update/`, update)
 	r.HandleFunc(`/config-md5/`, configMd5Handler)
 
-	fmt.Println("Starting server on http://localhost:80")
-	log.Fatal(http.ListenAndServe(":80", loggingMiddleware(r)))
+	server := &http.Server{
+		Addr:    ":80",
+		Handler: loggingMiddleware(r),
+	}
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	go func() {
+		fmt.Println("Starting server on http://localhost" + server.Addr)
+		log.Fatal(server.ListenAndServe())
+	}()
+
+	// Block main execution until a termination signal is caught
+	<-ctx.Done()
+	log.Println("Shutting down server gracefully...")
+
+	// Create a deadline context for the shutdown process (e.g., 1 seconds)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	// Trigger the graceful shutdown
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		log.Fatalf("Server graceful shutdown failed: %v", err)
+	}
+
+	log.Println("Server exited cleanly.")
+
 }
