@@ -262,15 +262,28 @@ Some containers have same ports. So you need to choose unique external port in d
    docker system prune -af
    ```
 - Swarm mode:
-   ```shell
-   docker stack rm antizapret && sleep 10
-   git fetch && git checkout v6 && git pull --rebase
-   docker compose config | docker run --pull always --rm -i xtrime/antizapret-vpn:6 compose2swarm | docker stack deploy --prune -c - antizapret
-   docker system prune -af
+   - master node:
+  ```shell
+  docker stack rm antizapret && sleep 10
+  git fetch && git checkout v6 && git pull --rebase
+  docker compose config | docker run --pull always --rm -i xtrime/antizapret-vpn:6 compose2swarm | docker stack deploy --prune -c - antizapret
+  docker system prune -af
    ```
+  - worker nodes:
+  ```shell
+  git fetch && git checkout v6 && git pull --rebase
+  ```
+
 2. Update clients:
-   - Wireguard/Amnezia - need to download new client configs, or add `14.16.0.0/14` to AllowedIps manually in old configs.
-   - OpenVPN - need to click save at openvpn-ui server config page: http://openvpn-ui.antizapret:8080/ov/config/ and then restart openvpn server.
+   - Wireguard/Amnezia 
+     - Check if your password is longer than 12 symbols. Update if needed in docker-compose.override.yml
+     - Download new client configs, or add `14.16.0.0/14` to AllowedIps manually in old configs.
+   - OpenVPN 
+     - Click save at openvpn-ui server config page: http://openvpn-ui.antizapret:8080/ov/config/ and then restart openvpn server.
+     - Install new dkms module on host: `apt remove openvpn-dkms-dco` + https://github.com/xtrime-ru/antizapret-vpn-docker/blob/v6/README.md?tab=readme-ov-file#enable-openvpn-data-channel-offload-dco
+   - Socks 
+   Replace it with proxy container and rename ENV variables. See example: https://github.com/xtrime-ru/antizapret-vpn-docker/blob/v6/docker-compose.override.sample.yml#L63-L93
+   Make sure you use strong password, because now HTTPS proxy accessible from internet.
 
 ## Reset:
 Remove all settings, vpn configs and return initial state of service:
@@ -481,7 +494,7 @@ It's a solution for per-application routing.
 ### How it works
 
 1. Connect to VPN (OpenVPN, WireGuard or Amnezia WireGuard)
-2. Configure your application to use SOCKS5 or HTTP/HTTPS proxy via proxy settings or tools like [ProxiFyre](https://github.com/wiresock/proxifyre)
+2. Configure your application to use SOCKS5 or HTTP/HTTPS proxy via proxy settings or tools like [AntizapretSOCKS5](https://github.com/danayer/AntizapretSOCKS5) (Windows), ProxyBridge, Proxifier or proxy settings in a web browser.
 3. All traffic from that application (including direct IP connections) will exit through the selected server node
 
 Two proxy containers are available:
@@ -621,8 +634,8 @@ Consists of two containers: az-local and az-world. This is VPN exit nodes.
 - `PROXY_LOGIN` - username for HTTP authentication (omitting disable authentication)
 - `PROXY_PASSWORD` - password for HTTP authentication (omitting disable authentication)
 - `PROXY_PORT=8180` - HTTP port to listen
-- `SOCKS_PORT=8118` - HTTPS port to listen
-- `EXTRA_ACCOUNTS` - Additional login:passord pairs. Example: `login:password;login2:password2`
+- `SOCKS_PORT=8118` - SOCKS5 port to listen
+- `EXTRA_ACCOUNTS` - Additional login:password pairs. Example: `login:password;login2:password2`
 - `EXTRA_CONFIG` - Raw 3proxy config lines injected before proxy/socks directives (empty by default)
 
 ## DNS

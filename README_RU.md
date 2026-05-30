@@ -268,8 +268,15 @@ services:
    docker system prune -af
    ```
 2. Обновите клиентов:
-   - Wireguard/Amnezia - нужно скачать новые конфигурации клиентов или вручную добавить `14.16.0.0/14` в AllowedIps в старых конфигурациях.
-   - OpenVPN - нужно нажать save на странице конфигурации сервера openvpn-ui: http://openvpn-ui.antizapret:8080/ov/config/ а затем перезапустить сервер openvpn.
+   - Wireguard/Amnezia
+     - Проверьте, что ваш пароль длиннее 12 символов. Обновите при необходимости в docker-compose.override.yml
+     - Скачайте новые конфигурации клиентов или вручную добавьте `14.16.0.0/14` в AllowedIps в старых конфигурациях.
+   - OpenVPN
+     - Нажмите save на странице конфигурации сервера openvpn-ui: http://openvpn-ui.antizapret:8080/ov/config/ а затем перезапустите сервер openvpn.
+     - Установите новый dkms модуль на хост: `apt remove openvpn-dkms-dco` + https://github.com/xtrime-ru/antizapret-vpn-docker/blob/v6/README.md?tab=readme-ov-file#enable-openvpn-data-channel-offload-dco
+   - Socks
+   Замените его на контейнер proxy и переименуйте переменные окружения. См. пример: https://github.com/xtrime-ru/antizapret-vpn-docker/blob/v6/docker-compose.override.sample.yml#L63-L93
+   Убедитесь, что используете надежный пароль, потому что теперь HTTPS прокси доступен из интернета.
 
 ## Сброс:
 Удалить все настройки, VPN-конфигурации и вернуть начальное состояние сервиса:
@@ -335,7 +342,7 @@ git restore config
           1. Сохраните конфигурацию и перезапустите сервер.
           1. Добавьте `link-mtu 1200` в ваш client.conf
    7. Если ничего не помогает, попробуйте другой хостинг и/или [каскад](#блокировка-vpn--хостинга)
-4. Как отладить проблемы с VPN?
+5. Как отладить проблемы с VPN?
     1. Проверьте, установлено ли VPN-соединение и работает ли DNS-сервер:
        ```shell
        > nslookup youtube.com
@@ -614,6 +621,14 @@ AntiZapret использует DNS-маршрутизацию (split tunneling)
 ### SOCKS5 прокси (устарело, используйте proxy ниже)
 - `SOCKS_USERNAME` - имя пользователя для аутентификации SOCKS5 (пропустите, чтобы отключить аутентификацию)
 - `SOCKS_PASSWORD` - пароль для аутентификации SOCKS5 (пропустите, чтобы отключить аутентификацию)
+
+### Proxy (http + socks5)
+- `PROXY_LOGIN` - имя пользователя для HTTP аутентификации (пропуск отключает аутентификацию)
+- `PROXY_PASSWORD` - пароль для HTTP аутентификации (пропуск отключает аутентификацию)
+- `PROXY_PORT=8180` - HTTP порт для прослушивания
+- `SOCKS_PORT=8118` - SOCKS5 порт для прослушивания
+- `EXTRA_ACCOUNTS` - Дополнительные пары логин:пароль. Пример: `login:password;login2:password2`
+- `EXTRA_CONFIG` - Сырые строки конфигурации 3proxy, внедряемые перед директивами proxy/socks (по умолчанию пусто)
 
 ## DNS
 ### Upstream DNS для Adguard
