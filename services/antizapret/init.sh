@@ -3,6 +3,7 @@
 set -e
 set -x
 
+rm -rf /tmp/*
 # run commands after start
 function postrun () {
     nohup bash -c "$@" &
@@ -49,10 +50,10 @@ done
 /usr/bin/dns-watcher --output "$DNS_FILE" --interval 5s &
 /routes.sh --dns-file "$DNS_FILE" &
 
-/usr/bin/doall
+timeout 5m /usr/bin/doall || (echo 'doall timeout'; exit 1)
 
 postrun 'while true; do /opt/api/app; done'
-postrun 'while true; do sleep 6h; /usr/bin/doall; done'
+postrun 'while true; do sleep 6h; timeout 10m /usr/bin/doall; done'
 postrun 'while true; do /usr/bin/iperf3 -s -1; done'
 
 exec /usr/bin/dnsmap -a 0.0.0.0 --iprange "$AZ_SUBNET"

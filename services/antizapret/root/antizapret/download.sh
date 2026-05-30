@@ -21,7 +21,7 @@ function download_list() {
     for url in ${urls//;/ }; do
         url=$(echo "$url" | tr -d '[:space:]')
         if [ -z "$url" ]; then continue; fi
-        if ! curl -L -f -s "$url" >> "$tmp_file"; then
+        if ! curl --max-time 60 -L -f -s "$url" >> "$tmp_file"; then
             echo "Failed to download $url"
             success=false
             break
