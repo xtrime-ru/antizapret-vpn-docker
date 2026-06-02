@@ -76,7 +76,7 @@ trap save_iptables EXIT HUP INT QUIT PIPE TERM
 /usr/bin/dns-watcher --output "$DNS_FILE" --interval 5s &
 /routes.sh --dns-file "$DNS_FILE" &
 
-timeout 5m /usr/bin/doall || (echo 'doall timeout'; exit 1)
+timeout 5m /usr/bin/doall || echo 'doall failed during startup, continuing with existing lists'
 
 postrun 'while true; do /opt/api/app; done'
 postrun 'while true; do sleep 6h; timeout 10m /usr/bin/doall; done'
