@@ -70,6 +70,8 @@ EOF
 {
   email $PROXY_EMAIL
   auto_https disable_redirects
+  http_port 80
+  https_port 443
 }
 EOF
     fi
@@ -113,11 +115,13 @@ EOF
         cat <<EOF >>"$CONFIG_FILE"
 
 #$name#
-https://$PROXY_DOMAIN:$external_port {
+$PROXY_DOMAIN:$external_port {
   header {
     -X-Frame-Options
   }
   reverse_proxy {
+    header_up Authorization {http.request.header.Authorization}
+    header_up Proxy-Authorization {http.request.header.Proxy-Authorization}
     dynamic a {
       name $internal_host
       port $internal_port
