@@ -34,6 +34,10 @@ function download_list() {
     else
         echo "Failed to download some URLs or resulting file is empty, keeping old file"
         rm -f "$tmp_file"
+        if [ ! -f "$output_file" ]; then
+          echo "File not found. Creating empty: $output_file"
+          touch "$output_file"
+        fi
         return 1
     fi
 }
