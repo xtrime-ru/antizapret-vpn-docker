@@ -112,10 +112,15 @@ add_services_to_config() {
 }
 EOF
     else
+        if [ "$external_port" -eq 443 ]; then
+          external_port=''
+        else
+          external_port=":$external_port"
+        fi
         cat <<EOF >>"$CONFIG_FILE"
 
 #$name#
-$PROXY_DOMAIN:$external_port {
+$PROXY_DOMAIN$external_port {
   header {
     -X-Frame-Options
   }
