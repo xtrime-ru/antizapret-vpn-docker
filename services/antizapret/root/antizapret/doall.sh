@@ -22,8 +22,8 @@ done
 
 touch "$lock_file"
 
-trap 'rm -f $lock_file' \
-    SIGTERM SIGINT SIGQUIT EXIT
+trap 'trap - EXIT; rm -f $lock_file' \
+    EXIT HUP INT QUIT PIPE TERM
 
 download_failed=false
 echo "run download.sh" && ./download.sh || download_failed=true

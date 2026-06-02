@@ -1,6 +1,6 @@
 services:
   antizapret:
-    image: xtrime/antizapret-vpn:6.4.1
+    image: xtrime/antizapret-vpn:6.4.2
     restart: unless-stopped
     init: true
     cap_add:
@@ -22,7 +22,7 @@ services:
         max-size: 100k
         max-file: 2
     healthcheck:
-      test: (/healthcheck.sh || kill -TERM 1) 2>&1 | tee /proc/1/fd/1
+      test: /healthcheck.sh
       interval: 10s
       timeout: 15m
       start_period: 5s

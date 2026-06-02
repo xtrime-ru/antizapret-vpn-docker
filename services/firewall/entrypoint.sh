@@ -3,8 +3,8 @@ set -ex
 
 first_run=true
 running=true
-trap 'running=false; ( [ -n "$sleep_pid" ] && kill "$sleep_pid" ); ./block.sh clear' \
-    SIGTERM SIGINT SIGQUIT ERR EXIT
+trap 'trap - EXIT; running=false; ( [ -n "$sleep_pid" ] && kill "$sleep_pid" ); ./block.sh clear' \
+    EXIT HUP INT QUIT PIPE TERM
 
 fail_count=0
 while [ "$running" = true ]; do

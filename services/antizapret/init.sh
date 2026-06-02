@@ -58,25 +58,20 @@ if [ -f "$IPTABLES_SAVE" ]; then
     echo "iptables-save too big. removing old file."
     rm -rf "$IPTABLES_SAVE"
   else
-    while IFS= read -r rule || [ -n "$rule" ]; do
+    while IFS= read -r rule; do
       if [[ "$rule" =~ ^-A[[:space:]]"$CHAIN" ]]; then
         iptables -t "nat" $rule || echo "cant add iptables rule: $rule"
       fi
     done < "$IPTABLES_SAVE"
   fi
 fi
-SAVED=0
 function save_iptables () {
-    if [ "$SAVED" = 0 ]; then
-      SAVED=1
-    else
-      return 0
-    fi
+    trap - EXIT;
     echo "saving iptables..."
     iptables-save -t "nat" | grep -E "^-A $CHAIN " > /tmp/iptables.rules && mv -f /tmp/iptables.rules "$IPTABLES_SAVE" && echo "iptables saved"
 }
 
-trap save_iptables SIGTERM SIGINT SIGQUIT EXIT
+trap save_iptables EXIT HUP INT QUIT PIPE TERM
 
 /usr/bin/dns-watcher --output "$DNS_FILE" --interval 5s &
 /routes.sh --dns-file "$DNS_FILE" &

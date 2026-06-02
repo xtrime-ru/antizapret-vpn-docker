@@ -57,7 +57,7 @@ function resolve () {
 }
 
 running=true
-trap 'running=false' SIGTERM SIGINT SIGQUIT
+trap 'running=false' EXIT HUP INT QUIT PIPE TERM
 
 function update_addresses() {
     for route in ${ROUTES//;/ }; do

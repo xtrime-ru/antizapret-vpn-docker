@@ -196,6 +196,10 @@ def send_udp(data,host,port):
 if __name__ == '__main__':
 
     import argparse, time, os, sys
+    from pathlib import Path
+
+    flag_file_path = '/tmp/.dns_started'
+    Path(flag_file_path).unlink(missing_ok=True)
 
     dns = os.getenv('DNS', '127.0.0.1') + ':53'
 
@@ -253,5 +257,6 @@ if __name__ == '__main__':
                                handler=handler)
         tcp_server.start_thread()
 
+    Path(flag_file_path).touch()
     while udp_server.isAlive():
         time.sleep(1)
