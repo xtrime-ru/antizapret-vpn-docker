@@ -60,7 +60,7 @@ if [ -f "$IPTABLES_SAVE" ]; then
   else
     while IFS= read -r rule || [ -n "$rule" ]; do
       if [[ "$rule" =~ ^-A[[:space:]]"$CHAIN" ]]; then
-        iptables -t "nat" $rule
+        iptables -t "nat" $rule || echo "cant add iptables rule: $rule"
       fi
     done < "$IPTABLES_SAVE"
   fi
