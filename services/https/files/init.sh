@@ -56,7 +56,6 @@ generate_global_config() {
     if [ "$IS_SELF_SIGNED" -eq 1 ]; then
         cat <<EOF >>"$CONFIG_FILE"
 {
-  auto_https disable_redirects
   servers {
   		listener_wrappers {
   			http_redirect
@@ -69,7 +68,6 @@ EOF
         cat <<EOF >>"$CONFIG_FILE"
 {
   email $PROXY_EMAIL
-  auto_https disable_redirects
   http_port 80
   https_port 443
 }
