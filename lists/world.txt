@@ -240,6 +240,8 @@ radiojar.com
 redgifs.com
 reverb.com
 spotify.com
+theins.ru
+meduza.io
 
 # rutracker
 t-ru.org
@@ -260,6 +262,8 @@ rezka.ag
 hdrezka.ac
 voidboost.cc
 voidboost.in
+
+lostfilm.tv
 
 # Games / Gaming Platforms
 brawlstarsgame.com
@@ -289,6 +293,10 @@ supercellid.com
 supercellstore.com
 gamesfirsthelsinki.com
 helpshift.com
+
+#roblox
+roblox.com
+rbxcdn.com
 
 # DevTools / Tech / IT Vendors
 analog.com
@@ -402,12 +410,21 @@ oculus.com
 oculuscdn.com
 oculusvr.com
 viewpointsfromfacebook.com
-viber.com
-vb.me
 whatsapp.com
 whatsapp.net
 wa.me
 deovr.com
+
+viber.com
+vb.me
+
+# twitter
+t.co
+twimg.com
+x.com
+
+# signal
+signal.org
 
 # Hardware / Consumer Tech
 asus.com

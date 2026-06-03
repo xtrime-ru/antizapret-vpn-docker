@@ -12,9 +12,7 @@ getoutline.com
 intercomcdn.com
 lib.ru
 licdn.com
-lostfilm.tv
 pravdabeslana.ru
-theins.ru
 wixmp.com
 readybot.io
 ioncube.com
@@ -51,14 +49,6 @@ googlevideo.com
 youtubei.googleapis.com
 youtubekids.com
 
-# twitter
-t.co
-twimg.com
-x.com
-
-# signal
-signal.org
-
 # nnmclub
 nnm-club.ws
 nnmclub.ch
@@ -71,10 +61,6 @@ discordapp.com
 discord.media
 discordcdn.com
 discord-attachments-uploads-prd.storage.googleapis.com
-
-#roblox
-roblox.com
-rbxcdn.com
 
 #ubisoft
 store.ubi.com
