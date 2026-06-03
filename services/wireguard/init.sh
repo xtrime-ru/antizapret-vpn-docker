@@ -1,16 +1,19 @@
 #!/usr/bin/env bash
 
+CONFIG_FILES="/opt/antizapret/result/ips*"
+cat $CONFIG_FILES 2>/dev/null | md5sum | cut -d' ' -f1 > /.config_md5
+
 if [ -z "$WG_HOST" ]; then
-    export WG_HOST=$(curl -4 icanhazip.com)
+    ip="$(timeout 1s curl -4 icanhazip.com || echo '')"
+    if [ -n "$ip" ]; then
+      export WG_HOST="$ip"
+    fi
 fi
 
 export WG_DEFAULT_ADDRESS=${WG_DEFAULT_ADDRESS:-"10.1.166.x"}
 export WG_PORT=${WG_PORT:-51820}
 export AZ_SUBNET=${AZ_SUBNET:-"14.16.0.0/14"}
 WG_DEFAULT_DNS_VALUE="${WG_DEFAULT_DNS:-14.16.0.1}"
-
-CONFIG_FILES="/opt/antizapret/result/ips*"
-cat $CONFIG_FILES 2>/dev/null | md5sum | cut -d' ' -f1 > /.config_md5
 
 DOCKER_SUBNET="$(ipcalc "$(ip -4 addr show dev eth0 | awk '$1=="inet" {print $2; exit}')" | awk '/Network:/ {print $2}')"
 
