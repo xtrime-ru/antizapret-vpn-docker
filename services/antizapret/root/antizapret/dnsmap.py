@@ -3,7 +3,7 @@
 
 from __future__ import print_function
 
-import socket, struct, subprocess
+import socket, struct, subprocess, threading
 
 from collections import deque
 from ipaddress import IPv4Network
@@ -44,6 +44,7 @@ class ProxyResolver(BaseResolver):
 
         self.ipmap = {}
         self.tablename = tablename
+        self.mapping_lock = threading.RLock()
 
         # Load existing mappings
         get_mappings = "iptables -w -t nat -nL dnsmap | awk '{if (NR<3) {next}; sub(/to:/, \"\", $6); print $5,$6}'"
@@ -51,38 +52,44 @@ class ProxyResolver(BaseResolver):
         for mapped in output.split("\n"):
             if mapped:
                 fake_addr, real_addr = mapped.split(' ')
-                self.add_mapping(real_addr, fake_addr) or sys.exit(1)
+                if not self.add_mapping(real_addr, fake_addr):
+                    print("ERROR: Failed to load mapping {} to {}, ignoring".format(fake_addr, real_addr))
         #self.unassigned_addresses.remove()
 
     def get_mapping(self, real_addr):
         return self.ipmap.get(real_addr)
 
     def add_mapping(self, real_addr, fake_addr=None):
-        if self.get_mapping(real_addr):
-            # Real addr is already mapped
-            print("Real addr {} is already mapped".format(real_addr))
-            return False
+        with self.mapping_lock:
+            existing_fake_addr = self.get_mapping(real_addr)
+            if existing_fake_addr:
+                if fake_addr:
+                    print("ERROR: Real addr {} is already mapped to {}, ignoring duplicate mapping to {}".format(
+                        real_addr, existing_fake_addr, fake_addr
+                    ))
+                    return True
+                return existing_fake_addr
 
-        if fake_addr:
-            try:
-                self.unassigned_addresses.remove(fake_addr)
-                self.ipmap[real_addr]=fake_addr
+            if fake_addr:
+                try:
+                    self.unassigned_addresses.remove(fake_addr)
+                    self.ipmap[real_addr]=fake_addr
+                    print('Mapping {} to {}'.format(fake_addr, real_addr))
+                except ValueError:
+                    print("ERROR: Fake addr {} not in unassigned addresses list".format(fake_addr))
+                    return False
+            else:
+                try:
+                    fake_addr = self.unassigned_addresses.popleft()
+                except IndexError:
+                    print("ERROR: No IP addresses left!!!")
+                    return False
                 print('Mapping {} to {}'.format(fake_addr, real_addr))
-            except ValueError:
-                print("Fake addr {} not in unassigned addresses list".format(fake_addr))
-                return False
-        else:
-            try:
-                fake_addr = self.unassigned_addresses.popleft()
-            except IndexError:
-                print("ERROR: No IP addresses left!!!")
-                return False
-            print('Mapping {} to {}'.format(fake_addr, real_addr))
-            self.ipmap[real_addr]=fake_addr
-            set_mappings = f"iptables -w -t nat -A dnsmap -d '{fake_addr}' -j DNAT --to '{real_addr}'"
-            subprocess.call(set_mappings, shell=True, encoding='utf-8')
-            return fake_addr
-        return True
+                self.ipmap[real_addr]=fake_addr
+                set_mappings = f"iptables -w -t nat -A dnsmap -d '{fake_addr}' -j DNAT --to '{real_addr}'"
+                subprocess.call(set_mappings, shell=True, encoding='utf-8')
+                return fake_addr
+            return True
 
     def resolve(self,request,handler):
         try:
