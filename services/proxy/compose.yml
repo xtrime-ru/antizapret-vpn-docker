@@ -1,6 +1,6 @@
 services:
   proxy:
-    image: xtrime/antizapret-vpn-proxy:6.3.0
+    image: xtrime/antizapret-vpn-proxy:6.5.1
     init: true
     build:
       context: .
@@ -23,7 +23,6 @@ services:
       - net.ipv4.conf.all.src_valid_mark=1
     volumes:
       - /etc/localtime:/etc/localtime:ro
-      - $PWD/config/antizapret/result:/root/antizapret/result
     environment:
       - PRIMARY_RESOLVER=14.16.0.1
       - PROXY_LOGIN=

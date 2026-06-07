@@ -12,12 +12,12 @@ RUN go mod download
 COPY ./compose2swarm .
 RUN go build -o compose2swarm
 
-FROM golang:1.26 AS builder-dns-watcher
+FROM golang:1.26 AS builder-routes
 WORKDIR /app
-COPY ./dns-watcher/go.* .
+COPY ./routes/go.* .
 RUN go mod download
-COPY ./dns-watcher .
-RUN go build -o dns-watcher
+COPY ./routes .
+RUN CGO_ENABLED=0 GOOS=linux go build -a -tags netgo -ldflags '-w -s -extldflags "-static"' -o routes
 
 FROM ubuntu:24.04
 
@@ -41,7 +41,6 @@ RUN <<-"EOT" bash -ex
         iptables \
         iproute2 \
         ipcalc \
-        inotify-tools \
         moreutils \
         procps \
         python3-dnslib \
@@ -53,7 +52,7 @@ EOT
 
 COPY --from=builder-api /app/app /opt/api/app
 COPY --from=builder-compose2swarm /app/compose2swarm /usr/bin/compose2swarm
-COPY --from=builder-dns-watcher /app/dns-watcher /usr/bin/dns-watcher
+COPY --from=builder-routes /app/routes /usr/bin/routes
 COPY . /
 
 RUN <<-"EOF" bash -ex

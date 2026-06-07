@@ -16,8 +16,15 @@ if [[ -n $ADGUARDHOME_PASSWORD ]]; then
     ADGUARDHOME_PASSWORD_HASH=${ADGUARDHOME_PASSWORD_HASH#*:}
 fi
 
+ADGUARD_ADDRESS=$(echo "$ROUTES" | grep -E 'adguard:' | head -n1 | cut -d: -f2 | tr -d '[:space:];')
+if [[ ! "$ADGUARD_ADDRESS" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]]; then
+    echo "Error: ROUTES must contain adguard:<ipv4-address>;" >&2
+    exit 1
+fi
 
-/root/routes.sh &
+iptables -t nat -A PREROUTING -d "$ADGUARD_ADDRESS" -j DNAT --to-destination 127.0.0.1
+
+routes &
 
 function resolve () {
     # $1 domain/ip address, $2 fallback ip address
@@ -47,13 +54,6 @@ yq -i '
     (.clients.persistent[] | select(.name == "az-world") | .ids) = ["'$AZ_WORLD_HOST'"] |
     (.clients.persistent[] | select(.name == "coredns") | .ids) = ["'$COREDNS_HOST'"]
     ' /opt/adguardhome/conf/AdGuardHome.yaml
-
-SERVER_COUNTRY=$( (curl -s https://ipinfo.io | jq -r '.country') || echo 'RU' )
-if [ "$SERVER_COUNTRY" = "RU" ]; then
-  yq -i '
-      .dns.edns_client_subnet.enabled=false
-      ' /opt/adguardhome/conf/AdGuardHome.yaml
-fi
 
 sed -i 's/antizapret-vpn-docker\/v5/antizapret-vpn-docker\/v6/g' /opt/adguardhome/conf/AdGuardHome.yaml
 
