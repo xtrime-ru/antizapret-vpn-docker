@@ -29,8 +29,6 @@ source /etc/default/antizapret
 # autoload vars when logging in into shell with 'bash -l'
 ln -sf /etc/default/antizapret /etc/profile.d/antizapret.sh
 
-DNS_FILE="/root/antizapret/result/dns.txt"
-
 
 # creating custom hosts files if they have not yet been initialized
 for file in $(echo {exclude,include}-{hosts,ips,ips-world}-custom.txt); do
@@ -73,8 +71,7 @@ function save_iptables () {
 
 trap save_iptables EXIT HUP INT QUIT PIPE TERM
 
-/usr/bin/dns-watcher --output "$DNS_FILE" --interval 5s &
-/routes.sh --dns-file "$DNS_FILE" &
+routes &
 
 timeout 5m /usr/bin/doall || echo 'doall failed during startup, continuing with existing lists'
 

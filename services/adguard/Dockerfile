@@ -1,6 +1,8 @@
 FROM adguard/adguardhome:latest
 
-RUN apk --no-cache add apache2-utils yq jq bash bind-tools curl inotify-tools
+RUN apk --no-cache add iptables apache2-utils yq jq bash bind-tools curl
+
+COPY --from=xtrime/antizapret-vpn:6.5 /usr/bin/routes /usr/bin/routes
 
 ADD . /root/
 

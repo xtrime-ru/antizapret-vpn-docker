@@ -15,5 +15,6 @@ if [ -z "$PROXY_LOGIN" ] || [ -z "$PROXY_PASSWORD" ]; then
   exit 1
 fi
 
-/routes.sh --vpn &
+routes --vpn &
+
 exec /bin/lua /entrypoint.lua
