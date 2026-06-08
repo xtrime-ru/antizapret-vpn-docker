@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"strings"
 	"syscall"
@@ -63,6 +64,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	cfg.enableDNSRedirect()
 	cfg.updateAddresses()
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
@@ -122,6 +124,41 @@ func parseRoutes(raw, self string) []routeSpec {
 		routes = append(routes, routeSpec{host: host, subnet: subnet})
 	}
 	return routes
+}
+
+func (a *app) enableDNSRedirect() {
+	if !a.vpn {
+		return
+	}
+
+	for _, route := range a.routes {
+		fmt.Fprintf(os.Stdout, "ROUTES: host=%s subnet=%s\n", route.host, route.subnet)
+		if route.host == "adguard" {
+			hasError := false
+			for _, protocol := range []string{"tcp", "udp"} {
+				for _, ruleset := range []string{"PREROUTING", "OUTPUT"} {
+					cmd := exec.Command(
+						"iptables",
+						"-t", "nat",
+						"-A", ruleset,
+						"-p", protocol,
+						"--dport", "53",
+						"-j", "DNAT",
+						"--to-destination", route.subnet,
+					)
+					err := cmd.Run()
+					if err != nil {
+						hasError = true
+						fmt.Fprintf(os.Stdout, "failed to add iptables DNS redirect for %s: %v\n", route.subnet, err)
+					}
+				}
+			}
+			if !hasError {
+				fmt.Printf("ROUTES: added iptables DNS redirect destination=%s\n", route.subnet)
+			}
+		}
+	}
+
 }
 
 func (a *app) updateAddresses() {
