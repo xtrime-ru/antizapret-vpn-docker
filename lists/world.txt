@@ -375,6 +375,7 @@ zencdn.net
 xdaforums.com
 raw.githubusercontent.com
 release-assets.githubusercontent.com
+caddy.community
 
 # Xerox
 xerox.co.uk
