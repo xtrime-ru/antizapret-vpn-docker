@@ -1,4 +1,4 @@
 #!/bin/bash
 set -ex
 
-curl "$1" -o "$2"
+curl --max-time 60 -f "$1" -g -o "$2"
