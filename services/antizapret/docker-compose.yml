@@ -28,7 +28,6 @@ services:
       start_period: 5s
       start_interval: 1s
     volumes:
-      - /etc/localtime:/etc/localtime:ro
       - $PWD/config/antizapret/custom:/root/antizapret/config/custom
       - $PWD/config/antizapret/result:/root/antizapret/result
       - $PWD/config/antizapret/iptables:/root/antizapret/iptables

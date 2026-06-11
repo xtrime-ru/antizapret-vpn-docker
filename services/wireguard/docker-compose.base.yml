@@ -33,7 +33,6 @@ services:
     depends_on:
       - az-local
     volumes:
-      - /etc/localtime:/etc/localtime:ro
       - $PWD/config/antizapret/result:/opt/antizapret/result
     deploy:
       mode: replicated

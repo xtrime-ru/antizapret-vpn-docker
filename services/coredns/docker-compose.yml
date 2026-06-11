@@ -18,8 +18,6 @@ services:
       options:
         max-size: 100k
         max-file: 2
-    volumes:
-      - /etc/localtime:/etc/localtime:ro
     healthcheck:
       test: (/root/healthcheck.sh || kill -TERM 1) 2>&1 | tee /proc/1/fd/1
       interval: 10s

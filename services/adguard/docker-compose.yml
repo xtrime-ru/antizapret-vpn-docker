@@ -26,7 +26,6 @@ services:
         max-size: 100k
         max-file: 2
     volumes:
-      - /etc/localtime:/etc/localtime:ro
       - $PWD/config/adguard/conf:/opt/adguardhome/conf
       - $PWD/config/adguard/work:/opt/adguardhome/work
     deploy:
