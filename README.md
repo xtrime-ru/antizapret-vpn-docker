@@ -81,6 +81,9 @@ https://t.me/antizapret_support
 
 # Installation
 
+> [!IMPORTANT]
+> Commands must be run as root. Otherwise, config files will have inconsistent rights, and some containers will reboot infinitely.
+
 ## Single Server (Easy)
 
 Recommended to use server located in western countries. Some sites will block users from other countries. 
