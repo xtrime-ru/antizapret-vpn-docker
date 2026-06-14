@@ -57,7 +57,7 @@ services:
     cap_add:
       - NET_ADMIN
       - SYS_MODULE
-    image: xtrime/antizapret-vpn-openvpn-ui:6.0.2
+    image: xtrime/antizapret-vpn-openvpn-ui:6.5.2
     build:
       context: .
       dockerfile: Dockerfile-ui

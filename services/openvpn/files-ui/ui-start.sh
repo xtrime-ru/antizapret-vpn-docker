@@ -46,6 +46,23 @@ sqlite3 /opt/openvpn-ui/db/data.db <<EOS
         d_n_s_server1 = 'push "dhcp-option DNS ${OPENVPN_DNS}"',
         push_route = 'push "route ${AZ_SUBNET} 255.252.0.0"'
     where profile = 'default';
+
+    with options(line) as (values
+        ('float'),
+        ('local * 1194 udp'),
+        ('local * 1194 tcp')
+    ), missing(value) as (
+        select group_concat(line, char(10)) from options
+        where instr(char(10) || replace(
+            (select custom_opt_two from o_v_config where profile = 'default'),
+            char(13), ''
+        ) || char(10), char(10) || line || char(10)) = 0
+    )
+    update o_v_config
+    set custom_opt_two = custom_opt_two ||
+        case when custom_opt_two = '' or substr(custom_opt_two, -1) = char(10) then '' else char(10) end ||
+        (select value from missing)
+    where profile = 'default' and (select value from missing) is not null;
 EOS
 [ $? -gt 0 ] && echo "SQLite migration failed" && exit 1
 
