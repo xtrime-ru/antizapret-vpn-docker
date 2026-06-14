@@ -128,15 +128,15 @@ filters:
     name: Block Spyware
     id: 8
   - enabled: true
-    url: http://az-world.antizapret/list/?url=https://community.antifilter.download/list/domains.lst
+    url: http://az-local.antizapret/list/?url=https://community.antifilter.download/list/domains.lst
     name: Antifilter Community Rules
     id: 9
   - enabled: true
-    url: http://az-world.antizapret/list/?filter_dist=1&url=https://antifilter.download/list/domains.lst
+    url: http://az-local.antizapret/list/?filter_dist=1&url=https://antifilter.download/list/domains.lst
     name: Antifilter Rules
     id: 10
   - enabled: false
-    url: http://az-world.antizapret/list/?url=https://raw.githubusercontent.com/GubernievS/AntiZapret-VPN/refs/heads/main/setup/root/antizapret/download/include-hosts.txt
+    url: http://az-local.antizapret/list/?url=https://raw.githubusercontent.com/GubernievS/AntiZapret-VPN/refs/heads/main/setup/root/antizapret/download/include-hosts.txt
     name: GubernievS AntiZapret List
     id: 11
   - enabled: false
