@@ -65,7 +65,8 @@ https://t.me/antizapret_support
 - Многосерверная архитектура для обхода гео-ограничений сервисов. Разные домены используют разные серверы в качестве узлов выхода.
 - Файрвол для защиты от сканирования портов.
 - Поддержка модулей ядра для OpenVPN и Amnezia Wireguard для снижения нагрузки на процессор.
-- SOCKS5 прокси (Dante) для маршрутизации конкретных приложений через локальные или зарубежные узлы выхода.
+- SOCKS5 и HTTP(S) прокси для маршрутизации конкретных приложений через локальные или зарубежные узлы выхода.
+- Встроенная поддержка anti-DPI через [bol-van/zapret2](https://github.com/bol-van/zapret2) для HTTP-, TLS- и QUIC-трафика. Конфигурация от [vernette/ss-zapret2](https://github.com/vernette/ss-zapret2).
 
 # Как это работает?
 
@@ -150,6 +151,9 @@ Docker swarm используется для построения единой �
     ```
 8. [Первичный] Добавьте метки для узлов `docker node update --label-add location=local az-local && docker node update --label-add location=world az-world`
 9. [Первичный]: запустите swarm `   docker compose config | docker run --pull always --rm -i xtrime/antizapret-vpn:6 compose2swarm | docker stack deploy --prune -c - antizapret`
+10. [Первичный]: Docker Swarm не поддерживает передачу устройств хоста в сервисы так же, как Docker Compose, поэтому для работы VPN-контейнеров требуются DKMS-модули ядра:
+    - [Включение OpenVPN Data Channel Offload (DCO)](#включение-openvpn-data-channel-offload-dco)
+    - [Включение расширения ядра Amnezia Wireguard](#включение-расширения-ядра-amnezia-wireguard)
 
 ## Блокировка VPN / Хостинга
 Большинство провайдеров сейчас блокируют VPN-соединения с зарубежными IP-адресами. Обфускация в Amnezia или OpenVpn не всегда решает проблему.
@@ -575,10 +579,15 @@ AntiZapret использует DNS-маршрутизацию (split tunneling)
 
 ### Antizapret:
 Состоит из двух контейнеров: az-local и az-world. Это VPN-узлы выхода.
+
+Поддержка zapret2 основана на [bol-van/zapret2](https://github.com/bol-van/zapret2), наборе инструментов anti-DPI для модификации HTTP-, TLS- и QUIC-трафика, и использует Docker-упаковку из [vernette/ss-zapret2](https://github.com/vernette/ss-zapret2) как источник встроенных файлов zapret2. В этом контейнере zapret2 работает с трафиком узлов выхода antizapret и настраивается переменными ниже.
+
 - `DNS=adguard` - Upstream DNS для разрешения заблокированных сайтов (adguard по умолчанию)
 - `AZ_SUBNET=14.16.0.0/14` Подсеть для виртуальных адресов заблокированных хостов.
 - `ROUTES` - список VPN-контейнеров и их виртуальных адресов. Используется для iperf3 сервера.
 - `DOALL_DISABLED=` - пропустить запуск на узле az-world.
+- `ZAPRET_ENABLED=1` - включить модификацию проходящего через контейнер HTTP-, HTTPS- и QUIC-трафика с помощью zapret2. Установите `0`, чтобы отключить zapret2.
+- `ZAPRET_CONFIG=/opt/zapret2/config/zapret.conf` - путь внутри контейнера к файлу конфигурации zapret2. Конфигурация по умолчанию создается автоматически при первом запуске и сохраняется в `./config/antizapret/custom/zapret2.conf`.
 
 ### Adguard:
 - `ROUTES` - список VPN-контейнеров и их виртуальных адресов. Используется для уникальных клиентских адресов в логах adguard

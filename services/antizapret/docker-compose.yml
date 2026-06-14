@@ -1,6 +1,6 @@
 services:
   antizapret:
-    image: xtrime/antizapret-vpn:6.5.3
+    image: xtrime/antizapret-vpn:6.6.0
     restart: unless-stopped
     init: true
     cap_add:
@@ -31,6 +31,7 @@ services:
       - $PWD/config/antizapret/custom:/root/antizapret/config/custom
       - $PWD/config/antizapret/result:/root/antizapret/result
       - $PWD/config/antizapret/iptables:/root/antizapret/iptables
+      - $PWD/config/antizapret/zapret2:/opt/zapret2/config
       - $PWD/config/adguard/conf:/opt/adguardhome/conf
       - $PWD/config/adguard/work:/opt/adguardhome/work
     environment:
@@ -46,6 +47,8 @@ services:
       - DNS=adguard
       - CLIENT
       - DOALL_DISABLED
+      - ZAPRET_ENABLED
+      - ZAPRET_CONFIG
       - |
         IPS_URL=
         https://raw.githubusercontent.com/xtrime-ru/antizapret-vpn-docker/v6/lists/ips.txt;

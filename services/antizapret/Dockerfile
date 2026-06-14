@@ -38,7 +38,9 @@ RUN <<-"EOT" bash -ex
         host \
         idn \
         inetutils-ping \
+        ipset \
         iptables \
+        nftables \
         iproute2 \
         ipcalc \
         moreutils \
@@ -53,10 +55,14 @@ EOT
 COPY --from=builder-api /app/app /opt/api/app
 COPY --from=builder-compose2swarm /app/compose2swarm /usr/bin/compose2swarm
 COPY --from=builder-routes /app/routes /usr/bin/routes
+COPY --from=vernette/ss-zapret2:v1.0.2 /opt/zapret2/ /opt/zapret2/
 COPY . /
 
 RUN <<-"EOF" bash -ex
     for list in antizapret/config/*-custom.txt; do rm -f $list; done
+
+    cp -a /opt/zapret2/lua.dist /opt/zapret2/lua
+    cp -a /opt/zapret2/files/fake.dist /opt/zapret2/files/fake
 
     ln -sf /root/antizapret/doall.sh /usr/bin/doall
     ln -sf /root/antizapret/dnsmap.py /usr/bin/dnsmap
