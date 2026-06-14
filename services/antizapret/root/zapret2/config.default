@@ -31,7 +31,6 @@ NFQWS2_UDP_PKT_OUT=5
 NFQWS2_UDP_PKT_IN=3
 NFQWS2_OPT="
 --filter-tcp=80 --filter-l7=http --payload http_req --lua-desync=http_methodeol --new
---filter-tcp=443 --filter-l7=tls --payload=tls_client_hello --hostlist-domains=youtube.com,googlevideo.com,youtubei.googleapis.com,ggpht.com --lua-desync=multisplit:pos=10:seqovl=1 --new
 --filter-tcp=443 --filter-l7=tls --payload=tls_client_hello --lua-desync=fake:blob=fake_default_tls:tcp_ts=-1000:repeats=1 --new
 --filter-udp=443 --filter-l7=quic --payload=quic_initial --lua-desync=fake:blob=fake_default_quic:repeats=6
 "
