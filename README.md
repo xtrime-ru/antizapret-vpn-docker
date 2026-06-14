@@ -65,7 +65,8 @@ https://t.me/antizapret_support
 - Multi-Server Architecture to bypass services geo restrictions. Different domains use different servers as exit nodes.
 - Firewall to protect from port scanning
 - Support for kernel modules for OpenVPN and Amnezia Wireguard to decrease CPU usage.
-- SOCKS5 proxy (Dante) for per-application routing through local or world exit nodes
+- SOCKS5 and HTTP(S) proxies for per-application routing through local or world exit nodes
+- Built-in anti-DPI support with [bol-van/zapret2](https://github.com/bol-van/zapret2) for HTTP, TLS, and QUIC traffic. Config bundled from [vernette/ss-zapret2](https://github.com/vernette/ss-zapret2)
 
 # How it works?
 
@@ -150,6 +151,9 @@ Some of the sites, which use geoip to block users, will be proxied through **for
     ```
 1. [Primary] Add labels for nodes `docker node update --label-add location=local az-local && docker node update --label-add location=world az-world`
 1. [Primary]: start swarm `   docker compose config | docker run --pull always --rm -i xtrime/antizapret-vpn:6 compose2swarm | docker stack deploy --prune -c - antizapret`
+1. [Primary]: Docker Swarm does not support passing host devices to services in the same way as Docker Compose, so VPN containers require DKMS kernel modules:
+    - [Enable OpenVPN Data Channel Offload (DCO)](#enable-openvpn-data-channel-offload-dco)
+    - [Enable Amnezia Wireguard Kernel Extension](#enable-amnezia-wireguard-kernel-extension)
 
 ## VPN / Hosting block
 Most providers now block vpn connections to foreign IPs. Obfuscation in Amnezia or OpenVpn not always fix the issue.
@@ -586,10 +590,15 @@ You can define these variables in docker-compose.override.yml file for your need
 
 ### Antizapret:
 Consists of two containers: az-local and az-world. This is VPN exit nodes.
+
+zapret2 support is based on [bol-van/zapret2](https://github.com/bol-van/zapret2), an anti-DPI toolkit that can modify HTTP, TLS, and QUIC traffic, and uses the Docker packaging from [vernette/ss-zapret2](https://github.com/vernette/ss-zapret2) as the source of the bundled zapret2 files. In this container it runs on antizapret exit-node traffic and can be tuned with the variables below.
+
 - `DNS=adguard` - Upstream DNS for resolving blocked sites (adguard by default)
 - `AZ_SUBNET=14.16.0.0/14` Subnet for virtual addresses for blocked hosts.
 - `ROUTES` - list of VPN containers and their virtual addresses. Used for iperf3 server.
 - `DOALL_DISABLED=` - skip run on az-world node.
+- `ZAPRET_ENABLED=1` - enable zapret2 traffic modification for HTTP, HTTPS, and QUIC traffic passing through the container. Set to `0` to disable it.
+- `ZAPRET_CONFIG=/opt/zapret2/config/zapret.conf` - path inside the container to the zapret2 configuration file. The default config is created automatically on first start and is persisted at `./config/antizapret/custom/zapret2.conf`.
 
 ### Adguard: 
 - `ROUTES` - list of VPN containers and their virtual addresses. Used for unique client addresses in adguard logs

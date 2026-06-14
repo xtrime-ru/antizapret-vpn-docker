@@ -20,6 +20,8 @@ DOCKER_SUBNET=${DOCKER_SUBNET}
 DNS=${DNS:-"127.0.0.1"}
 CLIENT=${CLIENT:-"az-local"}
 DOALL_DISABLED=${DOALL_DISABLED:-""}
+ZAPRET_ENABLED=${ZAPRET_ENABLED:-"1"}
+export ZAPRET_CONFIG='${ZAPRET_CONFIG:-"/opt/zapret2/config/zapret.conf"}'
 IPS_URL='${IPS_URL:-""}'
 IPS_WORLD_URL='${IPS_WORLD_URL:-""}'
 AZ_SUBNET=${AZ_SUBNET:-"14.16.0.0/15"}
@@ -64,12 +66,29 @@ if [ -f "$IPTABLES_SAVE" ]; then
   fi
 fi
 function save_iptables () {
-    trap - EXIT;
     echo "saving iptables..."
     iptables-save -t "nat" | grep -E "^-A $CHAIN " > /tmp/iptables.rules && mv -f /tmp/iptables.rules "$IPTABLES_SAVE" && echo "iptables saved"
 }
 
-trap save_iptables EXIT HUP INT QUIT PIPE TERM
+ZAPRET_STARTED=0
+function stop_services () {
+    trap - EXIT HUP INT QUIT PIPE TERM
+    if [ "$ZAPRET_STARTED" = "1" ]; then
+        /opt/zapret2/init.d/sysv/zapret2 stop || true
+    fi
+    save_iptables || true
+}
+
+trap stop_services EXIT HUP INT QUIT PIPE TERM
+
+if [ "$ZAPRET_ENABLED" = "1" ]; then
+    if [ ! -s "$ZAPRET_CONFIG" ]; then
+        mkdir -p "$(dirname "$ZAPRET_CONFIG")"
+        cp /root/zapret2/config.default "$ZAPRET_CONFIG"
+    fi
+    /opt/zapret2/init.d/sysv/zapret2 start
+    ZAPRET_STARTED=1
+fi
 
 routes &
 

@@ -1,0 +1,43 @@
+FWTYPE=iptables
+
+SET_MAXELEM=522288
+IPSET_OPT="hashsize 262144 maxelem $SET_MAXELEM"
+
+IP2NET_OPT4="--prefix-length=22-30 --v4-threshold=3/4"
+IP2NET_OPT6="--prefix-length=56-64 --v6-threshold=5"
+
+AUTOHOSTLIST_INCOMING_MAXSEQ=4096
+AUTOHOSTLIST_RETRANS_MAXSEQ=32768
+AUTOHOSTLIST_RETRANS_RESET=1
+AUTOHOSTLIST_RETRANS_THRESHOLD=3
+AUTOHOSTLIST_FAIL_THRESHOLD=3
+AUTOHOSTLIST_FAIL_TIME=60
+AUTOHOSTLIST_UDP_IN=1
+AUTOHOSTLIST_UDP_OUT=4
+AUTOHOSTLIST_DEBUGLOG=0
+
+MDIG_THREADS=30
+GZIP_LISTS=1
+
+DESYNC_MARK=0x40000000
+DESYNC_MARK_POSTNAT=0x20000000
+
+NFQWS2_ENABLE=1
+NFQWS2_PORTS_TCP=80,443
+NFQWS2_PORTS_UDP=443
+NFQWS2_TCP_PKT_OUT=20
+NFQWS2_TCP_PKT_IN=10
+NFQWS2_UDP_PKT_OUT=5
+NFQWS2_UDP_PKT_IN=3
+NFQWS2_OPT="
+--filter-tcp=80 --filter-l7=http --payload http_req --lua-desync=http_methodeol --new
+--filter-tcp=443 --filter-l7=tls --payload=tls_client_hello --hostlist-domains=youtube.com,googlevideo.com,youtubei.googleapis.com,ggpht.com --lua-desync=multisplit:pos=10:seqovl=1 --new
+--filter-tcp=443 --filter-l7=tls --payload=tls_client_hello --lua-desync=fake:blob=fake_default_tls:tcp_ts=-1000:repeats=1 --new
+--filter-udp=443 --filter-l7=quic --payload=quic_initial --lua-desync=fake:blob=fake_default_quic:repeats=6
+"
+
+MODE_FILTER=none
+FLOWOFFLOAD=donttouch
+INIT_APPLY_FW=1
+DISABLE_IPV6=1
+FILTER_TTL_EXPIRED_ICMP=1
