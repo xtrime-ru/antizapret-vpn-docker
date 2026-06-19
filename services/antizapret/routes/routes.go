@@ -29,6 +29,9 @@ const (
 
 var routeListClient = &http.Client{Timeout: httpClientTimeout}
 var routeReplace = netlink.RouteReplace
+var iptablesRun = func(args ...string) error {
+	return exec.Command("iptables", args...).Run()
+}
 
 var udpResolver = &net.Resolver{
 	PreferGo: true,
@@ -133,32 +136,49 @@ func (a *app) enableDNSRedirect() {
 
 	for _, route := range a.routes {
 		fmt.Fprintf(os.Stdout, "ROUTES: host=%s subnet=%s\n", route.host, route.subnet)
-		if route.host == "adguard" {
-			hasError := false
-			for _, protocol := range []string{"tcp", "udp"} {
-				for _, ruleset := range []string{"PREROUTING", "OUTPUT"} {
-					cmd := exec.Command(
-						"iptables",
-						"-t", "nat",
-						"-A", ruleset,
-						"-p", protocol,
-						"--dport", "53",
-						"-j", "DNAT",
-						"--to-destination", route.subnet,
-					)
-					err := cmd.Run()
-					if err != nil {
-						hasError = true
-						fmt.Fprintf(os.Stdout, "failed to add iptables DNS redirect for %s: %v\n", route.subnet, err)
-					}
-				}
+		if route.host != "adguard" {
+			continue
+		}
+
+		hasError := false
+		for _, rule := range dnsRedirectRules(route.subnet) {
+			if err := iptablesRun(rule...); err != nil {
+				hasError = true
+				fmt.Fprintf(os.Stdout, "failed to add iptables DNS redirect for %s: %v\n", route.subnet, err)
 			}
-			if !hasError {
-				fmt.Printf("ROUTES: added iptables DNS redirect destination=%s\n", route.subnet)
-			}
+		}
+		if !hasError {
+			fmt.Printf("ROUTES: added iptables DNS redirect destination=%s\n", route.subnet)
 		}
 	}
 
+}
+
+func dnsRedirectRules(destination string) [][]string {
+	rules := make([][]string, 0, 6)
+	for _, protocol := range []string{"tcp", "udp"} {
+		for _, ruleset := range []string{"PREROUTING", "OUTPUT"} {
+			rules = append(rules, []string{
+				"-t", "nat",
+				"-A", ruleset,
+				"-p", protocol,
+				"--dport", "53",
+				"-j", "DNAT",
+				"--to-destination", destination,
+			})
+		}
+	}
+	for _, protocol := range []string{"tcp", "udp"} {
+		rules = append(rules, []string{
+			"-t", "nat",
+			"-A", "POSTROUTING",
+			"-p", protocol,
+			"-d", destination,
+			"--dport", "53",
+			"-j", "MASQUERADE",
+		})
+	}
+	return rules
 }
 
 func (a *app) updateAddresses() {
