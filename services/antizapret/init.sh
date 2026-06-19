@@ -20,6 +20,7 @@ DOCKER_SUBNET=${DOCKER_SUBNET}
 DNS=${DNS:-"127.0.0.1"}
 CLIENT=${CLIENT:-"az-local"}
 DOALL_DISABLED=${DOALL_DISABLED:-""}
+IPTABLES_SAVE_DISABLED=${IPTABLES_SAVE_DISABLED:-""}
 ZAPRET_ENABLED=${ZAPRET_ENABLED:-"1"}
 export ZAPRET_CONFIG='${ZAPRET_CONFIG:-"/opt/zapret2/config/zapret.conf"}'
 IPS_URL='${IPS_URL:-""}'
@@ -52,7 +53,7 @@ done
 HOSTNAME=$(hostname -s)
 IPTABLES_SAVE="/root/antizapret/iptables/$HOSTNAME.rules"
 
-if [ -f "$IPTABLES_SAVE" ]; then
+if [ "$IPTABLES_SAVE_DISABLED" != "1" ] && [ -f "$IPTABLES_SAVE" ]; then
   LINES=$(cat "$IPTABLES_SAVE" | wc -l)
   if [ "$LINES" -gt 130000 ]; then
     echo "iptables-save too big. removing old file."
@@ -66,6 +67,7 @@ if [ -f "$IPTABLES_SAVE" ]; then
   fi
 fi
 function save_iptables () {
+    [ "$IPTABLES_SAVE_DISABLED" = "1" ] && return 0
     echo "saving iptables..."
     iptables-save -t "nat" | grep -E "^-A $CHAIN " > /tmp/iptables.rules && mv -f /tmp/iptables.rules "$IPTABLES_SAVE" && echo "iptables saved"
 }

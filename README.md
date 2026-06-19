@@ -597,6 +597,7 @@ zapret2 support is based on [bol-van/zapret2](https://github.com/bol-van/zapret2
 - `AZ_SUBNET=14.16.0.0/14` Subnet for virtual addresses for blocked hosts.
 - `ROUTES` - list of VPN containers and their virtual addresses. Used for iperf3 server.
 - `DOALL_DISABLED=` - skip run on az-world node.
+- `IPTABLES_SAVE_DISABLED=` - skip iptables rules restore on startup and save on shutdown.
 - `ZAPRET_ENABLED=1` - enable zapret2 traffic modification for HTTP, HTTPS, and QUIC traffic passing through the container. Set to `0` to disable it.
 - `ZAPRET_CONFIG=/opt/zapret2/config/zapret.conf` - path inside the container to the zapret2 configuration file. The default config is created automatically on first start and is persisted at `./config/antizapret/custom/zapret2.conf`.
 

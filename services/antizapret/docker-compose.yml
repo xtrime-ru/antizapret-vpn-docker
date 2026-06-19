@@ -1,6 +1,6 @@
 services:
   antizapret:
-    image: xtrime/antizapret-vpn:6.6.2
+    image: xtrime/antizapret-vpn:6.6.3
     restart: unless-stopped
     init: true
     cap_add:
@@ -45,6 +45,7 @@ services:
       - DNS=adguard
       - CLIENT
       - DOALL_DISABLED
+      - IPTABLES_SAVE_DISABLED
       - ZAPRET_ENABLED
       - ZAPRET_CONFIG
       - |
