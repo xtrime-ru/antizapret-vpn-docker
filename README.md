@@ -31,6 +31,7 @@ This repo is based on idea from original [AntiZapret LXD image](https://bitbucke
   - [Adding IPs/Subnets](#adding-ipssubnets)
   - [SOCKS5 and HTTP(S) Proxy (per-application routing)](#socks5-and-https-proxy-per-application-routing)
     - [How it works](#how-it-works-1)
+    - [How to disable HTTPS access from the internet](#how-to-disable-https-access-from-the-internet)
     - [When to use proxy instead of DNS-based routing](#when-to-use-proxy-instead-of-dns-based-routing)
     - [Configuration](#configuration)
     - [Client setup](#client-setup)
@@ -512,6 +513,15 @@ Two proxy containers are available:
 
 Authentication: Basic (SOCKS5/HTTP/HTTPS) configured via environment variables.
 Authentication is required because the HTTPS proxy is accessible from the internet.
+
+### How to disable HTTPS access from the internet
+
+Without HTTPS it's safe to use a proxy with an empty username and password.
+
+There are two options:
+- Make https container ENV variables for proxy-local.antizapret and proxy-world.antizapret empty.
+- Change the hostname in your docker-compose.override.yml, so caddy/https can't reach them by default proxy-local.antizapret.
+
 
 ### When to use proxy instead of DNS-based routing
 

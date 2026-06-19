@@ -10,9 +10,11 @@ if [ -n "$SOCKS_PASSWORD" ]; then
 fi
 
 if [ -z "$PROXY_LOGIN" ] || [ -z "$PROXY_PASSWORD" ]; then
-  echo 'Login and Password required. HTTPS proxy is accessible from internet'
-  sleep 1
-  exit 1
+  echo '[proxy] !!!WARNING!!! Login and Password are empty.
+  Make sure HTTPS proxy is not accessible from internet. There are two options:
+   - Make https container ENV variables for proxy-local.antizapret and proxy-world.antizapret
+   - Change hostname in your docker-compose.override.yml, so caddy/https cant reach them by default proxy-local.antizapret.
+  ' >&2
 fi
 
 routes --vpn &
