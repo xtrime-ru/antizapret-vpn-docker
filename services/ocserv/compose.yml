@@ -1,0 +1,64 @@
+#https://github.com/r4ven-me/openconnect/tree/main/src/server/v1.4
+services:
+  ocserv:
+    init: true
+    restart: unless-stopped
+    image: openconnect:1.4
+    hostname: ocserv.antizapret
+    build:
+      context: .
+    logging:
+      driver: json-file
+      options:
+        max-size: 100k
+        max-file: 2
+    healthcheck:
+      test: (/healthcheck.sh || kill -TERM 1) 2>&1 | tee /proc/1/fd/1
+      interval: 10s
+      timeout: 1s
+      start_period: 5s
+      start_interval: 1s
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    devices:
+      - "/dev/net/tun:/dev/net/tun"
+    sysctls:
+      net.ipv4.ip_forward: "1"
+      net.ipv4.conf.all.src_valid_mark: "1"
+    depends_on:
+      - az-local
+    deploy:
+      mode: replicated
+      replicas: 1
+      endpoint_mode: dnsrr
+      placement:
+        constraints: [ node.labels.location == local ]
+      resources:
+        limits:
+          memory: 200M
+    environment:
+      - OC_DEFAULT_ADDRESS=10.1.164.x
+      - OC_PORT=465
+      - SRV_CN=example.com
+      - SRV_CA="Example CA"
+      - USER_EMAIL="mail@example.com"
+      - OC_USER=admin
+      - OC_USERPASS=password
+      - OC_SECRET="kvn"
+      - TINI_SUBREAPER=true
+      - |
+        ROUTES=
+        ocserv:10.1.164.0/24;
+        openvpn:10.1.165.0/24;
+        wireguard:10.1.166.0/24;
+        wireguard-amnezia:10.1.167.0/24;
+        adguard:14.16.0.1;
+        az-local:14.16.0.0/15;
+        az-world:14.18.0.0/15;
+    volumes:
+      - $PWD/config/ocserv:/etc/ocserv
+      - $PWD/config/antizapret/result:/opt/antizapret/result
+    ports:
+      - 465:465/tcp
+      - 465:465/udp
