@@ -342,13 +342,14 @@ git restore config
    3. Ensure kernel modules for your VPN are installed and working: [OVPN DCO](#enable-openvpn-data-channel-offload-dco),  [Amnezia Wireguard Kernel Extension](#enable-amnezia-wireguard-kernel-extension). 
    4. Some inexpensive hostings have very slow CPUs, so even with all kernel modules installed, connection speed will not exceed 100 Mbit/s.
    5. Most routers have slow CPUs and provide only 30-60 Mbit/s via openvpn. Try to use Wireguard or Amnezia Wireguard if router supports it or update router to newer model.
-   6. In rare cases low MTU between client and server can cause packet fragmentation.
-      First, check if your VPN connection has issues with default MTU.  
-      - MacOs: `ping -D -s 1420 google.com`
-      - Linux: `ping -M -s 1420 google.com`
-      - Windows: `ping google.com -f -l 1420`
+   6. By default, new wireguard and openvpn setups use low MTU to ensure stable connection in mobile networks.
       
-      If this command returns errors, then keep lowering the value until it works. Then lower MTU in VPN settings.
+      First, check if your VPN connection has issues with default MTU.  
+      - MacOs: `ping -D -s 1100 youtube.com`
+      - Linux: `ping -M -s 1100 youtube.com`
+      - Windows: `ping youtube.com -f -l 1100`
+
+      For old setups you need manually reduce MTU in settings:
       - Wireguard/Amezia:
         MTU Must be lower on both server and client.
           1. Go to http://wireguard.antizapret:51821 or http://wireguard-amnezia.antizapret:51821 and click on client config icon.
