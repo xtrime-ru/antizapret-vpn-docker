@@ -46,7 +46,7 @@ services:
       - CLIENT
       - DOALL_DISABLED
       - IPTABLES_SAVE_DISABLED
-      - ZAPRET_ENABLED
+      - ZAPRET_ENABLED=0
       - ZAPRET_CONFIG
       - |
         IPS_URL=

@@ -37,6 +37,9 @@ This repo is based on idea from original [AntiZapret LXD image](https://bitbucke
     - [Client setup](#client-setup)
     - [Example use cases](#example-use-cases)
   - [HTTP(S) Proxy](#https-proxy)
+  - [Using zapret2](#zapret2)
+    - [Changing configuration](#changing-configuration)
+    - [Strategy selection](#strategy-selection)
   - [Environment Variables](#environment-variables)
   - [DNS](#dns)
     - [Adguard Upstream DNS](#adguard-upstream-dns)
@@ -584,22 +587,76 @@ Add proxy services to `docker-compose.override.yml`:
     - **Username:** value of `PROXY_LOGIN`
     - **Password:** value of `PROXY_PASSWORD`
 
+## zapret2
+zapret2 support is based on [bol-van/zapret2](https://github.com/bol-van/zapret2), an anti-DPI toolkit that can modify HTTP, TLS, and QUIC traffic, and uses the Docker packaging from [vernette/ss-zapret2](https://github.com/vernette/ss-zapret2) as the source of the bundled zapret2 files. In this container it runs on antizapret exit-node traffic and can be tuned with the variables below.
+
+It is disabled by default because it can cause problems on some hostings. To enable anti-DPI processing for HTTP, TLS, and QUIC traffic passing through the antizapret exit node, add it to `docker-compose.override.yml`:
+
+```yaml
+services:
+  az-local:
+    environment:
+      - ZAPRET_ENABLED=1
+```
+
+If you use compose mode and the az-world node also suffers from DPI, enable it there too:
+```yaml
+services:
+  az-world:
+    environment:
+      - ZAPRET_ENABLED=1
+```
+
+On the first start, the default zapret2 config is created at `./config/antizapret/zapret2/zapret.conf`.
+
+### Changing configuration
+Edit `NFQWS2_OPT` in this file to tune HTTP, TLS, and QUIC strategies. To disable zapret2 again, set `ZAPRET_ENABLED=0`.
+
+
+Apply config changes with the command for your deployment mode:
+
+- Compose mode:
+```shell
+# Docker Compose
+docker compose up -d
+docker compose restart antizapret
+```
+
+- Swarm mode, run on the primary/manager node
+```shell
+docker compose config | docker run --pull always --rm -i xtrime/antizapret-vpn:6 compose2swarm | docker stack deploy --prune -c - antizapret
+docker service update --force antizapret_az-local
+docker service update --force antizapret_az-world
+```
+
+### Strategy selection
+To search for working strategies, stop zapret2, run `blockcheck.sh`, then start zapret2 again. In Docker Compose mode:
+
+```sh
+docker exec $(docker ps -q --filter=name=az-local) sh /opt/zapret2/init.d/sysv/zapret2 stop
+docker exec $(docker ps -q --filter=name=az-local) sh /opt/zapret2/blockcheck.sh
+docker exec $(docker ps -q --filter=name=az-local) sh /opt/zapret2/init.d/sysv/zapret2 start
+```
+
+For a faster targeted search, pass domains and search options:
+
+```sh
+docker exec $(docker ps -q --filter=name=az-local) sh -c 'REPEATS=8 DOMAINS="youtube.com discord.com" /opt/zapret2/blockcheck.sh'
+```
+
+
 ## Environment Variables
 
 You can define these variables in docker-compose.override.yml file for your needs:
 
 ### Antizapret:
-Consists of two containers: az-local and az-world. This is VPN exit nodes.
-
-zapret2 support is based on [bol-van/zapret2](https://github.com/bol-van/zapret2), an anti-DPI toolkit that can modify HTTP, TLS, and QUIC traffic, and uses the Docker packaging from [vernette/ss-zapret2](https://github.com/vernette/ss-zapret2) as the source of the bundled zapret2 files. In this container it runs on antizapret exit-node traffic and can be tuned with the variables below.
-
 - `DNS=adguard` - Upstream DNS for resolving blocked sites (adguard by default)
 - `AZ_SUBNET=14.16.0.0/14` Subnet for virtual addresses for blocked hosts.
 - `ROUTES` - list of VPN containers and their virtual addresses. Used for iperf3 server.
 - `DOALL_DISABLED=` - skip run on az-world node.
 - `IPTABLES_SAVE_DISABLED=` - skip iptables rules restore on startup and save on shutdown.
-- `ZAPRET_ENABLED=1` - enable zapret2 traffic modification for HTTP, HTTPS, and QUIC traffic passing through the container. Set to `0` to disable it.
-- `ZAPRET_CONFIG=/opt/zapret2/config/zapret.conf` - path inside the container to the zapret2 configuration file. The default config is created automatically on first start and is persisted at `./config/antizapret/custom/zapret2.conf`.
+- `ZAPRET_ENABLED=0` - set to `1` to enable zapret2 traffic modification for HTTP, HTTPS, and QUIC traffic passing through the container. 
+- `ZAPRET_CONFIG=/opt/zapret2/config/zapret.conf` - path inside the container to the zapret2 configuration file. The default config is created automatically on first start and is persisted at `./config/antizapret/zapret2/zapret.conf`.
 
 ### Adguard: 
 - `ROUTES` - list of VPN containers and their virtual addresses. Used for unique client addresses in adguard logs
