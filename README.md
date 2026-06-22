@@ -356,9 +356,10 @@ git restore config
           1. Download and apply new config to your client.
           1. [Test speed with iperf3](#test-speed-with-iperf3)
       - OpenVPN:
-          1. Go to http://openvpn-ui.antizapret:8080/ov/config and add `link-mtu 1200` to your server config.
+          1. Go to http://openvpn-ui.antizapret:8080/ov/config and add `tun-mtu 1200` and `mssfix 1232` to your server config.
           1. Save Config and restart server.
-          1. Add `link-mtu 1200` to your client.conf
+          1. Add `tun-mtu 1200` and `mssfix 1232` to your client.conf
+          1. `tun-mtu 1200` limits packets inside the tunnel, while `mssfix 1232` leaves room for OpenVPN and IPv6/UDP overhead on a 1280-byte path.
    7. If nothing helps, try another hosting and/or [cascade](#vpn--hosting-block)
 5. How to debug issues with VPN?
    1. Check if the VPN connection is established and the DNS server is working:
