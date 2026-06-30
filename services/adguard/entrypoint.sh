@@ -50,9 +50,19 @@ yq -i '
     .http.address="0.0.0.0:'$ADGUARDHOME_PORT'" |
     .users[0].name="'$ADGUARDHOME_USERNAME'" |
     .users[0].password="'$ADGUARDHOME_PASSWORD_HASH'" |
-    (.clients.persistent[] | select(.name == "az-local") | .ids) = ["'$AZ_LOCAL_HOST'"] |
-    (.clients.persistent[] | select(.name == "az-world") | .ids) = ["'$AZ_WORLD_HOST'"] |
-    (.clients.persistent[] | select(.name == "coredns") | .ids) = ["'$COREDNS_HOST'"]
+    (.clients.persistent[] | select(.name == "az-local") | .ids) = ["az-local"] |
+    (.clients.persistent[] | select(.name == "az-world") | .ids) = ["az-world"] |
+    (.clients.persistent[] | select(.name == "coredns") | .ids) = ["'$COREDNS_HOST'"] |
+    .clients.persistent = (
+      [.clients.persistent[] | select(.name != "az-resolver")] + [{
+        "name": "az-resolver",
+        "ids": ["az-resolver"],
+        "tags": [],
+        "upstreams": ["1.1.1.1", "8.8.8.8", "8.8.4.4", "9.9.9.11", "149.112.112.11"],
+        "use_global_settings": true,
+        "use_global_blocked_services": true
+      }]
+    )
     ' /opt/adguardhome/conf/AdGuardHome.yaml
 
 sed -i 's/antizapret-vpn-docker\/v5/antizapret-vpn-docker\/v6/g' /opt/adguardhome/conf/AdGuardHome.yaml

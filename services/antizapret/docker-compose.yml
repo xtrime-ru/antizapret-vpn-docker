@@ -1,6 +1,6 @@
 services:
   antizapret:
-    image: xtrime/antizapret-vpn:6.6.5
+    image: xtrime/antizapret-vpn:6.7.0
     restart: unless-stopped
     init: true
     cap_add:
@@ -55,3 +55,9 @@ services:
       - |
         IPS_WORLD_URL=
         https://raw.githubusercontent.com/xtrime-ru/antizapret-vpn-docker/v6/lists/ips-world.txt;
+      - |
+        ASN_URL=
+        https://raw.githubusercontent.com/xtrime-ru/antizapret-vpn-docker/v6/lists/asn.txt;
+      - |
+        ASN_WORLD_URL=
+        https://raw.githubusercontent.com/xtrime-ru/antizapret-vpn-docker/v6/lists/asn-world.txt;

@@ -44,6 +44,8 @@ function download_list() {
 
 download_list "$IPS_URL" "config/include-ips-dist.txt" || exit 1
 download_list "$IPS_WORLD_URL" "config/include-ips-world-dist.txt" || exit 1
+download_list "$ASN_URL" "config/include-asn-dist.txt" || exit 1
+download_list "$ASN_WORLD_URL" "config/include-asn-world-dist.txt" || exit 1
 
 if [[ "$UPDATED" == "true" ]]; then
   for list in config/*-dist.txt; do

@@ -3,10 +3,15 @@
 
 from __future__ import print_function
 
-import socket, struct, subprocess, threading
+import base64, os, signal, socket, struct, subprocess, threading
+from urllib.error import HTTPError, URLError
+from urllib.parse import quote
+from urllib.request import Request, urlopen
 
 from collections import deque
 from ipaddress import IPv4Network
+
+import maxminddb
 
 from dnslib import DNSRecord, RCODE, QTYPE, A
 from dnslib.server import DNSServer, DNSHandler, BaseResolver, DNSLogger
@@ -34,10 +39,21 @@ class ProxyResolver(BaseResolver):
 
     """
 
-    def __init__(self,address,port,timeout,iprange,tablename='dnsmap'):
+    def __init__(self,address,port,doh_port,timeout,iprange,client_id,
+                 resolver_client_id,asn_file,asn_database,tablename='dnsmap'):
         self.address = address
         self.port = port
         self.timeout = timeout
+        self.doh_url = 'http://{}:{}/dns-query'.format(address, doh_port)
+        self.client_id = client_id
+        self.resolver_client_id = resolver_client_id
+        self.asn_file = asn_file
+        self.blocked_asns = set()
+        self.blocked_organizations = set()
+        self.asn_list_lock = threading.RLock()
+        self.asn_reload_requested = threading.Event()
+        self.reload_asn_list()
+        self.asn_database = maxminddb.open_database(asn_database)
         self.unassigned_addresses = deque([str(x) for x in IPv4Network(iprange).hosts()])
         # preserve first address from range for DNS
         del self.unassigned_addresses[0]
@@ -55,6 +71,67 @@ class ProxyResolver(BaseResolver):
                 if not self.add_mapping(real_addr, fake_addr):
                     print("ERROR: Failed to load mapping {} to {}, ignoring".format(fake_addr, real_addr))
         #self.unassigned_addresses.remove()
+
+    @staticmethod
+    def normalize_organization(value):
+        return ''.join(character for character in value.casefold() if character.isalnum())
+
+    @classmethod
+    def load_asn_list(cls, path):
+        asns = set()
+        organizations = set()
+        try:
+            with open(path, encoding='utf-8') as asn_list:
+                for raw_line in asn_list:
+                    line = raw_line.split('#', 1)[0].strip()
+                    if not line:
+                        continue
+                    normalized_asn = line.upper()
+                    if normalized_asn.startswith('AS') and normalized_asn[2:].isdigit():
+                        asns.add(int(normalized_asn[2:]))
+                    elif line.isdigit():
+                        asns.add(int(line))
+                    else:
+                        organization = cls.normalize_organization(line)
+                        if organization:
+                            organizations.add(organization)
+        except FileNotFoundError:
+            print('ASN list {} not found, continuing with an empty list'.format(path))
+        print('Loaded {} ASN numbers and {} organization names'.format(len(asns), len(organizations)))
+        return asns, organizations
+
+    def reload_asn_list(self):
+        with self.asn_list_lock:
+            self.asn_reload_requested.clear()
+            asns, organizations = self.load_asn_list(self.asn_file)
+            self.blocked_asns = asns
+            self.blocked_organizations = organizations
+
+    def request_asn_reload(self, signum, frame):
+        print('Received SIGHUP, ASN list will be reloaded')
+        self.asn_reload_requested.set()
+
+    def query_doh(self, request, client_id):
+        dns = base64.urlsafe_b64encode(request.pack()).rstrip(b'=').decode('ascii')
+        url = '{}/{}?dns={}'.format(self.doh_url, quote(client_id, safe=''), dns)
+        http_request = Request(url, headers={'Accept': 'application/dns-message'})
+        with urlopen(http_request, timeout=self.timeout) as response:
+            return DNSRecord.parse(response.read())
+
+    def is_blocked_asn(self, address):
+        if self.asn_reload_requested.is_set():
+            self.reload_asn_list()
+        record = self.asn_database.get(address)
+        if not record:
+            return False
+        asn = record.get('autonomous_system_number')
+        organization = self.normalize_organization(record.get('autonomous_system_organization') or '')
+        blocked = asn in self.blocked_asns or any(
+            name in organization for name in self.blocked_organizations
+        )
+        if blocked:
+            print('ASN match for {}: AS{} {}'.format(address, asn, record.get('autonomous_system_organization', '')))
+        return blocked
 
     def get_mapping(self, real_addr):
         return self.ipmap.get(real_addr)
@@ -93,13 +170,7 @@ class ProxyResolver(BaseResolver):
 
     def resolve(self,request,handler):
         try:
-            if handler.protocol == 'udp':
-                proxy_r = request.send(self.address,self.port,
-                                       timeout=self.timeout)
-            else:
-                proxy_r = request.send(self.address,self.port,
-                                       tcp=True,timeout=self.timeout)
-            reply = DNSRecord.parse(proxy_r)
+            reply = self.query_doh(request, self.client_id)
 
             if request.q.qtype == QTYPE.AAAA or request.q.qtype == QTYPE.HTTPS:
                 print('GOT AAAA or HTTPS')
@@ -108,6 +179,18 @@ class ProxyResolver(BaseResolver):
 
             if request.q.qtype == QTYPE.A:
                 print('GOT A')
+
+                if reply.header.rcode == RCODE.SERVFAIL:
+                    filtered_reply = reply
+                    resolved_reply = self.query_doh(request, self.resolver_client_id)
+                    real_addresses = [
+                        str(record.rdata)
+                        for record in resolved_reply.rr
+                        if record.rtype == QTYPE.A
+                    ]
+                    if not any(self.is_blocked_asn(address) for address in real_addresses):
+                        return filtered_reply
+                    reply = resolved_reply
 
                 newrr = []
                 for record in reply.rr:
@@ -140,9 +223,10 @@ class ProxyResolver(BaseResolver):
                 return reply
 
             # print(reply)
-        except socket.timeout:
+        except (socket.timeout, TimeoutError, HTTPError, URLError) as error:
+            print('DNS-over-HTTPS request failed: {}'.format(error))
             reply = request.reply()
-            reply.header.rcode = getattr(RCODE,'NXDOMAIN')
+            reply.header.rcode = getattr(RCODE,'SERVFAIL')
 
         return reply
 
@@ -221,6 +305,8 @@ if __name__ == '__main__':
     p.add_argument("--upstream","-u", default=dns,
                    metavar="<dns server:port>",
                    help=f"Upstream DNS server:port (default: {dns})")
+    p.add_argument("--doh-port", type=int, default=3000,
+                   help="AdGuard unencrypted DNS-over-HTTPS port (default: 3000)")
     p.add_argument("--tcp", action='store_true', default=False,
                    help="TCP proxy (default: UDP only)")
     p.add_argument("--timeout","-o", type=float, default=5,
@@ -235,6 +321,14 @@ if __name__ == '__main__':
     p.add_argument("--iprange", default="14.16.0.0/16",
                    metavar="<ip/mask>",
                    help="Fake IP range (default: 14.16.0.0/16)")
+    p.add_argument("--client-id", default=os.getenv('CLIENT', 'az-local'),
+                   help="AdGuard client ID used for filtered requests")
+    p.add_argument("--resolver-client-id", default="az-resolver",
+                   help="AdGuard client ID used to resolve SERVFAIL responses")
+    p.add_argument("--asn-file", default="/root/antizapret/result/asn.txt",
+                   help="Blocked ASN numbers and organization names")
+    p.add_argument("--asn-database", default="/usr/share/GeoIP/GeoLite2-ASN.mmdb",
+                   help="MaxMind ASN database")
     args = p.parse_args()
 
     args.dns,_,args.dns_port = args.upstream.partition(':')
@@ -245,7 +339,10 @@ if __name__ == '__main__':
           args.dns,args.dns_port,
           "UDP/TCP" if args.tcp else "UDP"))
 
-    resolver = ProxyResolver(args.dns,args.dns_port,args.timeout,args.iprange)
+    resolver = ProxyResolver(args.dns,args.dns_port,args.doh_port,args.timeout,args.iprange,
+                             args.client_id,args.resolver_client_id,
+                             args.asn_file,args.asn_database)
+    signal.signal(signal.SIGHUP, resolver.request_asn_reload)
     handler = PassthroughDNSHandler if args.passthrough else DNSHandler
     logger = DNSLogger(args.log,args.log_prefix)
     udp_server = DNSServer(resolver,

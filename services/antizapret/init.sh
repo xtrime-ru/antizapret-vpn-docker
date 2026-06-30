@@ -25,6 +25,8 @@ ZAPRET_ENABLED=${ZAPRET_ENABLED:-"0"}
 export ZAPRET_CONFIG='${ZAPRET_CONFIG:-"/opt/zapret2/config/zapret.conf"}'
 IPS_URL='${IPS_URL:-""}'
 IPS_WORLD_URL='${IPS_WORLD_URL:-""}'
+ASN_URL='${ASN_URL:-""}'
+ASN_WORLD_URL='${ASN_WORLD_URL:-""}'
 AZ_SUBNET=${AZ_SUBNET:-"14.16.0.0/15"}
 LC_ALL=C.UTF-8
 EOF
@@ -34,7 +36,7 @@ ln -sf /etc/default/antizapret /etc/profile.d/antizapret.sh
 
 
 # creating custom hosts files if they have not yet been initialized
-for file in $(echo {exclude,include}-{hosts,ips,ips-world}-custom.txt); do
+for file in $(echo {exclude,include}-{hosts,ips,ips-world,asn,asn-world}-custom.txt); do
     path=/root/antizapret/config/custom/$file
     [ ! -f $path ] && touch $path
 done
@@ -104,4 +106,6 @@ postrun 'while true; do /opt/api/app; done'
 postrun 'while true; do sleep 6h; timeout 10m /usr/bin/doall; done'
 postrun 'while true; do /usr/bin/iperf3 -s -1; done'
 
-/usr/bin/dnsmap -a 0.0.0.0 --iprange "$AZ_SUBNET"
+ASN_RESULT="/root/antizapret/result/asn.txt"
+[ "$CLIENT" = "az-world" ] && ASN_RESULT="/root/antizapret/result/asn-world.txt"
+/usr/bin/dnsmap -a 0.0.0.0 --iprange "$AZ_SUBNET" --asn-file "$ASN_RESULT"

@@ -1,4 +1,6 @@
 http:
+  doh:
+    insecure_enabled: true
   pprof:
     port: 6060
     enabled: false
@@ -209,7 +211,8 @@ clients:
     hosts: true
   persistent:
     - name: az-world
-      ids: [ ]
+      ids:
+        - az-world
       tags: [ ]
       upstreams:
         - 1.1.1.1
@@ -222,7 +225,8 @@ clients:
       use_global_settings: true
       use_global_blocked_services: true
     - name: az-local
-      ids: [ ]
+      ids:
+        - az-local
       tags: [ ]
       upstreams:
         - 1.1.1.1
@@ -247,6 +251,18 @@ clients:
         - '[/akamai.net/akamaiedge.net/akadns.net/microsoft.com/ru/su/xn--p1ai/]77.88.8.8 62.76.76.62'
         - '[/themoviedb.org/tmdb.org/tmdb-image-prod.b-cdn.net/]9.9.9.10'
         - '[/warthunder.com/gaijin.net/]77.88.8.8'
+      use_global_settings: true
+      use_global_blocked_services: true
+    - name: az-resolver
+      ids:
+        - az-resolver
+      tags: []
+      upstreams:
+        - 1.1.1.1
+        - 8.8.8.8
+        - 8.8.4.4
+        - 9.9.9.11
+        - 149.112.112.11
       use_global_settings: true
       use_global_blocked_services: true
 log:
