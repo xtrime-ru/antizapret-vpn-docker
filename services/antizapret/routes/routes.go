@@ -172,6 +172,8 @@ func dnsRedirectRules(destination string) [][]string {
 		rules = append(rules, []string{
 			"-t", "nat",
 			"-A", "POSTROUTING",
+			"-m", "addrtype",
+			"--src-type", "LOCAL",
 			"-p", protocol,
 			"-d", destination,
 			"--dport", "53",

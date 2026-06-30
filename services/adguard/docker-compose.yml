@@ -1,6 +1,6 @@
 services:
   adguard:
-    image: xtrime/antizapret-vpn-adguard:6.6.2
+    image: xtrime/antizapret-vpn-adguard:6.6.3
     build: 
       context: .
       x-bake:

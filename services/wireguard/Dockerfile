@@ -6,7 +6,7 @@ RUN apk del -U -r --no-cache iptables \
     && apk add -U --no-cache iptables curl bind-tools ipcalc sqlite bird2 gettext \
     && apk cache clean
 
-COPY --from=xtrime/antizapret-vpn:6.5 /usr/bin/routes /usr/bin/routes
+COPY --from=xtrime/antizapret-vpn:6 /usr/bin/routes /usr/bin/routes
 
 COPY bird.conf.template /
 COPY init.sh /

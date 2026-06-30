@@ -7,7 +7,7 @@ RUN apk del -U -r --no-cache iptables \
     && apk add -U --no-cache bash iptables \
     && apk cache clean
 
-COPY --from=xtrime/antizapret-vpn:6.5 /usr/bin/routes /usr/bin/routes
+COPY --from=xtrime/antizapret-vpn:6 /usr/bin/routes /usr/bin/routes
 
 COPY --from=builder /bin/portcheck /bin/3proxy /bin/lua /bin/
 COPY --from=builder /entrypoint.lua /

@@ -34,7 +34,7 @@ func TestEnableDNSRedirectSkipsNonAdguardRoutes(t *testing.T) {
 	}
 }
 
-func TestEnableDNSRedirectAddsDNATAndGenericMasqueradeRules(t *testing.T) {
+func TestEnableDNSRedirectAddsDNATAndLocalMasqueradeRules(t *testing.T) {
 	commands := captureIPTablesCommands(t, func() {
 		(&app{
 			vpn:    true,
@@ -47,8 +47,8 @@ func TestEnableDNSRedirectAddsDNATAndGenericMasqueradeRules(t *testing.T) {
 		{"-t", "nat", "-A", "OUTPUT", "-p", "tcp", "--dport", "53", "-j", "DNAT", "--to-destination", "14.16.0.1"},
 		{"-t", "nat", "-A", "PREROUTING", "-p", "udp", "--dport", "53", "-j", "DNAT", "--to-destination", "14.16.0.1"},
 		{"-t", "nat", "-A", "OUTPUT", "-p", "udp", "--dport", "53", "-j", "DNAT", "--to-destination", "14.16.0.1"},
-		{"-t", "nat", "-A", "POSTROUTING", "-p", "tcp", "-d", "14.16.0.1", "--dport", "53", "-j", "MASQUERADE"},
-		{"-t", "nat", "-A", "POSTROUTING", "-p", "udp", "-d", "14.16.0.1", "--dport", "53", "-j", "MASQUERADE"},
+		{"-t", "nat", "-A", "POSTROUTING", "-m", "addrtype", "--src-type", "LOCAL", "-p", "tcp", "-d", "14.16.0.1", "--dport", "53", "-j", "MASQUERADE"},
+		{"-t", "nat", "-A", "POSTROUTING", "-m", "addrtype", "--src-type", "LOCAL", "-p", "udp", "-d", "14.16.0.1", "--dport", "53", "-j", "MASQUERADE"},
 	}
 
 	if !reflect.DeepEqual(commands, want) {
