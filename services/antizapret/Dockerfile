@@ -46,11 +46,16 @@ RUN <<-"EOT" bash -ex
         moreutils \
         procps \
         python3-dnslib \
+        python3-maxminddb \
         sipcalc \
         vim-tiny
     apt-get clean
     rm -frv /var/lib/apt/lists/*
 EOT
+
+RUN mkdir -p /usr/share/GeoIP && \
+    curl -fL --retry 3 -o /usr/share/GeoIP/GeoLite2-ASN.mmdb \
+        https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-ASN.mmdb
 
 COPY --from=builder-api /app/app /opt/api/app
 COPY --from=builder-compose2swarm /app/compose2swarm /usr/bin/compose2swarm

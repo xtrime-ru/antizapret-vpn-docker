@@ -517,6 +517,12 @@ Options for adapter:
 Add ips and subnets to `./config/antizapret/custom/include-ips-custom.txt`. 
 Containers periodically check changes in config folder (every 5-10 seconds) and restart/update after any change.
 
+## Adding ASNs
+Add ASN numbers (`AS13335` or `13335`) or a part of an organization name (`Cloudflare`) to
+`./config/antizapret/custom/include-asn-custom.txt`. Use `include-asn-world-custom.txt` for
+the world node. DNS response addresses belonging to these ASNs will be routed through the
+corresponding VPN node.
+
 Trigger update manually: `docker exec $(docker ps -q --filter=name=az | head -n1) doall`
 
 ## SOCKS5 and HTTP(S) Proxy (per-application routing)
@@ -675,11 +681,16 @@ docker exec $(docker ps -q --filter=name=az-local) sh -c 'REPEATS=8 DOMAINS="you
 You can define these variables in docker-compose.override.yml file for your needs:
 
 ### Antizapret:
-- `DNS=adguard` - Upstream DNS for resolving blocked sites (adguard by default)
-- `AZ_SUBNET=14.16.0.0/14` Subnet for virtual addresses for blocked hosts.
+- `DNS=adguard` - AdGuard host used for DNS-over-HTTPS requests (default: `adguard`; DoH port: `3000`).
+- `CLIENT=az-local` - AdGuard ClientID used by dnsmap. Set to `az-world` on the world node.
+- `AZ_SUBNET=14.16.0.0/15` - subnet for virtual addresses of blocked hosts. The world node uses `14.18.0.0/15`.
 - `ROUTES` - list of VPN containers and their virtual addresses. Used for iperf3 server.
 - `DOALL_DISABLED=` - skip run on az-world node.
 - `IPTABLES_SAVE_DISABLED=` - skip iptables rules restore on startup and save on shutdown.
+- `IPS_URL=` - semicolon-separated URLs with IP prefixes for the local node. The merged result is written to `result/ips.txt`.
+- `IPS_WORLD_URL=` - semicolon-separated URLs with IP prefixes for the world node. The merged result is written to `result/ips-world.txt`.
+- `ASN_URL=` - semicolon-separated URLs with ASN numbers or organization names for the local node. The merged result is written to `result/asn.txt`.
+- `ASN_WORLD_URL=` - semicolon-separated URLs with ASN numbers or organization names for the world node. The merged result is written to `result/asn-world.txt`.
 - `ZAPRET_ENABLED=0` - set to `1` to enable zapret2 traffic modification for HTTP, HTTPS, and QUIC traffic passing through the container. 
 - `ZAPRET_CONFIG=/opt/zapret2/config/zapret.conf` - path inside the container to the zapret2 configuration file. The default config is created automatically on first start and is persisted at `./config/antizapret/zapret2/zapret.conf`.
 

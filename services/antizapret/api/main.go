@@ -268,20 +268,36 @@ func adaptList(w http.ResponseWriter, r *http.Request) {
 		excludeMatchersLock.RLock()
 		defer excludeMatchersLock.RUnlock()
 		if req.FilterDist {
+			excludeMatchersLock.RLock()
 			if excludeMatcherDist == nil {
+				excludeMatchersLock.RUnlock()
 				log.Println("[ERROR] Exclude filter not initialized: dist")
 				http.Error(w, "Exclude filter not initialized: dist", http.StatusInternalServerError)
 				return
 			}
-			filtered, _ = excludeMatcherDist.Filter(filtered)
+			var err error
+			filtered, err = excludeMatcherDist.Filter(filtered)
+			excludeMatchersLock.RUnlock()
+			if err != nil {
+				log.Printf("[ERROR] Dist exclude filter failed: %v", err)
+				return
+			}
 		}
 		if req.FilterCustom {
+			excludeMatchersLock.RLock()
 			if excludeMatcherCustom == nil {
+				excludeMatchersLock.RUnlock()
 				log.Println("[ERROR] Exclude filter not initialized: custom")
 				http.Error(w, "Exclude filter not initialized: custom", http.StatusInternalServerError)
 				return
 			}
-			filtered, _ = excludeMatcherCustom.Filter(filtered)
+			var err error
+			filtered, err = excludeMatcherCustom.Filter(filtered)
+			excludeMatchersLock.RUnlock()
+			if err != nil {
+				log.Printf("[ERROR] Custom exclude filter failed: %v", err)
+				return
+			}
 		}
 
 		for _, line := range filtered {
