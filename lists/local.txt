@@ -50,6 +50,25 @@ googlevideo.com
 youtubei.googleapis.com
 youtubekids.com
 
+# google meet
+clients2.google.com
+clients4.google.com
+clients6.google.com
+www.gstatic.com
+lh3.googleusercontent.com
+meetings.clients6.google.com
+accounts.google.com
+apis.google.com
+meetings.googleapis.com
+hangouts.googleapis.com
+meet.google.com
+apps.google.com
+docs.google.com
+workspace.turns.goog
+stream.meet.google.com
+meet.turns.goog
+fonts.gstatic.com
+
 # nnmclub
 nnm-club.ws
 nnmclub.ch
