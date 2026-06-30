@@ -836,6 +836,8 @@ https://github.com/amnezia-vpn/amneziawg-linux-kernel-module?tab=readme-ov-file#
 
 Parameter descriptions can be found in the [AmneziaWG documentation](https://docs.amnezia.org/documentation/amnezia-wg) and on the kernel module page.
 
+Use [AmneziaWG Config Generator](https://architect.vai-rice.space/) to generate unique AmneziaWG parameters.
+
 All parameters **except I1–I5** will be set automatically at first startup. For instructions on configuring I1–I5, refer to the AmneziaWG documentation.
 
 - If a parameter is **not set**, it will not be included in the configuration.

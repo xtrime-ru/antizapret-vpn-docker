@@ -821,6 +821,8 @@ https://github.com/amnezia-vpn/amneziawg-linux-kernel-module?tab=readme-ov-file#
 
 Описание параметров можно найти в [документации AmneziaWG](https://docs.amnezia.org/documentation/amnezia-wg) и на странице модуля ядра.
 
+Для генерации уникальных параметров AmneziaWG используйте [генератор конфигурации AmneziaWG](https://architect.vai-rice.space/).
+
 Все параметры, **кроме I1–I5**, будут установлены автоматически при первом запуске. Для инструкций по настройке I1–I5 обратитесь к документации AmneziaWG.
 
 - Если параметр **не задан**, он не будет включен в конфигурацию.
