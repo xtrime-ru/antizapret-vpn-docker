@@ -28,6 +28,7 @@ This repo is based on idea from original [AntiZapret LXD image](https://bitbucke
   - [Adding Domains](#adding-domains)
     - [Adding Domains via rules](#adding-domains-via-rules)
     - [Adding Domains via lists](#adding-domains-via-lists)
+    - [Routing a website through VPN for a specific client](#routing-a-website-through-vpn-for-a-specific-client)
   - [Adding IPs/Subnets](#adding-ipssubnets)
   - [SOCKS5 and HTTP(S) Proxy (per-application routing)](#socks5-and-https-proxy-per-application-routing)
     - [How it works](#how-it-works-1)
@@ -476,6 +477,28 @@ Need to use adapter, to parse and adapt list in different formats.
  - Add domains for local exit node: `http://az-local.antizapret/list/?url=<ANY_URL>`
  - Add domains for world exit node `http://az-world.antizapret/list/?url=<ANY_URL>`
 Supported formats: simple list of domains, adguard format, hosts format, json array of domains, regex list.
+
+### Routing a website through VPN for a specific client
+
+To route a specific website through VPN for only one client:
+
+1. Find the client's internal IP address in the corresponding VPN server panel or in the AdGuard Home query log.
+2. Open the AdGuard Home clients page: http://adguard.antizapret:3000/#clients, add the IP address to the client list, and configure the following upstream DNS servers for it:
+   ```text
+   coredns
+   [/*.antizapret/]127.0.0.11
+   [/example.com/]udp://coredns.antizapret
+   ```
+3. Open the AdGuard Home DNS settings: http://adguard.antizapret:3000/#dns and add an upstream for the required domain:
+   ```text
+   [/example.com/]1.1.1.1
+   ```
+4. Add `example.com` to `include-hosts-custom.txt`, or add the following rule on the custom filtering rules page: http://adguard.antizapret:3000/#custom_rules
+   ```text
+   @@||example.com^$dnsrewrite,client=az-local
+   ```
+
+After configuration, a regular local query in AdGuard Home returns the website's real IP address, while a query from the specified VPN client returns a rewritten internal IP address whose traffic is routed through the VPN.
 
 
 Options for adapter: 
