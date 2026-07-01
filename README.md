@@ -523,6 +523,8 @@ Add ASN numbers (`AS13335` or `13335`) or a part of an organization name (`Cloud
 the world node. DNS response addresses belonging to these ASNs will be routed through the
 corresponding VPN node.
 
+[Online DPI check](https://hyperion-cs.github.io/dpi-checkers/ru/tcp-16-20/)
+
 Trigger update manually: `docker exec $(docker ps -q --filter=name=az | head -n1) doall`
 
 ## SOCKS5 and HTTP(S) Proxy (per-application routing)
