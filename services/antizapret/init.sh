@@ -53,8 +53,10 @@ done
 HOSTNAME=$(hostname -s)
 IPTABLES_SAVE="/root/antizapret/iptables/$HOSTNAME.rules"
 
+set +x
 if [ "$IPTABLES_SAVE_DISABLED" != "1" ] && [ -f "$IPTABLES_SAVE" ]; then
   LINES=$(cat "$IPTABLES_SAVE" | wc -l)
+  echo "restoring iptables rules: $LINES"
   if [ "$LINES" -gt 130000 ]; then
     echo "iptables-save too big. removing old file."
     rm -rf "$IPTABLES_SAVE"
@@ -66,6 +68,8 @@ if [ "$IPTABLES_SAVE_DISABLED" != "1" ] && [ -f "$IPTABLES_SAVE" ]; then
     done < "$IPTABLES_SAVE"
   fi
 fi
+set -x
+
 function save_iptables () {
     [ "$IPTABLES_SAVE_DISABLED" = "1" ] && return 0
     echo "saving iptables..."

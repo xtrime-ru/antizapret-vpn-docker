@@ -10,6 +10,7 @@ export LC_ALL=C.UTF-8
 
 # Generate OpenVPN route file
 echo -n > temp/openvpn-blocked-ranges.txt
+set +x
 while read -r line
 do
     [ -z "$line" ] && continue
@@ -17,6 +18,7 @@ do
     C_NETMASK="$(sipcalc -- "$line" | awk '/Network mask/ {print $4; exit;}')"
     echo $"push \"route ${C_NET} ${C_NETMASK}\"" >> temp/openvpn-blocked-ranges.txt
 done < <( cat temp/ips*; echo "$DOCKER_SUBNET" )
+set -x
 
 
 (GLOBIGNORE="temp/.*"; mv -f temp/* result)
