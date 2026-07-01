@@ -81,6 +81,7 @@ type RegexFilter struct {
 
 var excludeMatcherDist *RegexFilter
 var excludeMatcherCustom *RegexFilter
+var excludeMatchersLock sync.RWMutex
 
 const delim = "__DELIM__"
 
@@ -264,6 +265,8 @@ func adaptList(w http.ResponseWriter, r *http.Request) {
 	processBuffer := func() {
 		filtered := buffer
 		buffer = nil
+		excludeMatchersLock.RLock()
+		defer excludeMatchersLock.RUnlock()
 		if req.FilterDist {
 			if excludeMatcherDist == nil {
 				log.Println("[ERROR] Exclude filter not initialized: dist")
@@ -375,32 +378,36 @@ func adaptList(w http.ResponseWriter, r *http.Request) {
 }
 
 func updateRegexFilter() error {
-	var error error
-	if excludeMatcherDist != nil {
-		error = excludeMatcherDist.Close()
-	}
-	if error != nil {
-		return error
-	}
+	excludeMatchersLock.Lock()
+	defer excludeMatchersLock.Unlock()
 
-	excludeMatcherDist, error = NewRegexFilter(
+	newDist, err := NewRegexFilter(
 		"/root/antizapret/config/exclude-hosts-dist.txt",
 	)
-	if error != nil {
-		return error
+	if err != nil {
+		return err
 	}
 
-	if excludeMatcherCustom != nil {
-		error = excludeMatcherCustom.Close()
-	}
-	if error != nil {
-		return error
-	}
-
-	excludeMatcherCustom, error = NewRegexFilter(
+	newCustom, err := NewRegexFilter(
 		"/root/antizapret/config/custom/exclude-hosts-custom.txt",
 	)
-	return error
+	if err != nil {
+		_ = newDist.Close()
+		return err
+	}
+
+	oldDist := excludeMatcherDist
+	oldCustom := excludeMatcherCustom
+	excludeMatcherDist = newDist
+	excludeMatcherCustom = newCustom
+
+	if oldDist != nil {
+		_ = oldDist.Close()
+	}
+	if oldCustom != nil {
+		_ = oldCustom.Close()
+	}
+	return nil
 }
 
 func update(w http.ResponseWriter, r *http.Request) {
