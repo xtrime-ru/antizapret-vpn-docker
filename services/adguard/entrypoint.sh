@@ -48,6 +48,7 @@ done;
 
 yq -i '
     .http.address="0.0.0.0:'$ADGUARDHOME_PORT'" |
+    .http.doh.insecure_enabled=true |
     .users[0].name="'$ADGUARDHOME_USERNAME'" |
     .users[0].password="'$ADGUARDHOME_PASSWORD_HASH'" |
     (.clients.persistent[] | select(.name == "az-local") | .ids) = ["az-local"] |

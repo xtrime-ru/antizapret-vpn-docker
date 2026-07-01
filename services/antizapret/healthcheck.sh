@@ -37,7 +37,5 @@ if [[ "$OLD" != "$NEW" ]]; then
     echo "healthcheck: config files changed"
     timeout 5m doall || echo 'healthcheck: doall timeout in healthcheck'
     curl --max-time 60 -sf "http://127.0.0.1/update/"
-    # Notify this container's dnsmap as result files are shared by both nodes.
-    pkill -HUP -f '[d]nsmap' 2>/dev/null || true
     ( cat /root/antizapret/result/* /root/antizapret/config/custom/* 2>/dev/null | md5sum ) > /.config_md5
 fi

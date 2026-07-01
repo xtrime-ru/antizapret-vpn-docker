@@ -515,6 +515,8 @@ git restore config
 `include-asn-world-custom.txt`. IP-адреса ответов DNS, принадлежащие указанным ASN, будут
 направлены через соответствующий VPN-узел.
 
+[Онлайн-проверка DPI](https://hyperion-cs.github.io/dpi-checkers/ru/tcp-16-20/)
+
 Запустить обновление вручную: `docker exec $(docker ps -q --filter=name=az | head -n1) doall`
 
 ## SOCKS5 и HTTP(S) прокси (маршрутизация для конкретных приложений)
