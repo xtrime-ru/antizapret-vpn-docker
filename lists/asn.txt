@@ -1,0 +1,14 @@
+Amazon
+Cloudflare
+Shopify
+Hetzner
+DigitalOcean
+Contabo
+Gcore
+Oracle
+Vultr
+Scaleway
+OVH
+
+Apple
+Meta
