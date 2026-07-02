@@ -6,6 +6,11 @@
 com.ua
 ua
 
+# apple
+gateway.icloud.com
+facetime.apple.com
+facetime-apple-com.we.apple-dns.net
+
 # GitHub / Copilot
 api.github.com
 copilot-proxy.githubusercontent.com

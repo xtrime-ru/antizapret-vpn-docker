@@ -160,10 +160,6 @@ bybit-global.com
 bybit.cloud
 bybitglobal.com
 
-# apple facetime
-facetime.apple.com
-facetime-apple-com.we.apple-dns.net
-
 #CDN
 cdn.oninvest.com
 cdn.confiant-integrations.net
