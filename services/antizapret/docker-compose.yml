@@ -51,6 +51,9 @@ services:
       - |
         IPS_URL=
         https://raw.githubusercontent.com/xtrime-ru/antizapret-vpn-docker/v6/lists/ips.txt;
+        https://raw.githubusercontent.com/ipverse/asn-ip/refs/heads/master/as/199524/ipv4-aggregated.txt;
+        https://raw.githubusercontent.com/ipverse/asn-ip/refs/heads/master/as/63949/ipv4-aggregated.txt;
+        
       - |
         IPS_WORLD_URL=
         https://raw.githubusercontent.com/xtrime-ru/antizapret-vpn-docker/v6/lists/ips-world.txt;
