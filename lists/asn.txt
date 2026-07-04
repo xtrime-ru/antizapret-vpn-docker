@@ -4,7 +4,6 @@ Shopify
 Hetzner
 DigitalOcean
 Contabo
-Gcore
 Oracle
 Vultr
 Scaleway
