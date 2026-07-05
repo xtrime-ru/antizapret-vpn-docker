@@ -761,33 +761,18 @@ https://github.com/d3vilh/openvpn-ui?tab=readme-ov-file#generating-ovpn-client-p
 
 Расширения ядра можно установить только на <u>хостовую машину</u>, а не в контейнер.
 
-#### Ubuntu 24.04
+#### Ubuntu 26.04/24.04/22.04/20.04
+Ubuntu 26.04 уже имеет модуль OpenVPN DCO в штатном ядре. Установка `ovpn-dkms` из репозитория OpenVPN для 26.04 опциональна и нужна только для получения более новой версии модуля.
+
 ```bash
 sudo rm -f /etc/apt/sources.list.d/openvpn.list
 sudo mkdir -p /etc/apt/keyrings
-curl -fsSL https://swupdate.openvpn.net/repos/repo-public.gpg | sudo gpg --dearmor --yes -o /etc/apt/keyrings/openvpn-repo-public.gpg
-echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/openvpn-repo-public.gpg] http://build.openvpn.net/debian/openvpn/release/2.7 noble main" | sudo tee /etc/apt/sources.list.d/openvpn-aptrepo.list > /dev/null
+curl -fsSL https://swupdate.openvpn.net/repos/repo-public.gpg | sudo tee /etc/apt/keyrings/openvpn-repo-public.asc > /dev/null
+echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/openvpn-repo-public.asc] https://build.openvpn.net/debian/openvpn/release/2.7 $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/openvpn-aptrepo.list > /dev/null
 sudo apt update
 sudo apt install -y ovpn-dkms
 ```
-#### Ubuntu 22.04
-```bash
-sudo rm -f /etc/apt/sources.list.d/openvpn.list
-sudo mkdir -p /etc/apt/keyrings
-curl -fsSL https://swupdate.openvpn.net/repos/repo-public.gpg | sudo gpg --dearmor --yes -o /etc/apt/keyrings/openvpn-repo-public.gpg
-echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/openvpn-repo-public.gpg] http://build.openvpn.net/debian/openvpn/release/2.7 jammy main" | sudo tee /etc/apt/sources.list.d/openvpn-aptrepo.list > /dev/null
-sudo apt update
-sudo apt install -y ovpn-dkms
-```
-#### Ubuntu 20.04
-```bash
-sudo rm -f /etc/apt/sources.list.d/openvpn.list
-sudo mkdir -p /etc/apt/keyrings
-curl -fsSL https://swupdate.openvpn.net/repos/repo-public.gpg | sudo gpg --dearmor --yes -o /etc/apt/keyrings/openvpn-repo-public.gpg
-echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/openvpn-repo-public.gpg] http://build.openvpn.net/debian/openvpn/release/2.7 focal main" | sudo tee /etc/apt/sources.list.d/openvpn-aptrepo.list > /dev/null
-sudo apt update
-sudo apt install -y ovpn-dkms
-```
+
 ### Поддержка устаревших клиентов
 Если ваши клиенты не поддерживают шифры GCM, вы можете использовать устаревшие шифры CBC.
 DCO несовместим с устаревшими шифрами и будет отключен. Это также увеличит нагрузку на процессор.
@@ -797,6 +782,17 @@ DCO несовместим с устаревшими шифрами и буде�
 ### Включение расширения ядра Amnezia Wireguard
 
 https://github.com/amnezia-vpn/amneziawg-linux-kernel-module?tab=readme-ov-file#ubuntu
+
+#### Ubuntu 26.04
+Модуль ядра AmneziaWG пока недоступен для Ubuntu 26.04. Модуль от 24.04 работает на 26.04, поэтому шаги ниже используют пакет для 24.04.
+
+1. `sudo add-apt-repository ppa:amnezia/ppa`
+2. `sudo sed -i 's/\bresolute\b/noble/g' /etc/apt/sources.list.d/amnezia-ubuntu-ppa-resolute.sources`
+3. `sudo apt update`
+4. `sudo apt install -y amneziawg`
+5. Перезапустите сервер или `docker compose restart wireguard-amnezia`
+6. Проверьте список модулей ядра `dkms status`,
+   и убедитесь, что запущена куча процессов `[kworker/X:X-wg-crypt-wg0]`.
 
 #### Ubuntu 24.04
 1. `sudo add-apt-repository ppa:amnezia/ppa`
