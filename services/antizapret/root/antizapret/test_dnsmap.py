@@ -1,5 +1,5 @@
 # Run from the repository root:
-# docker run --rm -v "$PWD/services/antizapret/root/antizapret:/tests:ro" -w /tests xtrime/antizapret-vpn:6.7.0 python3 -m unittest -v test_dnsmap.py
+# docker run --rm -v "$PWD/services/antizapret/root/antizapret:/tests:ro" -w /tests xtrime/antizapret-vpn:6.7.0 python3 -B -m unittest -v test_dnsmap.py
 
 import queue
 import tempfile
@@ -221,61 +221,166 @@ class DoHClientTests(ResolverTestCase):
 class AsnListTests(ResolverTestCase):
     def test_list_parser_accepts_numbers_names_and_comments(self):
         self.asn_file.write_text(
-            'AS13335 # Cloudflare\n13238\nTelegram Messenger, Inc.\n\n', encoding='utf-8'
+            'AS13335 # Cloudflare\n13238\nTelegram Messenger, Inc.\n/\\bg-?core\\b/\n\n', encoding='utf-8'
         )
 
-        asns, organizations = dnsmap.ProxyResolver.load_asn_list(self.asn_file)
+        rules = dnsmap.ProxyResolver.load_asn_list(self.asn_file)
 
-        self.assertEqual(asns, {13335, 13238})
-        self.assertEqual(organizations, {'telegrammessengerinc'})
+        self.assertEqual(rules.asn_rules, {13335: 'AS13335', 13238: '13238'})
+        self.assertEqual(rules.substring_rules, [('Telegram Messenger, Inc.', 'telegram messenger, inc.')])
+        self.assertEqual(rules.regex_rules[0][0], '/\\bg-?core\\b/')
+        self.assertEqual(rules.regex_rules[0][1].pattern, '\\bg-?core\\b')
 
-    def test_organization_name_uses_normalized_partial_match(self):
+    def test_organization_name_uses_case_insensitive_substring_match(self):
         resolver = self.make_resolver()
-        resolver.blocked_organizations = {'telegram'}
+        resolver.asn_match_rules = dnsmap.AsnMatchRules(
+            {},
+            [dnsmap.ProxyResolver.organization_substring_rule('telegram')],
+            []
+        )
         self.asn_database.get.return_value = {
             'autonomous_system_number': 62041,
             'autonomous_system_organization': 'Telegram Messenger, Inc.',
         }
 
         self.assertTrue(resolver.is_blocked_asn('192.0.2.1'))
+        self.output.assert_any_call(
+            'ASN match for 192.0.2.1: AS62041; organization: Telegram Messenger, Inc.; rule: telegram'
+        )
+
+    def test_asn_match_logs_matching_rule(self):
+        resolver = self.make_resolver()
+        resolver.asn_match_rules = dnsmap.AsnMatchRules({13335: 'AS13335'}, [], [])
+        self.asn_database.get.return_value = {
+            'autonomous_system_number': 13335,
+            'autonomous_system_organization': 'Cloudflare, Inc.',
+        }
+
+        self.assertTrue(resolver.is_blocked_asn('192.0.2.1'))
+        self.output.assert_any_call(
+            'ASN match for 192.0.2.1: AS13335; organization: Cloudflare, Inc.; rule: AS13335'
+        )
+
+    def test_plain_substring_does_not_normalize_punctuation(self):
+        resolver = self.make_resolver()
+        resolver.asn_match_rules = dnsmap.AsnMatchRules(
+            {},
+            [dnsmap.ProxyResolver.organization_substring_rule('gcore')],
+            []
+        )
+        self.asn_database.get.return_value = {
+            'autonomous_system_number': 199524,
+            'autonomous_system_organization': 'G-Core Labs S.A.',
+        }
+
+        self.assertFalse(resolver.is_blocked_asn('192.0.2.1'))
+
+    def test_regex_organization_match_supports_word_boundaries(self):
+        resolver = self.make_resolver()
+        resolver.asn_match_rules = dnsmap.AsnMatchRules(
+            {},
+            [],
+            [dnsmap.ProxyResolver.organization_regex_rule(r'/\bg-?core\b/')]
+        )
+        self.asn_database.get.return_value = {
+            'autonomous_system_number': 199524,
+            'autonomous_system_organization': 'G-Core Labs S.A.',
+        }
+
+        self.assertTrue(resolver.is_blocked_asn('192.0.2.1'))
+        self.output.assert_any_call(
+            'ASN match for 192.0.2.1: AS199524; organization: G-Core Labs S.A.; rule: /\\bg-?core\\b/'
+        )
+
+        self.asn_database.get.return_value = {
+            'autonomous_system_number': 64500,
+            'autonomous_system_organization': 'Edgecore Networks',
+        }
+        self.assertFalse(resolver.is_blocked_asn('192.0.2.2'))
+
+    def test_regex_organization_match_is_case_insensitive_unicode(self):
+        resolver = self.make_resolver()
+        resolver.asn_match_rules = dnsmap.AsnMatchRules(
+            {},
+            [],
+            [dnsmap.ProxyResolver.organization_regex_rule('/яндекс/')]
+        )
+        self.asn_database.get.return_value = {
+            'autonomous_system_number': 13238,
+            'autonomous_system_organization': 'Яндекс LLC',
+        }
+
+        self.assertTrue(resolver.is_blocked_asn('192.0.2.1'))
+        self.output.assert_any_call(
+            'ASN match for 192.0.2.1: AS13238; organization: Яндекс LLC; rule: /яндекс/'
+        )
+
+    def test_line_without_closing_regex_delimiter_is_substring_rule(self):
+        self.asn_file.write_text('/gcore\n', encoding='utf-8')
+
+        rules = dnsmap.ProxyResolver.load_asn_list(self.asn_file)
+
+        self.assertEqual(rules.substring_rules, [('/gcore', '/gcore')])
+        self.assertEqual(rules.regex_rules, [])
+
+    def test_invalid_regex_does_not_replace_existing_asn_list(self):
+        resolver = self.make_resolver()
+        old_rules = dnsmap.AsnMatchRules(
+            {13335: 'AS13335'},
+            [],
+            [dnsmap.ProxyResolver.organization_regex_rule(r'/\bg-?core\b/')]
+        )
+        resolver.asn_match_rules = old_rules
+        self.asn_file.write_text('AS13238\n/[/\n', encoding='utf-8')
+
+        with self.assertRaises(dnsmap.re.error):
+            resolver.reload_asn_list()
+
+        self.assertIs(resolver.asn_match_rules, old_rules)
 
     def test_failed_reload_preserves_last_known_good(self):
         resolver = self.make_resolver()
-        resolver.blocked_asns = {13335}
+        old_rules = dnsmap.AsnMatchRules({13335: 'AS13335'}, [], [])
+        resolver.asn_match_rules = old_rules
         resolver.asn_file = '/missing/asn.txt'
 
         with self.assertRaises(FileNotFoundError):
             resolver.reload_asn_list()
 
-        self.assertEqual(resolver.blocked_asns, {13335})
+        self.assertIs(resolver.asn_match_rules, old_rules)
 
     def test_successful_reload_atomically_replaces_sets(self):
         resolver = self.make_resolver()
-        resolver.blocked_asns = {13335}
-        resolver.blocked_organizations = {'cloudflare'}
-        self.asn_file.write_text('AS13238\nYandex\n', encoding='utf-8')
+        resolver.asn_match_rules = dnsmap.AsnMatchRules(
+            {13335: 'AS13335'},
+            [dnsmap.ProxyResolver.organization_substring_rule('Cloudflare')],
+            []
+        )
+        self.asn_file.write_text('AS13238\nYandex\n/\\bg-?core\\b/\n', encoding='utf-8')
 
         resolver.reload_asn_list()
 
-        self.assertEqual(resolver.blocked_asns, {13238})
-        self.assertEqual(resolver.blocked_organizations, {'yandex'})
+        self.assertEqual(resolver.asn_match_rules.asn_rules, {13238: 'AS13238'})
+        self.assertEqual(resolver.asn_match_rules.substring_rules, [('Yandex', 'yandex')])
+        self.assertEqual([rule[0] for rule in resolver.asn_match_rules.regex_rules], ['/\\bg-?core\\b/'])
 
     def test_signal_handler_reloads_immediately(self):
         resolver = self.make_resolver()
         self.asn_file.write_text('AS13238\nYandex\n', encoding='utf-8')
         with patch.object(dnsmap.os, 'write') as output:
             resolver.request_asn_reload(None, None)
-        self.assertEqual(resolver.blocked_asns, {13238})
-        self.assertEqual(resolver.blocked_organizations, {'yandex'})
+        self.assertEqual(resolver.asn_match_rules.asn_rules, {13238: 'AS13238'})
+        self.assertEqual(resolver.asn_match_rules.substring_rules, [('Yandex', 'yandex')])
         output.assert_called_once()
 
     def test_signal_handler_keeps_old_list_and_logs_reload_failure(self):
         resolver = self.make_resolver()
-        resolver.blocked_asns = {13335}
+        old_rules = dnsmap.AsnMatchRules({13335: 'AS13335'}, [], [])
+        resolver.asn_match_rules = old_rules
         resolver.asn_file = '/missing/asn.txt'
         with patch.object(dnsmap.os, 'write') as output:
             resolver.request_asn_reload(None, None)
-        self.assertEqual(resolver.blocked_asns, {13335})
+        self.assertIs(resolver.asn_match_rules, old_rules)
         self.assertEqual(output.call_args.args[0], 2)
 
 

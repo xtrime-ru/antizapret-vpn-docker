@@ -521,7 +521,9 @@ Containers periodically check changes in config folder (every 5-10 seconds) and 
 Add ASN numbers (`AS13335` or `13335`) or a part of an organization name (`Cloudflare`) to
 `./config/antizapret/custom/include-asn-custom.txt`. Use `include-asn-world-custom.txt` for
 the world node. DNS response addresses belonging to these ASNs will be routed through the
-corresponding VPN node.
+corresponding VPN node. Organization names are matched as case-insensitive substrings against
+the raw MaxMind organization name. Use `/regex pattern/` to match with a case-insensitive
+regular expression instead, for example `/\bg-?core\b/`.
 
 [Online DPI check](https://hyperion-cs.github.io/dpi-checkers/ru/tcp-16-20/)
 
