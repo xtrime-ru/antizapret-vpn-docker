@@ -4,11 +4,13 @@ Shopify
 Hetzner
 DigitalOcean
 Contabo
-Gcore
 Oracle
+Gcore
 Vultr
 Scaleway
 OVH
+#Akamai
+AS63949
 
 Apple
 Meta
