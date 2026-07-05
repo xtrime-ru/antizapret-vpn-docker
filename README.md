@@ -665,18 +665,18 @@ docker service update --force antizapret_az-world
 ```
 
 ### Strategy selection
-To search for working strategies, stop zapret2, run `blockcheck.sh`, then start zapret2 again. In Docker Compose mode:
+To search for working strategies, stop zapret2, run `blockcheck2.sh`, then start zapret2 again. In Docker Compose mode:
 
 ```sh
 docker exec $(docker ps -q --filter=name=az-local) sh /opt/zapret2/init.d/sysv/zapret2 stop
-docker exec $(docker ps -q --filter=name=az-local) sh /opt/zapret2/blockcheck.sh
+docker exec $(docker ps -q --filter=name=az-local) sh /opt/zapret2/blockcheck2.sh
 docker exec $(docker ps -q --filter=name=az-local) sh /opt/zapret2/init.d/sysv/zapret2 start
 ```
 
 For a faster targeted search, pass domains and search options:
 
 ```sh
-docker exec $(docker ps -q --filter=name=az-local) sh -c 'REPEATS=8 DOMAINS="youtube.com discord.com" /opt/zapret2/blockcheck.sh'
+docker exec $(docker ps -q --filter=name=az-local) sh -c 'REPEATS=8 DOMAINS="youtube.com discord.com" /opt/zapret2/blockcheck2.sh'
 ```
 
 
