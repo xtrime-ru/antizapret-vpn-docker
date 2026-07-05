@@ -41,6 +41,40 @@ for file in $(echo {exclude,include}-{hosts,ips,ips-world,asn,asn-world}-custom.
     [ ! -f $path ] && touch $path
 done
 
+mkdir -p /root/antizapret/result
+for file in ips ips-world asn asn-world; do
+    path=/root/antizapret/result/$file.txt
+    [ ! -f $path ] && touch $path
+done
+
+DOALL_OWNER_FILE="/root/antizapret/result/.doall_owner"
+DOALL_LOCAL_OWNER_FILE="/tmp/.doall_owner"
+DOALL_OWNER_ID="$(date +%s%N)-$(head -c 8 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+
+function configure_doall_owner () {
+    [ -n "$DOALL_DISABLED" ] && return 0
+
+    echo "$DOALL_OWNER_ID $CLIENT" > "$DOALL_LOCAL_OWNER_FILE"
+
+    owner="$(awk '{print $2}' "$DOALL_OWNER_FILE" 2>/dev/null || true)"
+    if [ -z "$owner" ] || [ "$owner" = "$CLIENT" ]; then
+        cp -f "$DOALL_LOCAL_OWNER_FILE" "$DOALL_OWNER_FILE"
+        return 0
+    fi
+
+    echo "DoAll result volume is owned by $owner. This container will reload dnsmap only."
+}
+
+function cleanup_doall_owner () {
+    if [ -f "$DOALL_LOCAL_OWNER_FILE" ] && [ "$(cat "$DOALL_OWNER_FILE" 2>/dev/null || true)" = "$(cat "$DOALL_LOCAL_OWNER_FILE" 2>/dev/null || true)" ]; then
+        rm -f "$DOALL_OWNER_FILE"
+    fi
+    rm -f "$DOALL_LOCAL_OWNER_FILE" /tmp/.doall_lock
+}
+
+configure_doall_owner
+trap cleanup_doall_owner EXIT HUP INT QUIT PIPE TERM
+
 ( cat /root/antizapret/result/* /root/antizapret/config/custom/* 2>/dev/null | md5sum ) > /.config_md5
 
 # Prepare iptables for dnsmap.py
@@ -81,6 +115,7 @@ function save_iptables () {
 ZAPRET_STARTED=0
 function stop_services () {
     trap - EXIT HUP INT QUIT PIPE TERM
+    cleanup_doall_owner
     if [ "$ZAPRET_STARTED" = "1" ]; then
         /opt/zapret2/init.d/sysv/zapret2 stop || true
     fi

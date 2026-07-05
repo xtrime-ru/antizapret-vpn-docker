@@ -34,7 +34,6 @@ services:
     environment:
       - CLIENT=az-world
       - AZ_SUBNET=14.18.0.0/15
-      - DOALL_DISABLED=1
   adguard:
     extends:
       file: services/adguard/docker-compose.yml
