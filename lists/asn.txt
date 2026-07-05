@@ -5,7 +5,7 @@ Hetzner
 DigitalOcean
 Contabo
 Oracle
-Gcore
+/\bg-?core\b/
 Vultr
 Scaleway
 OVH

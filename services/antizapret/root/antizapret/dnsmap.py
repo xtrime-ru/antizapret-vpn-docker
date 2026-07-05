@@ -3,16 +3,19 @@
 
 from __future__ import print_function
 
-import atexit, base64, http.client, os, queue, signal, socket, struct, subprocess, threading, time, traceback
+import atexit, base64, http.client, os, queue, re, signal, socket, struct, subprocess, threading, time, traceback
 from urllib.parse import quote
 
-from collections import deque
+from collections import deque, namedtuple
 from ipaddress import IPv4Network
 
 import maxminddb
 
 from dnslib import DNSRecord, RCODE, QTYPE, A
 from dnslib.server import DNSServer, DNSHandler, BaseResolver, DNSLogger
+
+
+AsnMatchRules = namedtuple('AsnMatchRules', ('asn_rules', 'substring_rules', 'regex_rules'))
 
 
 class DoHError(Exception):
@@ -69,8 +72,7 @@ class ProxyResolver(BaseResolver):
         self.client_id = client_id
         self.resolver_client_id = resolver_client_id
         self.asn_file = asn_file
-        self.blocked_asns = set()
-        self.blocked_organizations = set()
+        self.asn_match_rules = AsnMatchRules({}, [], [])
         self.asn_list_lock = threading.RLock()
         asn_count, organization_count = self.reload_asn_list()
         print('Loaded {} ASN numbers and {} organization names'.format(
@@ -97,13 +99,23 @@ class ProxyResolver(BaseResolver):
         #self.unassigned_addresses.remove()
 
     @staticmethod
-    def normalize_organization(value):
-        return ''.join(character for character in value.casefold() if character.isalnum())
+    def organization_substring_rule(line):
+        return (line, line.casefold())
+
+    @staticmethod
+    def organization_regex_rule(line):
+        if not (line.startswith('/') and line.endswith('/')):
+            raise ValueError('Organization regex must use /pattern/ format')
+        pattern = line[1:-1]
+        if not pattern:
+            raise ValueError('Empty organization regex')
+        return (line, re.compile(pattern, re.IGNORECASE | re.UNICODE))
 
     @classmethod
     def load_asn_list(cls, path):
-        asns = set()
-        organizations = set()
+        asn_rules = {}
+        substring_rules = []
+        regex_rules = []
         with open(path, encoding='utf-8') as asn_list:
             for raw_line in asn_list:
                 line = raw_line.split('#', 1)[0].strip()
@@ -111,21 +123,22 @@ class ProxyResolver(BaseResolver):
                     continue
                 normalized_asn = line.upper()
                 if normalized_asn.startswith('AS') and normalized_asn[2:].isdigit():
-                    asns.add(int(normalized_asn[2:]))
+                    asn = int(normalized_asn[2:])
+                    asn_rules[asn] = line
                 elif line.isdigit():
-                    asns.add(int(line))
+                    asn = int(line)
+                    asn_rules[asn] = line
+                elif line.startswith('/') and line.endswith('/'):
+                    regex_rules.append(cls.organization_regex_rule(line))
                 else:
-                    organization = cls.normalize_organization(line)
-                    if organization:
-                        organizations.add(organization)
-        return asns, organizations
+                    substring_rules.append(cls.organization_substring_rule(line))
+        return AsnMatchRules(asn_rules, substring_rules, regex_rules)
 
     def reload_asn_list(self):
         with self.asn_list_lock:
-            asns, organizations = self.load_asn_list(self.asn_file)
-            self.blocked_asns = asns
-            self.blocked_organizations = organizations
-            return len(asns), len(organizations)
+            rules = self.load_asn_list(self.asn_file)
+            self.asn_match_rules = rules
+            return len(rules.asn_rules), len(rules.substring_rules) + len(rules.regex_rules)
 
     def request_asn_reload(self, signum, frame):
         try:
@@ -224,13 +237,26 @@ class ProxyResolver(BaseResolver):
         if not record:
             return False
         asn = record.get('autonomous_system_number')
-        organization = self.normalize_organization(record.get('autonomous_system_organization') or '')
-        blocked = asn in self.blocked_asns or any(
-            name in organization for name in self.blocked_organizations
-        )
-        if blocked:
-            print('ASN match for {}: AS{} {}'.format(address, asn, record.get('autonomous_system_organization', '')))
-        return blocked
+        raw_organization = record.get('autonomous_system_organization') or ''
+        rule = None
+        rules = self.asn_match_rules
+        if asn in rules.asn_rules:
+            rule = rules.asn_rules[asn]
+        else:
+            folded_organization = raw_organization.casefold()
+            for rule_line, matcher in rules.substring_rules:
+                if matcher in folded_organization:
+                    rule = rule_line
+                    break
+            if not rule:
+                for rule_line, matcher in rules.regex_rules:
+                    if matcher.search(raw_organization):
+                        rule = rule_line
+                        break
+        if rule:
+            print('ASN match for {}: AS{}; organization: {}; rule: {}'.format(address, asn, raw_organization, rule))
+            return True
+        return False
 
     def get_mapping(self, real_addr):
         return self.ipmap.get(real_addr)
