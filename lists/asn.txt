@@ -11,7 +11,3 @@ Scaleway
 OVH
 #Akamai
 AS63949
-
-Apple
-Meta
-Facebook
