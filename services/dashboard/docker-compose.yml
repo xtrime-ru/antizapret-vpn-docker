@@ -10,7 +10,7 @@ services:
           - linux/amd64
           - linux/arm64
     volumes:
-      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
     environment:
       - DASHBOARD_USERNAME=admin
       - DASHBOARD_PASSWORD=password

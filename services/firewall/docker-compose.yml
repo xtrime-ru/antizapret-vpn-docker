@@ -20,6 +20,8 @@ services:
       - SYS_MODULE
     working_dir: /root
     entrypoint: /root/entrypoint.sh
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
     environment:
       - INTERVAL=3h
       - V4_URL=https://raw.githubusercontent.com/C24Be/AS_Network_List/refs/heads/main/blacklists/blacklist-v4.txt

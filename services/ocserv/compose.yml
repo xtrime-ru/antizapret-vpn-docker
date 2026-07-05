@@ -57,6 +57,7 @@ services:
         az-local:14.16.0.0/15;
         az-world:14.18.0.0/15;
     volumes:
+      - /etc/localtime:/etc/localtime:ro
       - $PWD/config/ocserv:/etc/ocserv
       - $PWD/config/antizapret/result:/opt/antizapret/result
     ports:
