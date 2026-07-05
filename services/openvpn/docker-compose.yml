@@ -25,7 +25,7 @@ services:
       start_period: 5s
       start_interval: 1s
     volumes:
-      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
       - $PWD/config/openvpn:/etc/openvpn
       - $PWD/config/antizapret/result:/opt/antizapret/result
     ports:
@@ -66,7 +66,7 @@ services:
           - linux/amd64
           - linux/arm64
     volumes:
-      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - $PWD/config/openvpn/db:/opt/openvpn-ui/db
       - $PWD/config/openvpn/pki:/usr/share/easy-rsa/pki

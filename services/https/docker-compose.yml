@@ -33,7 +33,7 @@ services:
       - PROXY_SERVICE_7=HTTP PROXY LOCAL:8143:proxy-local.antizapret:8180
       - PROXY_SERVICE_8=HTTP PROXY WORLD:8243:proxy-world.antizapret:8180
     volumes:
-      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
       - $PWD/config/https/data:/data
       - $PWD/config/https/config:/config
     depends_on:

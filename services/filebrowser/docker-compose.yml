@@ -15,7 +15,7 @@ services:
         max-size: 100k
         max-file: 2
     volumes:
-      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
       - $PWD/config/antizapret/custom:/srv
     depends_on:
       - az-local
