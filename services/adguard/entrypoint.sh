@@ -51,8 +51,8 @@ yq -i '
     .http.doh.insecure_enabled=true |
     .users[0].name="'$ADGUARDHOME_USERNAME'" |
     .users[0].password="'$ADGUARDHOME_PASSWORD_HASH'" |
-    (.clients.persistent[] | select(.name == "az-local") | .ids) = ["az-local"] |
-    (.clients.persistent[] | select(.name == "az-world") | .ids) = ["az-world"] |
+    (.clients.persistent[] | select(.name == "az-local") | .ids) = ["az-local", "'$AZ_LOCAL_HOST'"] |
+    (.clients.persistent[] | select(.name == "az-world") | .ids) = ["az-world", "'$AZ_WORLD_HOST'"] |
     (.clients.persistent[] | select(.name == "coredns") | .ids) = ["'$COREDNS_HOST'"] |
     .clients.persistent = (
       [.clients.persistent[] | select(.name != "az-resolver")] + [{
