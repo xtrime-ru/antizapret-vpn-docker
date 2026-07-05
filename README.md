@@ -775,33 +775,18 @@ https://github.com/d3vilh/openvpn-ui?tab=readme-ov-file#generating-ovpn-client-p
 
 Kernel extensions can be installed only on <u>a host machine</u>, not in a container.
 
-#### Ubuntu 24.04
+#### Ubuntu 26.04/24.04/22.04/20.04
+Ubuntu 26.04 already includes the OpenVPN DCO kernel module in the stock kernel. Installing `ovpn-dkms` from the OpenVPN repository for 26.04 is optional and is needed only to get a newer module version.
+
 ```bash
 sudo rm -f /etc/apt/sources.list.d/openvpn.list
 sudo mkdir -p /etc/apt/keyrings
-curl -fsSL https://swupdate.openvpn.net/repos/repo-public.gpg | sudo gpg --dearmor --yes -o /etc/apt/keyrings/openvpn-repo-public.gpg
-echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/openvpn-repo-public.gpg] http://build.openvpn.net/debian/openvpn/release/2.7 noble main" | sudo tee /etc/apt/sources.list.d/openvpn-aptrepo.list > /dev/null
+curl -fsSL https://swupdate.openvpn.net/repos/repo-public.gpg | sudo tee /etc/apt/keyrings/openvpn-repo-public.asc > /dev/null
+echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/openvpn-repo-public.asc] https://build.openvpn.net/debian/openvpn/release/2.7 $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/openvpn-aptrepo.list > /dev/null
 sudo apt update
 sudo apt install -y ovpn-dkms
 ```
-#### Ubuntu 22.04
-```bash
-sudo rm -f /etc/apt/sources.list.d/openvpn.list
-sudo mkdir -p /etc/apt/keyrings
-curl -fsSL https://swupdate.openvpn.net/repos/repo-public.gpg | sudo gpg --dearmor --yes -o /etc/apt/keyrings/openvpn-repo-public.gpg
-echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/openvpn-repo-public.gpg] http://build.openvpn.net/debian/openvpn/release/2.7 jammy main" | sudo tee /etc/apt/sources.list.d/openvpn-aptrepo.list > /dev/null
-sudo apt update
-sudo apt install -y ovpn-dkms
-```
-#### Ubuntu 20.04
-```bash
-sudo rm -f /etc/apt/sources.list.d/openvpn.list
-sudo mkdir -p /etc/apt/keyrings
-curl -fsSL https://swupdate.openvpn.net/repos/repo-public.gpg | sudo gpg --dearmor --yes -o /etc/apt/keyrings/openvpn-repo-public.gpg
-echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/openvpn-repo-public.gpg] http://build.openvpn.net/debian/openvpn/release/2.7 focal main" | sudo tee /etc/apt/sources.list.d/openvpn-aptrepo.list > /dev/null
-sudo apt update
-sudo apt install -y ovpn-dkms
-```
+
 ### Legacy clients support
 If your clients do not have GCM ciphers support you can use legacy CBC ciphers.
 DCO is incompatible with legacy ciphers and will be disabled. This is also increase CPU load.
@@ -812,6 +797,17 @@ DCO is incompatible with legacy ciphers and will be disabled. This is also incre
 ### Enable Amnezia Wireguard Kernel Extension
 
 https://github.com/amnezia-vpn/amneziawg-linux-kernel-module?tab=readme-ov-file#ubuntu
+
+#### Ubuntu 26.04
+The AmneziaWG kernel module is not available for Ubuntu 26.04 yet. The Ubuntu 24.04 module works on 26.04, so the steps below use the 24.04 package.
+
+1. `sudo add-apt-repository ppa:amnezia/ppa`
+2. `sudo sed -i 's/\bresolute\b/noble/g' /etc/apt/sources.list.d/amnezia-ubuntu-ppa-resolute.sources`
+3. `sudo apt update`
+4. `sudo apt install -y amneziawg`
+5. Restart server or `docker compose restart wireguard-amnezia`
+6. Check the list of kernel modules `dkms status`,
+   and check that bunch of `[kworker/X:X-wg-crypt-wg0]` processes are now running.
 
 #### Ubuntu 24.04
 1. `sudo add-apt-repository ppa:amnezia/ppa`
