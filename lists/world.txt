@@ -22,7 +22,6 @@ auth.grokusercontent.com
 augmentcode.com
 document360.com
 document360.io
-chatgpt.com
 claude.ai
 codeium.com
 data.cline.bot
@@ -36,18 +35,35 @@ intercom.io
 jetbrains.ai
 lgresearch.ai
 lightning.ai
-oaistatic.com
-oaiusercontent.com
-openai.com
 openrouter.ai
 recraft.ai
 reve.art
-sora.com
 sonara.ai
 support.anydesk.com
 trae.ai
 x.ai
 manus.im
+
+
+# OpenAI
+chat.com
+chatgpt.com
+crixet.com
+oaistatic.com
+oaistatsig.com
+oaiusercontent.com
+openai.com
+sora.com
+
+openai.com.cdn.cloudflare.net
+openaiapi-site.azureedge.net
+openaiassets.blob.core.windows.net
+openaicom-api-bdcpf8c6d2e9atf6.z01.azurefd.net
+openaicom.imgix.net
+openaicomproductionae4b.blob.core.windows.net
+production-openaicom-storage.azureedge.net
+/chatgpt-async-webps-prod-\S+-\d+\.webpubsub\.azure\.com/
+livekit.cloud
 
 # Google Services & APIs
 ai.google.dev
