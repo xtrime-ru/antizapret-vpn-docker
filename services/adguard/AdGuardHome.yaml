@@ -105,7 +105,7 @@ filters:
     name: AdAway Default Blocklist
     id: 2
   - enabled: true
-    url: http://az-local.antizapret/list/?allow=0&suffix=0&url=https://raw.githubusercontent.com/xtrime-ru/antizapret-vpn-docker/v6/lists/dns.txt
+    url: http://az-local.antizapret/list/?allow=0&suffix=0&url=https://xtrime-ru.github.io/antizapret-vpn-docker/lists/dns.txt
     name: Block DOH DNS
     id: 3
   - enabled: true
@@ -117,15 +117,15 @@ filters:
     name: Custom World Rules
     id: 5
   - enabled: true
-    url: http://az-local.antizapret/list/?url=https://raw.githubusercontent.com/xtrime-ru/antizapret-vpn-docker/v6/lists/local.txt
+    url: http://az-local.antizapret/list/?url=https://xtrime-ru.github.io/antizapret-vpn-docker/lists/local.txt
     name: Dist Local Rules
     id: 6
   - enabled: true
-    url: http://az-world.antizapret/list/?url=https://raw.githubusercontent.com/xtrime-ru/antizapret-vpn-docker/v6/lists/world.txt
+    url: http://az-world.antizapret/list/?url=https://xtrime-ru.github.io/antizapret-vpn-docker/lists/world.txt
     name: Dist World Rules
     id: 7
   - enabled: true
-    url: http://az-local.antizapret/list/?raw=1&url=https://raw.githubusercontent.com/xtrime-ru/antizapret-vpn-docker/v6/lists/block.txt
+    url: http://az-local.antizapret/list/?raw=1&url=https://xtrime-ru.github.io/antizapret-vpn-docker/lists/block.txt
     name: Block Spyware
     id: 8
   - enabled: true

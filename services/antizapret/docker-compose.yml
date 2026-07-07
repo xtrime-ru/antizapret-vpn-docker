@@ -51,13 +51,13 @@ services:
       - ZAPRET_CONFIG
       - |
         IPS_URL=
-        https://raw.githubusercontent.com/xtrime-ru/antizapret-vpn-docker/v6/lists/ips.txt;
+        https://xtrime-ru.github.io/antizapret-vpn-docker/lists/ips.txt;
       - |
         IPS_WORLD_URL=
-        https://raw.githubusercontent.com/xtrime-ru/antizapret-vpn-docker/v6/lists/ips-world.txt;
+        https://xtrime-ru.github.io/antizapret-vpn-docker/lists/ips-world.txt;
       - |
         ASN_URL=
-        https://raw.githubusercontent.com/xtrime-ru/antizapret-vpn-docker/v6/lists/asn.txt;
+        https://xtrime-ru.github.io/antizapret-vpn-docker/lists/asn.txt;
       - |
         ASN_WORLD_URL=
-        https://raw.githubusercontent.com/xtrime-ru/antizapret-vpn-docker/v6/lists/asn-world.txt;
+        https://xtrime-ru.github.io/antizapret-vpn-docker/lists/asn-world.txt;
