@@ -36,12 +36,14 @@ update_client() {
 
     [ -z "$new_ip" ] && return
 
-    FULL_CLIENT=$(echo "$CLIENTS" | jq ".clients[] | select(.name==\"$client_name\")" || echo "error response: $CLIENTS")
+    FULL_CLIENT=$(echo "$CLIENTS" | jq --arg name "$client_name" '.clients[] | select(.name==$name)' || echo "error response: $CLIENTS")
     if [ -n "$FULL_CLIENT" ] && [ "$FULL_CLIENT" != "null" ]; then
         CURRENT_IDS=$(echo "$FULL_CLIENT" | jq -c '.ids // []')
         DESIRED_IDS=$(jq -nc --arg id "$client_id" --arg ip "$new_ip" '[$id, $ip] | map(select(. != ""))')
+        CURRENT_IDS_NORMALIZED=$(echo "$CURRENT_IDS" | jq -c 'sort | unique')
+        DESIRED_IDS_NORMALIZED=$(echo "$DESIRED_IDS" | jq -c 'sort | unique')
 
-        if [ "$CURRENT_IDS" != "$DESIRED_IDS" ]; then
+        if [ "$CURRENT_IDS_NORMALIZED" != "$DESIRED_IDS_NORMALIZED" ]; then
             UPDATED_CLIENT=$(echo "$FULL_CLIENT" | jq --argjson ids "$DESIRED_IDS" '.ids = $ids')
             UPDATE_BODY=$(printf '{"name":"%s","data":%s}' "$client_name" "$(echo "$UPDATED_CLIENT" | jq -c .)")
             echo "Updating $client_name ids to $DESIRED_IDS"
