@@ -23,6 +23,7 @@ import (
 const (
 	azLocalListPath   = "http://az-local.antizapret/list/?raw=1&file=/root/antizapret/result/ips.txt"
 	azWorldListPath   = "http://az-local.antizapret/list/?raw=1&file=/root/antizapret/result/ips-world.txt"
+	vpnDefaultRoute   = "default"
 	dnsTimeout        = 1 * time.Second
 	httpClientTimeout = 3 * time.Second
 )
@@ -51,6 +52,7 @@ type app struct {
 	self          string
 	vpn           bool
 	verbose       bool
+	defaultRoute  string
 	routes        []routeSpec
 	routeGateways map[string]string
 }
@@ -92,6 +94,7 @@ func parseArgs() (*app, time.Duration, error) {
 	flag.StringVar(&cfg.self, "self", self, "current host name")
 	flag.BoolVar(&cfg.vpn, "vpn", false, "manage VPN-specific routes")
 	flag.BoolVar(&cfg.verbose, "verbose", false, "enable verbose route logs")
+	flag.StringVar(&cfg.defaultRoute, "default-route", "az-local", "default VPN route host")
 	flag.Float64Var(&intervalSeconds, "interval", 10., "route check interval in seconds")
 	flag.Parse()
 
@@ -100,6 +103,9 @@ func parseArgs() (*app, time.Duration, error) {
 	}
 	if cfg.self == "" {
 		return nil, 0, errors.New("Error: --self option required")
+	}
+	if cfg.defaultRoute != "az-local" && cfg.defaultRoute != "az-world" {
+		return nil, 0, fmt.Errorf("invalid --default-route: %s", cfg.defaultRoute)
 	}
 	if intervalSeconds < 0.1 {
 		intervalSeconds = 0.1
@@ -195,17 +201,21 @@ func (a *app) updateAddresses() {
 
 		currentGateway := a.routeGateways[route.host]
 		a.logVerbose("route state: host=%s subnet=%s current_gateway=%q resolved_gateway=%s", route.host, route.subnet, currentGateway, gateway)
+		routeToReplace := route
+		if a.isDefaultRouteHost(route.host) {
+			routeToReplace.subnet = vpnDefaultRoute
+		}
 		switch {
 		case currentGateway == gateway:
 			a.logVerbose("route unchanged: %s via %s", route.subnet, gateway)
 			continue
 		case currentGateway == "":
-			if a.replaceRoute(route, gateway) == nil {
-				fmt.Printf("Route added: %s via %s\n", route.subnet, gateway)
+			if a.replaceRoute(routeToReplace, gateway) == nil {
+				fmt.Printf("Route added: %s via %s\n", routeToReplace.subnet, gateway)
 			}
 		default:
-			if a.replaceRoute(route, gateway) == nil {
-				fmt.Printf("Route changed: %s via %s\n", route.subnet, gateway)
+			if a.replaceRoute(routeToReplace, gateway) == nil {
+				fmt.Printf("Route changed: %s via %s\n", routeToReplace.subnet, gateway)
 			}
 		}
 		if err := a.applyVPNRoutes(route.host, gateway); err != nil {
@@ -294,8 +304,15 @@ func (a *app) replaceRoute(route routeSpec, gateway string) error {
 	return err
 }
 
+func (a *app) isDefaultRouteHost(host string) bool {
+	return a.vpn && host == a.defaultRoute
+}
+
 func (a *app) applyVPNRoutes(host, gateway string) error {
 	if !a.vpn {
+		return nil
+	}
+	if host == a.defaultRoute {
 		return nil
 	}
 	switch host {
