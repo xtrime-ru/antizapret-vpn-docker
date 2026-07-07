@@ -129,7 +129,7 @@ filters:
     name: Block Spyware
     id: 8
   - enabled: true
-    url: http://az-local.antizapret/list/?url=https://community.antifilter.download/list/domains.lst
+    url: http://az-world.antizapret/list/?url=https://community.antifilter.download/list/domains.lst
     name: Antifilter Community Rules
     id: 9
   - enabled: true

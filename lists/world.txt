@@ -397,6 +397,10 @@ xdaforums.com
 raw.githubusercontent.com
 release-assets.githubusercontent.com
 caddy.community
+jira.com
+atl-paas.net
+atlassian.com
+atlassian.net
 
 # Xerox
 xerox.co.uk
