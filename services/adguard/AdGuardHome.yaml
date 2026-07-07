@@ -60,9 +60,8 @@ dns:
   bootstrap_prefer_ipv6: false
   upstream_timeout: 1s
   private_networks: []
-  use_private_ptr_resolvers: true
-  local_ptr_upstreams:
-    - 127.0.0.11
+  use_private_ptr_resolvers: false
+  local_ptr_upstreams: []
   use_dns64: false
   dns64_prefixes: []
   serve_http3: false
