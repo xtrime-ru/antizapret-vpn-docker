@@ -1,13 +1,1 @@
-Amazon
-Cloudflare
-Shopify
-Hetzner
-DigitalOcean
-Contabo
-Oracle
-/\bg-?core\b/
-Vultr
-Scaleway
-OVH
-#Akamai
-AS63949
+
