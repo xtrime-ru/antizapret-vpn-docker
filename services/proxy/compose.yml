@@ -1,6 +1,6 @@
 services:
   proxy:
-    image: xtrime/antizapret-vpn-proxy:6.7.0
+    image: xtrime/antizapret-vpn-proxy:6.7.1
     init: true
     build:
       context: .

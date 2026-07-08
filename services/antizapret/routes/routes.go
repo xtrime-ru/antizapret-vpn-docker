@@ -24,12 +24,18 @@ const (
 	azLocalListPath   = "http://az-local.antizapret/list/?raw=1&file=/root/antizapret/result/ips.txt"
 	azWorldListPath   = "http://az-local.antizapret/list/?raw=1&file=/root/antizapret/result/ips-world.txt"
 	vpnDefaultRoute   = "default"
+	vpnRouteTable     = 100
+	vpnRulePriority   = 10000
 	dnsTimeout        = 1 * time.Second
 	httpClientTimeout = 3 * time.Second
 )
 
 var routeListClient = &http.Client{Timeout: httpClientTimeout}
 var routeReplace = netlink.RouteReplace
+var ruleAdd = netlink.RuleAdd
+var lookupIP = func(ctx context.Context, host string) ([]net.IP, error) {
+	return udpResolver.LookupIP(ctx, "ip4", host)
+}
 var iptablesRun = func(args ...string) error {
 	return exec.Command("iptables", args...).Run()
 }
@@ -55,6 +61,7 @@ type app struct {
 	defaultRoute  string
 	routes        []routeSpec
 	routeGateways map[string]string
+	vpnGateways   map[string]string
 }
 
 func main() {
@@ -70,14 +77,14 @@ func main() {
 	defer stop()
 
 	cfg.enableDNSRedirect()
-	cfg.updateAddresses()
+	cfg.updateRoutes()
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ticker.C:
-			cfg.updateAddresses()
+			cfg.updateRoutes()
 		case <-ctx.Done():
 			fmt.Println("routes: Gracefully shutting down...")
 			return
@@ -113,9 +120,11 @@ func parseArgs() (*app, time.Duration, error) {
 
 	cfg.routes = parseRoutes(os.Getenv("ROUTES"), cfg.self)
 	cfg.routeGateways = make(map[string]string, len(cfg.routes))
+	cfg.vpnGateways = make(map[string]string, len(cfg.routes))
 	return cfg, time.Duration(intervalSeconds * float64(time.Second)), nil
 }
 
+// parseRoutes parses ROUTES entries in the form host:subnet;.
 func parseRoutes(raw, self string) []routeSpec {
 	parts := strings.FieldsFunc(raw, func(r rune) bool { return r == ';' })
 	routes := make([]routeSpec, 0, len(parts))
@@ -127,7 +136,7 @@ func parseRoutes(raw, self string) []routeSpec {
 		host, subnet, ok := strings.Cut(part, ":")
 		host = strings.TrimSpace(host)
 		subnet = strings.TrimSpace(subnet)
-		if !ok || host == "" || subnet == "" || host == self {
+		if !ok || host == "" || subnet == "" {
 			continue
 		}
 		routes = append(routes, routeSpec{host: host, subnet: subnet})
@@ -189,37 +198,65 @@ func dnsRedirectRules(destination string) [][]string {
 	return rules
 }
 
-func (a *app) updateAddresses() {
+// updateRoutes refreshes configured routes and policy rules.
+func (a *app) updateRoutes() {
 	start := time.Now()
 	a.logVerbose("route update started")
+	if a.routeGateways == nil {
+		a.routeGateways = make(map[string]string, len(a.routes))
+	}
+	if a.vpnGateways == nil {
+		a.vpnGateways = make(map[string]string, len(a.routes))
+	}
+
 	for _, route := range a.routes {
+
+		if a.vpn && route.host == a.self {
+			if err := a.addVPNClientRule(route); err != nil {
+				fmt.Fprintf(os.Stderr, "failed to add VPN client rule: host=%s subnet=%s error=%v\n", route.host, route.subnet, err)
+			}
+		}
+
 		gateway := a.resolve(route.host)
 		if gateway == "" {
 			a.logVerbose("route skipped: host=%s subnet=%s reason=unresolved", route.host, route.subnet)
 			continue
 		}
 
+		if route.host == a.self {
+			a.logVerbose("route skipped: host=%s subnet=%s reason=self", route.host, route.subnet)
+			continue
+		}
+
 		currentGateway := a.routeGateways[route.host]
 		a.logVerbose("route state: host=%s subnet=%s current_gateway=%q resolved_gateway=%s", route.host, route.subnet, currentGateway, gateway)
-		routeToReplace := route
-		if a.isDefaultRouteHost(route.host) {
-			routeToReplace.subnet = vpnDefaultRoute
-		}
-		switch {
-		case currentGateway == gateway:
+		if currentGateway != gateway {
+			if err := a.replaceRoute(route, gateway, false); err == nil {
+				a.routeGateways[route.host] = gateway
+				if currentGateway == "" {
+					fmt.Printf("Route added: %s via %s\n", route.subnet, gateway)
+				} else {
+					fmt.Printf("Route changed: %s via %s\n", route.subnet, gateway)
+				}
+			} else {
+				delete(a.routeGateways, route.host)
+				fmt.Fprintf(os.Stderr, "failed to replace route: host=%s subnet=%s gateway=%s error=%v\n", route.host, route.subnet, gateway, err)
+			}
+		} else {
 			a.logVerbose("route unchanged: %s via %s", route.subnet, gateway)
-			continue
-		case currentGateway == "":
-			if a.replaceRoute(routeToReplace, gateway) == nil {
-				fmt.Printf("Route added: %s via %s\n", routeToReplace.subnet, gateway)
-			}
-		default:
-			if a.replaceRoute(routeToReplace, gateway) == nil {
-				fmt.Printf("Route changed: %s via %s\n", routeToReplace.subnet, gateway)
-			}
 		}
-		if err := a.applyVPNRoutes(route.host, gateway); err != nil {
-			delete(a.routeGateways, route.host)
+
+		if a.vpn {
+			if a.vpnGateways[route.host] == gateway {
+				a.logVerbose("VPN route unchanged: host=%s gateway=%s", route.host, gateway)
+				continue
+			}
+			if err := a.applyVPNRoutes(route.host, gateway); err != nil {
+				delete(a.vpnGateways, route.host)
+				fmt.Fprintf(os.Stderr, "failed to apply VPN routes: host=%s gateway=%s error=%v\n", route.host, gateway, err)
+			} else {
+				a.vpnGateways[route.host] = gateway
+			}
 		}
 	}
 	a.logVerbose("route update finished in %s", time.Since(start))
@@ -234,7 +271,7 @@ func (a *app) resolve(host string) string {
 	ctx, cancel := context.WithTimeout(context.Background(), dnsTimeout)
 	defer cancel()
 
-	ips, err := udpResolver.LookupIP(ctx, "ip4", host)
+	ips, err := lookupIP(ctx, host)
 	elapsed := time.Since(start)
 	if err == nil {
 		for _, ip := range ips {
@@ -252,11 +289,13 @@ func (a *app) resolve(host string) string {
 	return ""
 }
 
+// isIPv4 reports whether value is a literal IPv4 address.
 func isIPv4(value string) bool {
 	ip := net.ParseIP(strings.TrimSpace(value))
 	return ip != nil && ip.To4() != nil
 }
 
+// parseRouteDst converts a route destination into netlink form; nil means default route.
 func parseRouteDst(subnet string) (*net.IPNet, error) {
 	subnet = strings.TrimSpace(subnet)
 	if subnet == "" {
@@ -279,7 +318,8 @@ func parseRouteDst(subnet string) (*net.IPNet, error) {
 	return &net.IPNet{IP: ip.To4(), Mask: net.CIDRMask(32, 32)}, nil
 }
 
-func routeSpecFor(subnet, gateway string) (netlink.Route, error) {
+// routeSpecFor builds a netlink route for the requested routing table.
+func routeSpecFor(subnet, gateway string, table int) (netlink.Route, error) {
 	dst, err := parseRouteDst(subnet)
 	if err != nil {
 		return netlink.Route{}, err
@@ -288,42 +328,82 @@ func routeSpecFor(subnet, gateway string) (netlink.Route, error) {
 	if err != nil {
 		return netlink.Route{}, fmt.Errorf("invalid IPv4 gateway: %s", gateway)
 	}
-	return netlink.Route{Dst: dst, Gw: gw}, nil
+	return netlink.Route{Dst: dst, Gw: gw, Table: table}, nil
 }
 
-func (a *app) replaceRoute(route routeSpec, gateway string) error {
+// replaceRoute performs ip route replace, optionally in the VPN policy table.
+func (a *app) replaceRoute(route routeSpec, gateway string, useVPNTable bool) error {
 	start := time.Now()
-	routeNetLink, err := routeSpecFor(route.subnet, gateway)
+	table := 0
+	if useVPNTable {
+		table = vpnRouteTable
+	}
+	routeNetLink, err := routeSpecFor(route.subnet, gateway, table)
 	if err == nil {
 		err = routeReplace(&routeNetLink)
-	}
-	if err == nil {
-		a.routeGateways[route.host] = gateway
 	}
 	a.logVerbose("netlink RouteReplace dst=%s gateway=%s duration=%s err=%v", route.subnet, gateway, time.Since(start), err)
 	return err
 }
 
-func (a *app) isDefaultRouteHost(host string) bool {
-	return a.vpn && host == a.defaultRoute
+// addVPNClientRule adds an ip rule from a VPN client subnet to the VPN policy table.
+func (a *app) addVPNClientRule(route routeSpec) error {
+	src, err := parseRouteDst(route.subnet)
+	if err != nil {
+		return err
+	}
+	if src == nil {
+		return errors.New("VPN client rule requires a source subnet")
+	}
+
+	rule := netlink.NewRule()
+	rule.Family = netlink.FAMILY_V4
+	rule.Priority = vpnRulePriority
+	rule.Table = vpnRouteTable
+	rule.Src = src
+
+	err = ruleAdd(rule)
+	if errors.Is(err, syscall.EEXIST) {
+		return nil
+	}
+	return err
 }
 
+// applyVPNRoutes loads VPN policy-table egress routes for antizapret containers.
 func (a *app) applyVPNRoutes(host, gateway string) error {
-	if !a.vpn {
-		return nil
-	}
-	if host == a.defaultRoute {
-		return nil
-	}
 	switch host {
+	case "adguard":
+		return a.replaceRoute(routeSpec{host: host, subnet: a.subnetForHost(host)}, gateway, true)
 	case "az-local":
-		return a.replaceRoutesFromFile(azLocalListPath, host, gateway)
+		return a.applyAZRoutes(host, gateway, azLocalListPath)
 	case "az-world":
-		return a.replaceRoutesFromFile(azWorldListPath, host, gateway)
+		return a.applyAZRoutes(host, gateway, azWorldListPath)
 	}
 	return nil
 }
 
+// applyAZRoutes adds the AZ subnet/default and optional route list to the VPN policy table.
+func (a *app) applyAZRoutes(host, gateway, listPath string) error {
+	if host == a.defaultRoute {
+		return a.replaceRoute(routeSpec{host: host, subnet: vpnDefaultRoute}, gateway, true)
+	}
+	if err := a.replaceRoute(routeSpec{host: host, subnet: a.subnetForHost(host)}, gateway, true); err != nil {
+		return err
+	}
+	return a.replaceRoutesFromFile(listPath, host, gateway)
+}
+
+// subnetForHost returns the configured ROUTES subnet for host.
+func (a *app) subnetForHost(host string) string {
+	for _, route := range a.routes {
+		if route.host == host {
+			return route.subnet
+		}
+	}
+	return ""
+}
+
+// parseIPv4 parses and copies a literal IPv4 address.
 func parseIPv4(value string) (net.IP, error) {
 	ip := net.ParseIP(strings.TrimSpace(value))
 	if ip == nil {
@@ -336,13 +416,15 @@ func parseIPv4(value string) (net.IP, error) {
 	return append(net.IP(nil), v4...), nil
 }
 
+// replaceRoutesFromFile replaces every route from a downloaded list into the VPN policy table.
 func (a *app) replaceRoutesFromFile(path, host, gateway string) error {
-	return forEachRouteLine(path, func(subnet string) {
-		a.replaceRoute(routeSpec{subnet: subnet, host: host}, gateway)
+	return forEachRouteLine(path, func(subnet string) error {
+		return a.replaceRoute(routeSpec{subnet: subnet, host: host}, gateway, true)
 	})
 }
 
-func forEachRouteLine(path string, fn func(string)) error {
+// forEachRouteLine reads a route list and calls fn for every non-empty route line.
+func forEachRouteLine(path string, fn func(string) error) error {
 	file, err := openRouteList(path)
 	if err != nil {
 		return err
@@ -355,7 +437,10 @@ func forEachRouteLine(path string, fn func(string)) error {
 		if line == "" {
 			continue
 		}
-		fn(line)
+		if err := fn(line); err != nil {
+			fmt.Fprintf(os.Stderr, "applying route from list %s: %v\n", path, err)
+			return err
+		}
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -365,6 +450,7 @@ func forEachRouteLine(path string, fn func(string)) error {
 	return nil
 }
 
+// openRouteList opens a local route file or downloads and validates an HTTP route list.
 func openRouteList(path string) (io.ReadCloser, error) {
 	if strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://") {
 		resp, err := routeListClient.Get(path)
@@ -393,6 +479,7 @@ func openRouteList(path string) (io.ReadCloser, error) {
 	return os.Open(path)
 }
 
+// validRouteList verifies that a downloaded list contains at least one valid route.
 func validRouteList(data []byte) bool {
 	scanner := bufio.NewScanner(bytes.NewReader(data))
 	lines := 0
