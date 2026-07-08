@@ -11,8 +11,7 @@ Oracle
 Vultr
 Scaleway
 OVH
-#Akamai
-AS63949
+Akamai
 
 Apple
 Meta
