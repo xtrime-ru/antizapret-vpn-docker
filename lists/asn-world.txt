@@ -12,6 +12,7 @@ Vultr
 Scaleway
 OVH
 Akamai
+/cdn77|datacamp/
 
 Apple
 Meta
