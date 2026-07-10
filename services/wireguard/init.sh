@@ -12,6 +12,7 @@ fi
 
 export WG_DEFAULT_ADDRESS=${WG_DEFAULT_ADDRESS:-"10.1.166.x"}
 export WG_PORT=${WG_PORT:-51820}
+export MTU=${MTU:-1280}
 export AZ_SUBNET=${AZ_SUBNET:-"14.16.0.0/14"}
 WG_DEFAULT_DNS_VALUE="${WG_DEFAULT_DNS:-14.16.0.1}"
 
@@ -46,7 +47,14 @@ fi
 routes --vpn &
 
 # Escape single quotes in values for SQLite
-sql_escape() { echo "$1" | sed "s/'/''/g"; }
+sql_escape() { printf "%s" "$1" | sed "s/'/''/g"; }
+sql_value_or_null() {
+  if [ -n "$1" ]; then
+    printf "'%s'" "$(sql_escape "$1")"
+  else
+    printf "null"
+  fi
+}
 
 # wg-easy v15 environment variables
 export PORT=${PORT:-51821}
@@ -64,12 +72,11 @@ export INIT_IPV4_CIDR="$WG_IPV4_CIDR"
 export INIT_IPV6_CIDR="${WG_IPV6_CIDR:-fdcc:ad94:bacf:61a4::cafe:0/112}"
 export INIT_ALLOWED_IPS="$WG_ALLOWED_IPS"
 
-I1_VAL="${I1}"
-if [ -n "$I1_VAL" ]; then
-  I1_VAL="'$(sql_escape "$I1_VAL")'"
-else
-  I1_VAL=null
-fi
+I1_VAL="$(sql_value_or_null "${I1}")"
+I2_VAL="$(sql_value_or_null "${I2}")"
+I3_VAL="$(sql_value_or_null "${I3}")"
+I4_VAL="$(sql_value_or_null "${I4}")"
+I5_VAL="$(sql_value_or_null "${I5}")"
 
 if [ ${#INIT_PASSWORD} -lt 12 ]; then
     echo "Error: Password must be at least 12 characters long."
@@ -121,10 +128,10 @@ update_db() {
     sqlite3 "$DB_FILE" "UPDATE hooks_table SET post_up='${post_up}', post_down='${post_down}' WHERE id='wg0';"
 
     # Update interface port and CIDR
-    sqlite3 "$DB_FILE" "UPDATE interfaces_table SET port=${WG_PORT}, ipv4_cidr='${WG_IPV4_CIDR}' WHERE name='wg0';"
+    sqlite3 "$DB_FILE" "UPDATE interfaces_table SET port=${WG_PORT}, ipv4_cidr='${WG_IPV4_CIDR}', mtu=${MTU} WHERE name='wg0';"
 
     # Update user config (allowed IPs, DNS, host, port, persistent keepalive)
-    sqlite3 "$DB_FILE" "UPDATE user_configs_table SET default_allowed_ips='${ALLOWED_IPS_JSON}', default_dns='${DNS_JSON}', host='${host_val}', port=${WG_PORT} WHERE id='wg0';"
+    sqlite3 "$DB_FILE" "UPDATE user_configs_table SET default_allowed_ips='${ALLOWED_IPS_JSON}', default_dns='${DNS_JSON}', default_mtu=${MTU}, host='${host_val}', port=${WG_PORT} WHERE id='wg0';"
 
     if [ -n "$WG_PERSISTENT_KEEPALIVE" ]; then
         sqlite3 "$DB_FILE" "UPDATE user_configs_table SET default_persistent_keepalive=${WG_PERSISTENT_KEEPALIVE} WHERE id='wg0';"
@@ -137,7 +144,7 @@ update_db() {
         JMAX_VAL=${JMAX:-100}
 
         sqlite3 "$DB_FILE" "UPDATE interfaces_table SET j_c=${JC_VAL}, j_min=${JMIN_VAL}, j_max=${JMAX_VAL} WHERE name='wg0';"
-        sqlite3 "$DB_FILE" "UPDATE user_configs_table SET default_j_c=${JC_VAL}, default_j_min=${JMIN_VAL}, default_j_max=${JMAX_VAL}, default_i1=${I1_VAL} WHERE id='wg0';"
+        sqlite3 "$DB_FILE" "UPDATE user_configs_table SET default_j_c=${JC_VAL}, default_j_min=${JMIN_VAL}, default_j_max=${JMAX_VAL}, default_i1=${I1_VAL}, default_i2=${I2_VAL}, default_i3=${I3_VAL}, default_i4=${I4_VAL}, default_i5=${I5_VAL} WHERE id='wg0';"
     fi
 
     # migrate legacy wg0.json server and client entries if present
@@ -204,15 +211,15 @@ update_db() {
                 fi
 
                 if [ -n "$srv_jc" ]; then
-                  awg_keys=',j_c,j_min,j_max,i1'
-                  awg_values=",${srv_jc},'${srv_jmin}','${srv_jmax}',${I1_VAL}"
+                  awg_keys=',j_c,j_min,j_max,i1,i2,i3,i4,i5'
+                  awg_values=",${srv_jc},'${srv_jmin}','${srv_jmax}',${I1_VAL},${I2_VAL},${I3_VAL},${I4_VAL},${I5_VAL}"
                 else
                   awg_keys=''
                   awg_values=''
                 fi
                 sqlite3 "$DB_FILE" "INSERT INTO
                   clients_table(user_id,interface_id,name,ipv4_address,ipv6_address, server_allowed_ips,persistent_keepalive,mtu,private_key,public_key,pre_shared_key,expires_at,enabled,created_at,updated_at${awg_keys})
-                  VALUES(1,'wg0','$(sql_escape "$cname")','${caddr}','$(printf "$ipv6_prefix:%x" ${cid})','[]',${WG_PERSISTENT_KEEPALIVE},1420,'$(sql_escape "$cpriv")','$(sql_escape "$cpub")','$(sql_escape "$cpsk")',${cexpire},${c_enabled_val},'${ccreated}','${cupdated}'${awg_values});
+                  VALUES(1,'wg0','$(sql_escape "$cname")','${caddr}','$(printf "$ipv6_prefix:%x" ${cid})','[]',${WG_PERSISTENT_KEEPALIVE},${MTU},'$(sql_escape "$cpriv")','$(sql_escape "$cpub")','$(sql_escape "$cpsk")',${cexpire},${c_enabled_val},'${ccreated}','${cupdated}'${awg_values});
                 "
             done
         fi

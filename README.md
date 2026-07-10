@@ -343,7 +343,7 @@ git restore config
    3. Ensure kernel modules for your VPN are installed and working: [OVPN DCO](#enable-openvpn-data-channel-offload-dco),  [Amnezia Wireguard Kernel Extension](#enable-amnezia-wireguard-kernel-extension). 
    4. Some inexpensive hostings have very slow CPUs, so even with all kernel modules installed, connection speed will not exceed 100 Mbit/s.
    5. Most routers have slow CPUs and provide only 30-60 Mbit/s via openvpn. Try to use Wireguard or Amnezia Wireguard if router supports it or update router to newer model.
-   6. By default, new wireguard and openvpn setups use low MTU to ensure stable connection in mobile networks.
+   6. By default, new wireguard and openvpn setups use low MTU `1280`,  to ensure stable connection in all conditions. You can increase up to `1480` to sligtly increase speed.
       
       First, check if your VPN connection has issues with default MTU.  
       - MacOs: `ping -D -s 1100 youtube.com`
@@ -353,8 +353,9 @@ git restore config
       For old setups you need manually reduce MTU in settings:
       - Wireguard/Amezia:
         MTU Must be lower on both server and client.
-          1. Go to http://wireguard.antizapret:51821 or http://wireguard-amnezia.antizapret:51821 and click on client config icon.
-          1. Lower MTU to 1200 and save. MTU is client-specific.
+          1. Go to http://wireguard.antizapret:51821 or http://wireguard-amnezia.antizapret:51821 
+          1. Go to `/admin/interface` and set MTU there too.
+          1. click on client config icon. Lower MTU to `1280` and save.
           1. Download and apply new config to your client.
           1. [Test speed with iperf3](#test-speed-with-iperf3)
       - OpenVPN:
@@ -742,6 +743,7 @@ You can define these variables in docker-compose.override.yml file for your need
 - `INSECURE=true` - allow HTTP access to admin panel
 - `DISABLE_IPV6=true` - disable IPv6 support
 - `WG_PORT=51820` - wireguard server port
+- `MTU=1280` - default MTU for WireGuard interface and new clients
 - `EXPERIMENTAL_AWG=true` - enable AmneziaWG support (wireguard-amnezia only)
 - `OVERRIDE_AUTO_AWG=awg`- environment variable to force the tunnel type: `awg` to always use AmneziaWG, `wg` to always use standard WireGuard; by default it’s unset and automatic detection is used, useful to override auto-selection and lock the mode.
 - `BGP_ENABLE=false` - start bird BGP server. Server will push routes to clients (some routers). Clients will receive route updates without updating wg/awg config.
@@ -849,10 +851,21 @@ Parameter descriptions can be found in the [AmneziaWG documentation](https://doc
 
 Use [AmneziaWG Config Generator](https://architect.vai-rice.space/) to generate unique AmneziaWG parameters.
 
-All parameters **except I1–I5** will be set automatically at first startup. For instructions on configuring I1–I5, refer to the AmneziaWG documentation.
+Parameters `Jc`, `Jmin`, `Jmax`, and `I1`-`I5` can be configured with environment variables. `JC`, `JMIN`, and `JMAX` have defaults; use the AmneziaWG documentation for valid `I1`-`I5` values.
 
-- If a parameter is **not set**, it will not be included in the configuration.
+- If an `I1`-`I5` parameter is **not set**, it will not be included in the configuration.
 - If **all AmneziaWG-specific parameters are absent**, AmneziaWG is fully compatible with standard WireGuard.
+
+Supported environment variables:
+
+- `JC=3`
+- `JMIN=20`
+- `JMAX=100`
+- `I1=...`
+- `I2=...`
+- `I3=...`
+- `I4=...`
+- `I5=...`
 
 ## Parameter Compatibility Table
 
