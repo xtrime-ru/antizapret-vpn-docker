@@ -17,12 +17,10 @@ copilot-proxy.githubusercontent.com
 githubcopilot.com
 
 # AI / LLM / Support
-anthropic.com
 auth.grokusercontent.com
 augmentcode.com
 document360.com
 document360.io
-claude.ai
 codeium.com
 data.cline.bot
 elevenlabs.io
@@ -44,6 +42,15 @@ trae.ai
 x.ai
 manus.im
 
+#Antropic / Claude
+anthropic.com
+clau.de
+claude.ai
+claude.com
+claudemcpclient.com
+claudemcpcontent.com
+claudeusercontent.com
+servd-anthropic-website.b-cdn.net
 
 # OpenAI
 chat.com
