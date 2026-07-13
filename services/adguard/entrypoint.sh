@@ -5,10 +5,6 @@ rm -f "$INIT_FILE"
 
 cp -n /root/AdGuardHome.yaml /opt/adguardhome/conf/AdGuardHome.yaml
 
-CONFIG_LOCAL=$(curl -s "http://az-local.antizapret/config-md5/" || echo "")
-CONFIG_WORLD=$(curl -s "http://az-world.antizapret/config-md5/" || echo "")
-echo "$CONFIG_LOCAL $CONFIG_WORLD" > /.config_md5
-
 ADGUARDHOME_PORT=${ADGUARDHOME_PORT:-"3000"}
 ADGUARDHOME_USERNAME=${ADGUARDHOME_USERNAME:-"admin"}
 if [[ -n $ADGUARDHOME_PASSWORD ]]; then
@@ -36,15 +32,32 @@ function resolve () {
     fi
 }
 
+if [ "$AZ_WORLD_ENABLED" = "1" ]; then
+    WAITING_MESSAGE="Waiting for az-local and az-world containers to register in DNS..."
+else
+    WAITING_MESSAGE="Waiting for az-local container to register in DNS..."
+fi
+
 while :; do
     AZ_LOCAL_HOST=$(resolve az-local '')
     AZ_WORLD_HOST=$(resolve az-world '')
     COREDNS_HOST=$(resolve coredns '169.0.0.3')
-    [ -n "${AZ_LOCAL_HOST}" ] && [ -n "${AZ_WORLD_HOST}" ] && break
+    if [ -n "${AZ_LOCAL_HOST}" ] && [ -n "${COREDNS_HOST}" ] && { [ "$AZ_WORLD_ENABLED" != "1" ] || [ -n "${AZ_WORLD_HOST}" ]; }; then
+        break
+    fi
     sleep 1;
-    echo "Waiting az-local/az-world and coredns containers to register in DNS..."
+    echo "$WAITING_MESSAGE"
 done;
 
+CONFIG_LOCAL=$(curl -s "http://az-local.antizapret/config-md5/" || echo "")
+CONFIG_MD5="$CONFIG_LOCAL"
+AZ_WORLD_CLIENT_IDS='["az-world"]'
+if [ "$AZ_WORLD_ENABLED" = "1" ]; then
+    CONFIG_WORLD=$(curl -s "http://az-world.antizapret/config-md5/" || echo "")
+    CONFIG_MD5="$CONFIG_LOCAL $CONFIG_WORLD"
+    AZ_WORLD_CLIENT_IDS='["az-world", "'$AZ_WORLD_HOST'"]'
+fi
+echo "$CONFIG_MD5" > /.config_md5
 
 yq -i '
     .http.address="0.0.0.0:'$ADGUARDHOME_PORT'" |
@@ -54,7 +67,7 @@ yq -i '
     .users[0].name="'$ADGUARDHOME_USERNAME'" |
     .users[0].password="'$ADGUARDHOME_PASSWORD_HASH'" |
     (.clients.persistent[] | select(.name == "az-local") | .ids) = ["az-local", "'$AZ_LOCAL_HOST'"] |
-    (.clients.persistent[] | select(.name == "az-world") | .ids) = ["az-world", "'$AZ_WORLD_HOST'"] |
+    (.clients.persistent[] | select(.name == "az-world") | .ids) = '$AZ_WORLD_CLIENT_IDS' |
     (.clients.persistent[] | select(.name == "coredns") | .ids) = ["'$COREDNS_HOST'"] |
     .clients.persistent = (
       [.clients.persistent[] | select(.name != "az-resolver")] + [{

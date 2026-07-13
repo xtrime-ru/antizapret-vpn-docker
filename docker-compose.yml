@@ -8,6 +8,13 @@ networks:
 services:
   az-local:
     hostname: az-local.antizapret
+    networks:
+      default:
+        aliases:
+          - az-local
+          - az-local.antizapret
+          - az-world
+          - az-world.antizapret
     extends:
       file: services/antizapret/docker-compose.yml
       service: antizapret
@@ -20,20 +27,6 @@ services:
     environment:
       - CLIENT=az-local
       - AZ_SUBNET=14.16.0.0/15
-  az-world:
-    hostname: az-world.antizapret
-    extends:
-      file: services/antizapret/docker-compose.yml
-      service: antizapret
-    deploy:
-      mode: replicated
-      replicas: 1
-      endpoint_mode: dnsrr
-      placement:
-        constraints: [ node.labels.location == world ]
-    environment:
-      - CLIENT=az-world
-      - AZ_SUBNET=14.18.0.0/15
   adguard:
     extends:
       file: services/adguard/docker-compose.yml
@@ -50,5 +43,3 @@ services:
     extends:
       file: services/firewall/docker-compose.yml
       service: firewall
-
-
