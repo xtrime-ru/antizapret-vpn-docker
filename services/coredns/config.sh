@@ -11,8 +11,14 @@ function resolve () {
     fi
 }
 
-export AZ_LOCAL_HOST=$(resolve 'az-local' '169.254.0.1')
-export AZ_WORLD_HOST=$(resolve 'az-world' '169.254.0.2')
-export DNS_HOST=$(resolve 'adguard' '169.254.0.3')
+AZ_LOCAL_HOST="$(resolve 'az-local.antizapret' '169.254.0.1')"
+AZ_WORLD_HOST="$(resolve 'az-world.antizapret' "$AZ_LOCAL_HOST")"
+DNS_HOST="$(resolve 'adguard.antizapret' '169.254.0.3')"
+
+if [ "$AZ_WORLD_HOST" = "$AZ_LOCAL_HOST" ]; then
+    export AZ_FORWARD_HOSTS="$AZ_LOCAL_HOST $DNS_HOST"
+else
+    export AZ_FORWARD_HOSTS="$AZ_WORLD_HOST $AZ_LOCAL_HOST $DNS_HOST"
+fi
 
 envsubst < /root/Corefile.template > /Corefile

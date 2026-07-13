@@ -1,0 +1,33 @@
+services:
+  az-local:
+    networks:
+      default:
+        aliases: !override
+          - az-local
+          - az-local.antizapret
+    environment:
+      - AZ_SUBNET=14.16.0.0/15
+
+  az-world:
+    hostname: az-world.antizapret
+    networks:
+      default:
+        aliases:
+          - az-world
+          - az-world.antizapret
+    extends:
+      file: services/antizapret/docker-compose.yml
+      service: antizapret
+    deploy:
+      mode: replicated
+      replicas: 1
+      endpoint_mode: dnsrr
+      placement:
+        constraints: [ node.labels.location == world ]
+    environment:
+      - CLIENT=az-world
+      - AZ_SUBNET=14.18.0.0/15
+
+  adguard:
+    environment:
+      - AZ_WORLD_ENABLED=1
