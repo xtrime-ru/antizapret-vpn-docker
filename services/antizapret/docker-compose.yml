@@ -1,6 +1,6 @@
 services:
   antizapret:
-    image: xtrime/antizapret-vpn:6.7.5
+    image: xtrime/antizapret-vpn:6.7.6
     restart: unless-stopped
     init: true
     cap_add:

@@ -3,7 +3,9 @@
 set -e
 set -x
 
-rm -rf /tmp/*
+# Docker restarts preserve the container filesystem. Remove all previous runtime
+# state, including hidden healthcheck and doall files, while keeping /tmp itself.
+find /tmp -mindepth 1 -delete
 
 # run commands after start
 function postrun () {
