@@ -93,6 +93,8 @@ https://t.me/antizapret_support
 ## Один сервер (Просто)
 
 Рекомендуется использовать сервер, расположенный в западных странах. Некоторые сайты будут блокировать пользователей из других стран.
+По умолчанию Compose запускает один контейнер выхода `az-local`. Он обслуживает
+и локальный, и мировой списки доменов в диапазоне `14.16.0.0/15`.
 
 0. Установите [Docker Engine](https://docs.docker.com/engine/install/):
    ```bash
@@ -145,7 +147,7 @@ Docker swarm используется для построения единой �
 2. [Первичный] Измените имена хостов серверов на az-local и az-world для удобства: `hostnamectl set-hostname az-local`
 3. [Вторичный] Измените имена хостов серверов на az-local и az-world для удобства: `hostnamectl set-hostname az-world`
 4. [Опционально] hub.docker.com может быть недоступен на локальных хостингах. Можно использовать прокси. См. инструкции: https://dockerhub.timeweb.cloud
-   Альтернативно образы можно собрать локально на **обоих серверах**: `docker compose build`
+   Альтернативно образы можно собрать локально на **обоих серверах**: `docker compose --env-file compose.swarm.env build`
 5. [Первичный]: `docker swarm init --advertise-addr <PRIMARY_SERVER_PUBLIC_IP_ADDRESS>`
 6. [Вторичный]: Скопируйте команду из результатов и выполните ее на вторичном узле: `docker swarm join --token <TOKEN> <MANAGER_IP_ADDRESS>:<PORT>`
 7. [Первичный]: Проверьте swarm `docker node ls`
@@ -155,7 +157,10 @@ Docker swarm используется для построения единой �
     vspy2m6w4tf7uv4ywgdnzttvr     az-world   Ready     Active                          29.0.1
     ```
 8. [Первичный] Добавьте метки для узлов `docker node update --label-add location=local az-local && docker node update --label-add location=world az-world`
-9. [Первичный]: запустите swarm `   docker compose config | docker run --pull always --rm -i xtrime/antizapret-vpn:6 compose2swarm | docker stack deploy --prune -c - antizapret`
+9. [Первичный]: запустите swarm. Последний Compose-файл добавляет `az-world` и разделяет диапазон адресов между двумя узлами выхода:
+   ```shell
+   docker compose --env-file compose.swarm.env config | docker run --pull always --rm -i xtrime/antizapret-vpn:6 compose2swarm | docker stack deploy --prune -c - antizapret
+   ```
 10. [Первичный]: Docker Swarm не поддерживает передачу устройств хоста в сервисы так же, как Docker Compose, поэтому для работы VPN-контейнеров требуются DKMS-модули ядра:
     - [Включение OpenVPN Data Channel Offload (DCO)](#включение-openvpn-data-channel-offload-dco)
     - [Включение расширения ядра Amnezia Wireguard](#включение-расширения-ядра-amnezia-wireguard)
@@ -278,7 +283,7 @@ services:
    ```shell
    git pull --rebase
    docker pull xtrime/antizapret-vpn:6
-      docker compose config | docker run --pull always --rm -i xtrime/antizapret-vpn:6 compose2swarm | docker stack deploy --prune -c - antizapret
+   docker compose --env-file compose.swarm.env config | docker run --pull always --rm -i xtrime/antizapret-vpn:6 compose2swarm | docker stack deploy --prune -c - antizapret
    docker system prune -af
    ```
 
@@ -297,7 +302,7 @@ services:
    ```shell
    docker stack rm antizapret && sleep 10
    git fetch && git checkout v6 && git pull --rebase
-   docker compose config | docker run --pull always --rm -i xtrime/antizapret-vpn:6 compose2swarm | docker stack deploy --prune -c - antizapret
+   docker compose --env-file compose.swarm.env config | docker run --pull always --rm -i xtrime/antizapret-vpn:6 compose2swarm | docker stack deploy --prune -c - antizapret
    docker system prune -af
    ```
 2. Обновите клиентов:
@@ -399,6 +404,13 @@ git restore config
 
 ![Preview](./img/chart.png)
 
+В односерверном Compose-режиме контейнер `az-local` также получает сетевые
+alias `az-world` и `az-world.antizapret`. CoreDNS определяет, что имена обоих
+узлов выхода имеют один адрес, и опрашивает контейнер только один раз; AdGuard
+создаёт для клиента `az-local` правила из локального и мирового списков. В
+Swarm-режиме короткие и полные alias разделяются между двумя сервисами, поэтому
+CoreDNS сначала опрашивает `az-world`, затем `az-local`.
+
 1. DNS-запрос поступает в AdGuardHome
 2. Adguard проверяет его правилами черного списка. Если домен в черном списке - возвращается 0.0.0.0, и клиент не может получить доступ к домену.
 3. Adguard отправляет DNS-запрос в сервис CoreDNS.
@@ -407,7 +419,7 @@ git restore config
 6. Если домен в белом списке - adguard разрешит его адрес и вернет в dnsmap.py.
 7. Если домен не в белом списке, adguard возвращает SERVFAIL.
 8. dnsmap.py отправляет ответ в adguard:
-   1. Если это валидный IP, то заменяет его на "внутренний" IP из подсети `14.16.0.0/15`, добавляет маскарадинг в iptables и возвращает внутренний ip в adguard
+   1. Если это валидный IP, то заменяет его на «внутренний» IP из подсети контейнера выхода (`14.16.0.0/15` для `az-local`), добавляет маскарадинг в iptables и возвращает внутренний IP в AdGuard.
    2. Если это SERVFAIL, он отправляет этот ответ клиенту.
 9. Если CoreDNS получает SERVFAIL, он повторяет запрос и отправляет его напрямую в Adguard. В этом случае правила с `$client=az-local` не применяются, и запрос обрабатывается нормально.
 
@@ -433,7 +445,7 @@ git restore config
    A: 14.16.13.206 (ttl=300)
    A: 14.16.13.208 (ttl=300)
    ```
-2. DNS-запрос от coredns в az-world. И запрос от az-world в Adguard:
+2. В Swarm-режиме DNS-запрос от coredns в az-world и запрос от az-world в Adguard (в односерверном Compose-режиме этот шаг пропускается):
    ```text
    Status: Rewritten
    Elapsed: 0.10 ms
@@ -479,6 +491,7 @@ git restore config
 ```
 @@||subdomain.host.com^$dnsrewrite,client=az-local
 @@||*.host.com^$dnsrewrite,client=az-local
+# правила az-world применяются только в Swarm-режиме
 @@||host.com^$dnsrewrite,client=az-world
 @@||de^$dnsrewrite,client=az-world
 
@@ -489,7 +502,8 @@ git restore config
 Также вы можете добавить любые url в blocklist. http://adguard.antizapret:3000/#dns_blocklist
 Необходимо использовать адаптер для парсинга и адаптации списка в различных форматах.
  - Добавить домены для локального узла выхода: `http://az-local.antizapret/list/?url=<ANY_URL>`
- - Добавить домены для мирового узла выхода `http://az-world.antizapret/list/?url=<ANY_URL>`
+ - Добавить домены для отдельного мирового узла выхода в Swarm-режиме: `http://az-world.antizapret/list/?url=<ANY_URL>`
+ - В односерверном Compose-режиме для обоих типов доменов используйте `az-local`.
 Поддерживаемые форматы: простой список доменов, формат adguard, формат hosts, json-массив доменов, список regex.
 
 ### Перенаправление сайта через VPN для отдельного клиента
@@ -647,7 +661,7 @@ services:
     environment:
       - ZAPRET_ENABLED=1
 ```
-Если используется compose mode и az-world нода так же страдает от DPI, то для нее тоже стоит включить:
+Если Swarm-узел `az-world` также страдает от DPI, включите настройку и для него:
 ```yaml
 services:
   az-world:
@@ -667,12 +681,12 @@ services:
 ```shell
 # Docker Compose
 docker compose up -d
-docker compose restart antizapret
+docker compose restart az-local
 ```
 
 - Режим Swarm, выполнять на primary/manager-узле
 ```shell
-docker compose config | docker run --pull always --rm -i xtrime/antizapret-vpn:6 compose2swarm | docker stack deploy --prune -c - antizapret
+docker compose --env-file compose.swarm.env config | docker run --pull always --rm -i xtrime/antizapret-vpn:6 compose2swarm | docker stack deploy --prune -c - antizapret
 docker service update --force antizapret_az-local
 docker service update --force antizapret_az-world
 ```
@@ -712,6 +726,7 @@ docker exec $(docker ps -q --filter=name=az-local) sh -c 'REPEATS=8 DOMAINS="you
 
 ### Adguard:
 - `ROUTES` - список VPN-контейнеров и их виртуальных адресов. Используется для уникальных клиентских адресов в логах adguard
+- `AZ_WORLD_ENABLED=` - включает отдельного клиента `az-world`, отслеживание его IP и checksum мировой конфигурации. Автоматически устанавливается в `1` файлом `compose.swarm.yml`; в односерверном Compose-режиме оставьте переменную пустой.
 - `ADGUARDHOME_PORT=3000`
 - `ADGUARDHOME_USERNAME=admin`
 - `ADGUARDHOME_PASSWORD=`

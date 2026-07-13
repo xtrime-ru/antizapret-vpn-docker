@@ -34,4 +34,3 @@ services:
         constraints: [ node.labels.location == local ]
     depends_on:
       - az-local
-      - az-world
