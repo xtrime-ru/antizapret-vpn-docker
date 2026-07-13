@@ -9,9 +9,25 @@ ADGUARDHOME_PORT=${ADGUARDHOME_PORT:-"3000"}
 
 AUTH=$(echo -n "$ADGUARDHOME_USERNAME:$ADGUARDHOME_PASSWORD" | base64)
 
+# resolve domain address to ip address
+function resolve () {
+    # $1 domain/ip address, $2 fallback ip address
+    res="$(getent hosts "$1" | head -n1 | awk '{print $1}')"
+    if [[ "$res" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+        echo "$res"
+    else
+        echo "$2"
+    fi
+}
+
 CONFIG_LOCAL=$(curl -s "http://az-local.antizapret/config-md5/" || echo "")
-CONFIG_WORLD=$(curl -s "http://az-world.antizapret/config-md5/" || echo "")
-NEW_MD5="$CONFIG_LOCAL $CONFIG_WORLD"
+NEW_MD5="$CONFIG_LOCAL"
+NEW_WORLD=''
+if [ "$AZ_WORLD_ENABLED" = "1" ]; then
+    CONFIG_WORLD=$(curl -s "http://az-world.antizapret/config-md5/" || echo "")
+    NEW_MD5="$CONFIG_LOCAL $CONFIG_WORLD"
+    NEW_WORLD=$(resolve 'az-world' '')
+fi
 OLD_MD5=$(cat /.config_md5 2>/dev/null || echo "")
 
 CLIENTS=$(curl -s -X GET "http://127.0.0.1:$ADGUARDHOME_PORT/control/clients" -H "Authorization: Basic $AUTH")
@@ -67,19 +83,7 @@ update_client() {
     fi
 }
 
-# resolve domain address to ip address
-function resolve () {
-    # $1 domain/ip address, $2 fallback ip address
-    res="$(getent hosts "$1" | head -n1 | awk '{print $1}')"
-    if [[ "$res" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
-        echo "$res"
-    else
-        echo "$2"
-    fi
-}
-
 NEW_LOCAL=$(resolve 'az-local' '')
-NEW_WORLD=$(resolve 'az-world' '')
 NEW_COREDNS=$(resolve 'coredns' '')
 
 update_client "az-local" "$NEW_LOCAL" "az-local"
