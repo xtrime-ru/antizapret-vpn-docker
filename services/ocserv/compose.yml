@@ -10,8 +10,8 @@ services:
     logging:
       driver: json-file
       options:
-        max-size: 100k
-        max-file: 2
+        max-size: 1m
+        max-file: 3
     healthcheck:
       test: (/healthcheck.sh || kill -TERM 1) 2>&1 | tee /proc/1/fd/1
       interval: 10s
