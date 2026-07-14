@@ -251,12 +251,19 @@ func TestApplyVPNRoutesAddsDefaultForSelectedDefaultRouteHost(t *testing.T) {
 	if routes[0].Table != vpnRouteTable {
 		t.Fatalf("routes[0].Table = %v, want %v", routes[0].Table, vpnRouteTable)
 	}
+	if routes[0].LinkIndex != 42 {
+		t.Fatalf("routes[0].LinkIndex = %v, want 42", routes[0].LinkIndex)
+	}
+	if routes[0].Flags&int(netlink.FLAG_ONLINK) == 0 {
+		t.Fatalf("routes[0].Flags = %v, want onlink", routes[0].Flags)
+	}
 	if !routes[0].Gw.Equal(net.ParseIP("10.200.0.2")) {
 		t.Fatalf("routes[0].Gw = %v, want 10.200.0.2", routes[0].Gw)
 	}
 }
 
 func TestReplaceRoutesFromFileReturnsRouteReplaceError(t *testing.T) {
+	stubRouteGet(t, 42)
 	path := filepath.Join(t.TempDir(), "routes.txt")
 	if err := os.WriteFile(path, []byte("1.2.3.0/24\n"), 0644); err != nil {
 		t.Fatalf("WriteFile() error = %v", err)
@@ -296,6 +303,7 @@ func captureIPTablesCommands(t *testing.T, fn func()) [][]string {
 
 func captureRouteReplace(t *testing.T, fn func()) []netlink.Route {
 	t.Helper()
+	stubRouteGet(t, 42)
 
 	original := routeReplace
 	t.Cleanup(func() {
@@ -310,6 +318,18 @@ func captureRouteReplace(t *testing.T, fn func()) []netlink.Route {
 
 	fn()
 	return routes
+}
+
+func stubRouteGet(t *testing.T, linkIndex int) {
+	t.Helper()
+
+	original := routeGet
+	t.Cleanup(func() {
+		routeGet = original
+	})
+	routeGet = func(net.IP) ([]netlink.Route, error) {
+		return []netlink.Route{{LinkIndex: linkIndex}}, nil
+	}
 }
 
 func captureRuleAdd(t *testing.T, fn func()) []netlink.Rule {

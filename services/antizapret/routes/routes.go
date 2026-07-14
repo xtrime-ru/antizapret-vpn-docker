@@ -34,6 +34,7 @@ const (
 
 var routeListClient = &http.Client{Timeout: httpClientTimeout}
 var routeReplace = netlink.RouteReplace
+var routeGet = netlink.RouteGet
 var ruleAdd = netlink.RuleAdd
 var lookupIP = func(ctx context.Context, host string) ([]net.IP, error) {
 	return udpResolver.LookupIP(ctx, "ip4", host)
@@ -64,6 +65,7 @@ type app struct {
 	routes        []routeSpec
 	routeGateways map[string]string
 	vpnGateways   map[string]string
+	gatewayLinks  map[string]int
 }
 
 func main() {
@@ -210,6 +212,9 @@ func (a *app) updateRoutes() {
 	if a.vpnGateways == nil {
 		a.vpnGateways = make(map[string]string, len(a.routes))
 	}
+	if a.gatewayLinks == nil {
+		a.gatewayLinks = make(map[string]int)
+	}
 
 	for _, route := range a.routes {
 
@@ -341,11 +346,45 @@ func (a *app) replaceRoute(route routeSpec, gateway string, useVPNTable bool) er
 		table = vpnRouteTable
 	}
 	routeNetLink, err := routeSpecFor(route.subnet, gateway, table)
-	if err == nil {
-		err = routeReplace(&routeNetLink)
+	if err != nil {
+		return err
 	}
+	linkIndex, err := a.linkIndexForGateway(gateway)
+	if err != nil {
+		return err
+	}
+	routeNetLink.LinkIndex = linkIndex
+	routeNetLink.SetFlag(netlink.FLAG_ONLINK)
+	err = routeReplace(&routeNetLink)
 	a.logVerbose("netlink RouteReplace dst=%s gateway=%s duration=%s err=%v", route.subnet, gateway, time.Since(start), err)
 	return err
+}
+
+// linkIndexForGateway resolves the output interface explicitly. Older kernels
+// cannot always infer it when the first route is added to a policy table.
+func (a *app) linkIndexForGateway(gateway string) (int, error) {
+	if linkIndex := a.gatewayLinks[gateway]; linkIndex > 0 {
+		return linkIndex, nil
+	}
+
+	gatewayIP, err := parseIPv4(gateway)
+	if err != nil {
+		return 0, err
+	}
+	routes, err := routeGet(gatewayIP)
+	if err != nil {
+		return 0, fmt.Errorf("failed to resolve interface for gateway %s: %w", gateway, err)
+	}
+	for _, route := range routes {
+		if route.LinkIndex > 0 {
+			if a.gatewayLinks == nil {
+				a.gatewayLinks = make(map[string]int)
+			}
+			a.gatewayLinks[gateway] = route.LinkIndex
+			return route.LinkIndex, nil
+		}
+	}
+	return 0, fmt.Errorf("failed to resolve interface for gateway %s", gateway)
 }
 
 // addVPNClientRules keeps traffic to the current VPN subnet in the main table
