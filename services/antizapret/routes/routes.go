@@ -177,14 +177,20 @@ func dnsRedirectRules(destination string) [][]string {
 	rules := make([][]string, 0, 6)
 	for _, protocol := range []string{"tcp", "udp"} {
 		for _, ruleset := range []string{"PREROUTING", "OUTPUT"} {
-			rules = append(rules, []string{
+			rule := []string{
 				"-t", "nat",
 				"-A", ruleset,
+			}
+			if ruleset == "OUTPUT" {
+				rule = append(rule, "!", "-d", "127.0.0.0/8")
+			}
+			rule = append(rule,
 				"-p", protocol,
 				"--dport", "53",
 				"-j", "DNAT",
 				"--to-destination", destination,
-			})
+			)
+			rules = append(rules, rule)
 		}
 	}
 	for _, protocol := range []string{"tcp", "udp"} {
