@@ -385,6 +385,10 @@ class AsnListTests(ResolverTestCase):
 
 
 class MappingTests(ResolverTestCase):
+    def test_range_must_leave_an_address_after_dns_reservation(self):
+        with self.assertRaisesRegex(ValueError, 'no addresses available'):
+            self.make_resolver(iprange='14.16.0.1/32')
+
     def test_iptables_failure_does_not_commit_and_recycles_address(self):
         self.iptables_runner.return_value = Mock(returncode=1, stderr='failed')
         resolver = self.make_resolver()
@@ -402,6 +406,32 @@ class MappingTests(ResolverTestCase):
         self.assertEqual(resolver.get_mapping('192.0.2.1'), '14.16.0.2')
         command = self.iptables_runner.call_args.args[0]
         self.assertEqual(command[-1], '192.0.2.1')
+
+    def test_exhausted_range_flushes_old_mappings_and_starts_over(self):
+        resolver = self.make_resolver(iprange='14.16.0.0/30')
+
+        self.assertEqual(resolver.add_mapping('192.0.2.1'), '14.16.0.2')
+        self.assertEqual(resolver.add_mapping('192.0.2.2'), '14.16.0.2')
+
+        self.assertEqual(resolver.ipmap, {'192.0.2.2': '14.16.0.2'})
+        commands = [call.args[0] for call in self.iptables_runner.call_args_list]
+        self.assertEqual(commands[1], ['iptables', '-w', '-t', 'nat', '-F', 'dnsmap'])
+        self.assertEqual(commands[2][-1], '192.0.2.2')
+
+    def test_failed_flush_preserves_old_mappings(self):
+        def run_iptables(command, **kwargs):
+            if '-F' in command:
+                return Mock(returncode=1, stderr='flush failed')
+            return Mock(returncode=0, stderr='')
+
+        self.iptables_runner.side_effect = run_iptables
+        resolver = self.make_resolver(iprange='14.16.0.0/30')
+
+        self.assertEqual(resolver.add_mapping('192.0.2.1'), '14.16.0.2')
+        self.assertFalse(resolver.add_mapping('192.0.2.2'))
+
+        self.assertEqual(resolver.ipmap, {'192.0.2.1': '14.16.0.2'})
+        self.assertEqual(list(resolver.unassigned_addresses), [])
 
 
 class ResolverContractTests(ResolverTestCase):

@@ -79,9 +79,8 @@ class ProxyResolver(BaseResolver):
             asn_count, organization_count
         ))
         self.asn_database = asn_database_reader or maxminddb.open_database(asn_database)
-        self.unassigned_addresses = deque([str(x) for x in IPv4Network(iprange).hosts()])
-        # preserve first address from range for DNS
-        del self.unassigned_addresses[0]
+        self.iprange = IPv4Network(iprange)
+        self.unassigned_addresses = self.new_unassigned_addresses()
 
         self.ipmap = {}
         self.tablename = tablename
@@ -261,6 +260,33 @@ class ProxyResolver(BaseResolver):
     def get_mapping(self, real_addr):
         return self.ipmap.get(real_addr)
 
+    def new_unassigned_addresses(self):
+        addresses = deque([str(address) for address in self.iprange.hosts()])
+        # Preserve the first address from the range for DNS.
+        try:
+            addresses.popleft()
+        except IndexError as error:
+            raise ValueError('IP range has no addresses available for mappings') from error
+        if not addresses:
+            raise ValueError('IP range has no addresses available for mappings')
+        return addresses
+
+    def reset_mappings(self):
+        command = ['iptables', '-w', '-t', 'nat', '-F', self.tablename]
+        try:
+            result = self.iptables_runner(command, capture_output=True, text=True)
+        except OSError as error:
+            print('ERROR: Failed to flush mappings: {}'.format(error))
+            return False
+        if result.returncode != 0:
+            print('ERROR: Failed to flush mappings: {}'.format(result.stderr.strip()))
+            return False
+
+        self.ipmap.clear()
+        self.unassigned_addresses = self.new_unassigned_addresses()
+        print('Fake IP address range exhausted. All mappings were cleared.')
+        return True
+
     def add_mapping(self, real_addr, fake_addr=None):
         with self.mapping_lock:
             existing_fake_addr = self.get_mapping(real_addr)
@@ -284,8 +310,9 @@ class ProxyResolver(BaseResolver):
                 try:
                     fake_addr = self.unassigned_addresses.popleft()
                 except IndexError:
-                    print("ERROR: No IP addresses left!!!")
-                    return False
+                    if not self.reset_mappings():
+                        return False
+                    fake_addr = self.unassigned_addresses.popleft()
                 command = [
                     'iptables', '-w', '-t', 'nat', '-A', self.tablename,
                     '-d', fake_addr, '-j', 'DNAT', '--to', real_addr,
