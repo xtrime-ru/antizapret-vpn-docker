@@ -25,8 +25,7 @@ services:
       test: /healthcheck.sh
       interval: 10s
       timeout: 15m
-      start_period: 5s
-      start_interval: 1s
+      start_period: 10m
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - $PWD/config/antizapret/custom:/root/antizapret/config/custom
