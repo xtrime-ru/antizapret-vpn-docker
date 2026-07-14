@@ -25,7 +25,7 @@ RUN <<-"EOT" bash -ex
     apk del $LIBS_TEMP
 EOT
 
-COPY --from=xtrime/antizapret-vpn:6.7.5  /usr/bin/routes /usr/bin/routes
+COPY --from=xtrime/antizapret-vpn:6.7.8  /usr/bin/routes /usr/bin/routes
 
 COPY easy-rsa.vars /opt/app
 COPY files/fw-rules.sh /opt/app
