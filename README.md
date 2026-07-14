@@ -616,12 +616,14 @@ Add proxy services to `docker-compose.override.yml`:
 ### Client setup
 
 1. Connect to VPN
-2. Configure SOCKS5 or HTTP/HTTPS proxy in your application or browser:
-    - **Host:** `proxy-local.antizapret` or `proxy-world.antizapret`
-    - **SOCKS5 Port:** `1080`
-    - **HTTP/HTTPS Port:** `3128`
+2. Configure the HTTPS proxy exposed by the `https` container in your application or browser:
+    - **Host:** your server IP address or domain name
+    - **Local proxy port:** `8143`
+    - **World proxy port:** `8243`
     - **Username:** value of `PROXY_LOGIN`
     - **Password:** value of `PROXY_PASSWORD`
+
+When connected to the VPN, the proxy containers are also available directly as `proxy-local.antizapret` and `proxy-world.antizapret`: SOCKS5 on port `8118` and HTTP on port `8180`.
 
 ## zapret2
 zapret2 support is based on [bol-van/zapret2](https://github.com/bol-van/zapret2), an anti-DPI toolkit that can modify HTTP, TLS, and QUIC traffic, and uses the Docker packaging from [vernette/ss-zapret2](https://github.com/vernette/ss-zapret2) as the source of the bundled zapret2 files. In this container it runs on antizapret exit-node traffic and can be tuned with the variables below.
