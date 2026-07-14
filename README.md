@@ -764,18 +764,14 @@ You can define these variables in docker-compose.override.yml file for your need
 
 ## DNS
 ### Adguard Upstream DNS
-Adguard uses Google DNS and Quad9 DNS to resolve unblocked domains. This upstreams support ECS requests (more info below).
-Cloudflare DNS do not support ECS and is not recommended for use.  
-
-Source code: [Adguard upstream DNS](./antizapret/root/adguardhome/upstream_dns_file_basis)
-After container is started working copy is located here: `./config/adguard/conf/upstream_dns_file_basis`
+AdGuard sends regular client queries through CoreDNS. For direct resolution used by ASN matching, the entrypoint configures the `az-resolver` client with Cloudflare, Google, and Quad9 upstreams. The generated configuration is stored in `./config/adguard/conf/AdGuardHome.yaml` and can be changed through the AdGuard Home UI.
 
 ### CDN + ECS
 Some domains can resolve differently, depending on subnet (geoip) of client. In this case using of DNS located on remote server will break some services.
 ECS allow to provide client IP in DNS requests to upstream server and get correct results.
-Its enabled by default in Adguard and client ip is pointed to Moscow (Yandex Subnet).
+ECS is disabled by default. The AdGuard entrypoint does not enable it automatically in either Docker Compose or Docker Swarm mode.
 
-If you located in other region, you need to replace `77.88.8.8` with your real ip address on this page `http://your-server-ip:3000/#dns`
+To enable ECS, open the AdGuard Home DNS settings at `http://your-server-ip:3000/#dns`, enable EDNS Client Subnet, and replace the preconfigured example address `77.88.8.8` with an address appropriate for your location.
 
 
 

@@ -752,18 +752,14 @@ docker exec $(docker ps -q --filter=name=az-local) sh -c 'REPEATS=8 DOMAINS="you
 
 ## DNS
 ### Upstream DNS для Adguard
-Adguard использует Google DNS и Quad9 DNS для разрешения незаблокированных доменов. Эти апстримы поддерживают ECS-запросы (подробнее ниже).
-Cloudflare DNS не поддерживает ECS и не рекомендуется к использованию.
-
-Исходный код: [Adguard upstream DNS](./antizapret/root/adguardhome/upstream_dns_file_basis)
-После запуска контейнера рабочая копия находится здесь: `./config/adguard/conf/upstream_dns_file_basis`
+Обычные клиентские запросы AdGuard отправляет через CoreDNS. Для прямого разрешения, используемого при проверке ASN, entrypoint настраивает клиент `az-resolver` с upstream-серверами Cloudflare, Google и Quad9. Сгенерированная конфигурация хранится в `./config/adguard/conf/AdGuardHome.yaml`; её можно изменить через интерфейс AdGuard Home.
 
 ### CDN + ECS
 Некоторые домены могут разрешаться по-разному в зависимости от подсети (geoip) клиента. В этом случае использование DNS, расположенного на удаленном сервере, сломает некоторые сервисы.
 ECS позволяет предоставить IP клиента в DNS-запросах к upstream-серверу и получить корректные результаты.
-По умолчанию включено в Adguard, и ip клиента указывается на Москву (подсеть Yandex).
+По умолчанию ECS отключён. Entrypoint AdGuard не включает его автоматически ни в режиме Docker Compose, ни в режиме Docker Swarm.
 
-Если вы находитесь в другом регионе, вам нужно заменить `77.88.8.8` на ваш реальный ip-адрес на этой странице `http://your-server-ip:3000/#dns`
+Чтобы включить ECS, откройте настройки DNS AdGuard Home по адресу `http://your-server-ip:3000/#dns`, включите EDNS Client Subnet и замените предзаполненный пример `77.88.8.8` на адрес, подходящий для вашего региона.
 
 ## OpenVPN
 ### Создание клиентских сертификатов:
