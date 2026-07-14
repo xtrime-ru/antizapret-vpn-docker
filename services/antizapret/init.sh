@@ -93,17 +93,25 @@ IPTABLES_SAVE="/root/antizapret/iptables/$HOSTNAME.rules"
 
 set +x
 if [ "$IPTABLES_SAVE_DISABLED" != "1" ] && [ -f "$IPTABLES_SAVE" ]; then
-  LINES=$(cat "$IPTABLES_SAVE" | wc -l)
+  LINES=$(wc -l < "$IPTABLES_SAVE")
   echo "restoring iptables rules: $LINES"
   if [ "$LINES" -gt 130000 ]; then
     echo "iptables-save too big. removing old file."
     rm -rf "$IPTABLES_SAVE"
   else
-    while IFS= read -r rule; do
-      if [[ "$rule" =~ ^-A[[:space:]]"$CHAIN" ]]; then
-        iptables -t "nat" $rule || echo "cant add iptables rule: $rule"
-      fi
-    done < "$IPTABLES_SAVE"
+    IPTABLES_RESTORE_FILE=$(mktemp)
+    {
+      printf '*nat\n'
+      grep -E "^-A $CHAIN " "$IPTABLES_SAVE" || true
+      printf 'COMMIT\n'
+    } > "$IPTABLES_RESTORE_FILE"
+
+    if iptables-restore --noflush "$IPTABLES_RESTORE_FILE"; then
+      echo "iptables rules restored"
+    else
+      echo "cant restore iptables rules"
+    fi
+    rm -f "$IPTABLES_RESTORE_FILE"
   fi
 fi
 set -x
