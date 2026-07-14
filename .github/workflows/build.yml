@@ -1,33 +1,100 @@
-name: Build
+name: Build images
 
 on:
-  push:
-    branches:
-      - master
-      - dev
+  pull_request:
+    branches: [v6]
     paths:
-      - .github
-      - ../../adguard
-      - Dockerfile
+      - versions.json
+      - scripts/image-matrix.sh
+      - .github/workflows/build.yml
+  push:
+    branches: [dev, v6]
+    paths:
+      - versions.json
+      - scripts/image-matrix.sh
+      - .github/workflows/build.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
 
 concurrency:
-  group: antizapret
+  group: build-images-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PUBLISH_IMAGES: ${{ github.ref == 'refs/heads/v6' && github.event_name != 'pull_request' }}
 
 jobs:
-  build:
-    name: Build
+  prepare:
     runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+      count: ${{ steps.matrix.outputs.count }}
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build Image
-        uses: docker/build-push-action@v6
+      - uses: actions/checkout@v6
         with:
-          context: .
-          platforms: linux/amd64,linux/arm64
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          fetch-depth: 0
+
+      - id: matrix
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          old_versions=$(mktemp)
+          if [ -n "${BASE_SHA:-}" ] && git show "$BASE_SHA:versions.json" > "$old_versions" 2>/dev/null; then
+            :
+          else
+            printf '{"images":[]}\n' > "$old_versions"
+          fi
+          matrix=$(scripts/image-matrix.sh "$old_versions" versions.json)
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "count=$(jq '.include | length' <<< "$matrix")" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: prepare
+    if: needs.prepare.outputs.count != '0'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    name: ${{ matrix.name }}:${{ matrix.version }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: docker/setup-qemu-action@v4
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Set release image tag
+        env:
+          SERVICE: ${{ matrix.target }}
+          IMAGE: xtrime/${{ matrix.repository }}:${{ matrix.version }}
+        run: |
+          printf 'services:\n  %s:\n    image: %s\n' "$SERVICE" "$IMAGE" > "${{ matrix.source }}/release-compose.yml"
+
+      - uses: docker/login-action@v4
+        if: env.PUBLISH_IMAGES == 'true'
+        with:
+          username: xtrime
+          password: ${{ secrets.DOCKER_TOKEN }}
+
+      - uses: docker/login-action@v4
+        if: env.PUBLISH_IMAGES == 'true'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/bake-action@v7
+        with:
+          source: ./${{ matrix.source }}
+          files: |
+            ${{ matrix.compose }}
+            release-compose.yml
+          targets: ${{ matrix.target }}
+          set: |
+            ${{ matrix.set_tags }}
+            ${{ matrix.target }}.cache-from=type=gha,scope=${{ matrix.name }}
+            ${{ matrix.target }}.cache-to=type=gha,mode=max,scope=${{ matrix.name }}
+          push: ${{ env.PUBLISH_IMAGES == 'true' }}

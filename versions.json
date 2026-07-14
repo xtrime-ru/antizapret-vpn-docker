@@ -1,0 +1,122 @@
+{
+  "images": [
+    {
+      "name": "adguard",
+      "repository": "antizapret-vpn-adguard",
+      "version": "6.7.5",
+      "source": "services/adguard",
+      "compose": "docker-compose.yml",
+      "target": "adguard",
+      "aliases": ["latest"]
+    },
+    {
+      "name": "antizapret",
+      "repository": "antizapret-vpn",
+      "ghcr_repository": "antizapret-vpn-docker",
+      "version": "6.7.8",
+      "source": "services/antizapret",
+      "compose": "docker-compose.yml",
+      "target": "antizapret",
+      "aliases": ["6", "latest"]
+    },
+    {
+      "name": "cloak",
+      "repository": "antizapret-vpn-cloak",
+      "version": "5.0.1",
+      "source": "services/cloak",
+      "compose": "docker-compose.yml",
+      "target": "cloak",
+      "aliases": ["latest"]
+    },
+    {
+      "name": "coredns",
+      "repository": "antizapret-vpn-coredns",
+      "version": "6.6.5",
+      "source": "services/coredns",
+      "compose": "docker-compose.yml",
+      "target": "coredns",
+      "aliases": ["latest"]
+    },
+    {
+      "name": "dashboard",
+      "repository": "antizapret-vpn-dashboard",
+      "version": "5.0.1",
+      "source": "services/dashboard",
+      "compose": "docker-compose.yml",
+      "target": "dashboard",
+      "aliases": ["latest"]
+    },
+    {
+      "name": "filebrowser",
+      "repository": "antizapret-vpn-filebrowser",
+      "version": "5.3.2",
+      "source": "services/filebrowser",
+      "compose": "docker-compose.yml",
+      "target": "filebrowser",
+      "aliases": ["latest"]
+    },
+    {
+      "name": "firewall",
+      "repository": "antizapret-vpn-firewall",
+      "version": "6.4.1",
+      "source": "services/firewall",
+      "compose": "docker-compose.yml",
+      "target": "firewall",
+      "aliases": ["latest"]
+    },
+    {
+      "name": "https",
+      "repository": "antizapret-vpn-https",
+      "version": "6.6.5",
+      "source": "services/https",
+      "compose": "docker-compose.yml",
+      "target": "https",
+      "aliases": ["latest"]
+    },
+    {
+      "name": "ocserv",
+      "repository": "antizapret-vpn-ocserv",
+      "version": "1.4.0",
+      "source": "services/ocserv",
+      "compose": "compose.yml",
+      "target": "ocserv",
+      "aliases": ["latest"]
+    },
+    {
+      "name": "openvpn",
+      "repository": "antizapret-vpn-openvpn",
+      "version": "6.7.2",
+      "source": "services/openvpn",
+      "compose": "docker-compose.yml",
+      "target": "openvpn",
+      "aliases": ["latest"]
+    },
+    {
+      "name": "openvpn-ui",
+      "repository": "antizapret-vpn-openvpn-ui",
+      "version": "6.5.3",
+      "source": "services/openvpn",
+      "compose": "docker-compose.yml",
+      "target": "openvpn-ui",
+      "aliases": ["latest"]
+    },
+    {
+      "name": "proxy",
+      "repository": "antizapret-vpn-proxy",
+      "version": "6.7.2",
+      "source": "services/proxy",
+      "compose": "compose.yml",
+      "target": "proxy",
+      "aliases": ["latest"]
+    },
+    {
+      "name": "wireguard",
+      "repository": "antizapret-vpn-wireguard",
+      "version": "6.7.2",
+      "source": "services/wireguard",
+      "compose": "docker-compose.base.yml",
+      "target": "base",
+      "aliases": ["latest"]
+    }
+  ]
+}
