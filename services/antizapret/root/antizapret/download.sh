@@ -26,6 +26,7 @@ function download_list() {
             success=false
             break
         fi
+        printf '\n' >> "$tmp_file"
     done
 
     if [ "$success" = true ] && [ -s "$tmp_file" ]; then
