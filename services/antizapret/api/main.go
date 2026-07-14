@@ -7,6 +7,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -58,6 +59,43 @@ func doallHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 var decoder = schema.NewDecoder()
+
+var errListFileNotAllowed = errors.New("file is outside /root/antizapret")
+var allowedListRoot = "/root/antizapret"
+
+var listHTTPClient = &http.Client{Timeout: 60 * time.Second}
+
+func openAllowedListFile(path string) (*os.File, error) {
+	prefix := allowedListRoot + string(filepath.Separator)
+	if !strings.HasPrefix(path, prefix) {
+		return nil, errListFileNotAllowed
+	}
+
+	relativePath := strings.TrimPrefix(path, prefix)
+	if relativePath == "" || filepath.Clean(relativePath) != relativePath {
+		return nil, errListFileNotAllowed
+	}
+
+	root, err := os.OpenRoot(allowedListRoot)
+	if err != nil {
+		return nil, err
+	}
+	defer root.Close()
+
+	file, err := root.Open(relativePath)
+	if err != nil {
+		return nil, err
+	}
+	info, err := file.Stat()
+	if err != nil || !info.Mode().IsRegular() {
+		_ = file.Close()
+		if err != nil {
+			return nil, err
+		}
+		return nil, errors.New("list source is not a regular file")
+	}
+	return file, nil
+}
 
 type ListRequest struct {
 	Url          string `schema:"url"`
@@ -195,24 +233,21 @@ func adaptList(w http.ResponseWriter, r *http.Request) {
 	var reader io.ReadCloser
 	if req.Url != "" {
 		// Create a new HTTP request
-		reqRemote, err := http.NewRequest("GET", req.Url, nil)
+		reqRemote, err := http.NewRequestWithContext(r.Context(), http.MethodGet, req.Url, nil)
 		if err != nil {
-			http.Error(w, fmt.Sprintf("Failed to create request: %v", err), http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("Failed to create request: %v", err), http.StatusBadRequest)
 			return
 		}
 
-		// Forward all headers from the original request
-		for name, values := range r.Header {
-			for _, value := range values {
-				reqRemote.Header.Add(name, value)
-			}
+		// Keep a useful User-Agent without forwarding credentials or internal headers.
+		if userAgent := r.Header.Get("User-Agent"); userAgent != "" {
+			reqRemote.Header.Set("User-Agent", userAgent)
 		}
 
 		// Perform the request
-		client := &http.Client{}
-		resp, err := client.Do(reqRemote)
+		resp, err := listHTTPClient.Do(reqRemote)
 		if err != nil {
-			http.Error(w, fmt.Sprintf("Failed to download list: %v", err), http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("Failed to download list: %v", err), http.StatusBadGateway)
 			return
 		}
 		defer resp.Body.Close()
@@ -239,11 +274,16 @@ func adaptList(w http.ResponseWriter, r *http.Request) {
 		}
 
 	} else if req.File != "" {
-		file, err := os.Open(req.File)
+		file, err := openAllowedListFile(req.File)
 		if err != nil {
-			http.Error(w, fmt.Sprintf("Failed to open local file: %v", err), http.StatusInternalServerError)
+			status := http.StatusInternalServerError
+			if errors.Is(err, errListFileNotAllowed) {
+				status = http.StatusForbidden
+			}
+			http.Error(w, fmt.Sprintf("Failed to open local file: %v", err), status)
 			return
 		}
+		defer file.Close()
 		reader = file
 	} else {
 		http.Error(w, "Url or File required", http.StatusBadRequest)
