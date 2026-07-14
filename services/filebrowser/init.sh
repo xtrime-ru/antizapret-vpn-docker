@@ -18,6 +18,14 @@
     --shell="sh -c" \
     --singleClick
 
+hook_indices=$(
+    /filebrowser cmds ls \
+        | sed -n 's|^after_save(\([0-9][0-9]*\)): /hooks/doall\.sh$|\1|p' \
+        | sort -rn
+)
+for hook_index in $hook_indices; do
+    /filebrowser cmds rm after_save "$hook_index"
+done
 /filebrowser cmds add after_save '/hooks/doall.sh'
 
 /filebrowser users add --lockPassword \
