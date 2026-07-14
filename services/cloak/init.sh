@@ -15,9 +15,9 @@ if [ -e $envBackup ]; then
             key=${var%%=*}
             if [ -z ${!key} ]; then 
                 export "$var"
-                echo "Apply backup variable: ${var}"; 
+                echo "Apply backup variable: ${key}"
             else 
-                echo "Skip backup variable: ${var}"; 
+                echo "Skip backup variable: ${key}"
             fi
         fi
     done < $envBackup
