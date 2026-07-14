@@ -24,8 +24,10 @@ const (
 	azLocalListPath   = "http://az-local.antizapret/list/?raw=1&file=/root/antizapret/result/ips.txt"
 	azWorldListPath   = "http://az-local.antizapret/list/?raw=1&file=/root/antizapret/result/ips-world.txt"
 	vpnDefaultRoute   = "default"
+	mainRouteTable    = 254
 	vpnRouteTable     = 100
 	vpnRulePriority   = 10000
+	vpnLocalPriority  = vpnRulePriority - 1
 	dnsTimeout        = 1 * time.Second
 	httpClientTimeout = 3 * time.Second
 )
@@ -212,8 +214,8 @@ func (a *app) updateRoutes() {
 	for _, route := range a.routes {
 
 		if a.vpn && route.host == a.self {
-			if err := a.addVPNClientRule(route); err != nil {
-				fmt.Fprintf(os.Stderr, "failed to add VPN client rule: host=%s subnet=%s error=%v\n", route.host, route.subnet, err)
+			if err := a.addVPNClientRules(route); err != nil {
+				fmt.Fprintf(os.Stderr, "failed to add VPN client rules: host=%s subnet=%s error=%v\n", route.host, route.subnet, err)
 			}
 		}
 
@@ -346,23 +348,36 @@ func (a *app) replaceRoute(route routeSpec, gateway string, useVPNTable bool) er
 	return err
 }
 
-// addVPNClientRule adds an ip rule from a VPN client subnet to the VPN policy table.
-func (a *app) addVPNClientRule(route routeSpec) error {
-	src, err := parseRouteDst(route.subnet)
+// addVPNClientRules keeps traffic to the current VPN subnet in the main table
+// and sends all traffic from VPN clients to the VPN policy table.
+func (a *app) addVPNClientRules(route routeSpec) error {
+	vpnSubnet, err := parseRouteDst(route.subnet)
 	if err != nil {
 		return err
 	}
-	if src == nil {
+	if vpnSubnet == nil {
 		return errors.New("VPN client rule requires a source subnet")
+	}
+
+	localRule := netlink.NewRule()
+	localRule.Family = netlink.FAMILY_V4
+	localRule.Priority = vpnLocalPriority
+	localRule.Table = mainRouteTable
+	localRule.Dst = vpnSubnet
+	if err := addRule(localRule); err != nil {
+		return err
 	}
 
 	rule := netlink.NewRule()
 	rule.Family = netlink.FAMILY_V4
 	rule.Priority = vpnRulePriority
 	rule.Table = vpnRouteTable
-	rule.Src = src
+	rule.Src = vpnSubnet
+	return addRule(rule)
+}
 
-	err = ruleAdd(rule)
+func addRule(rule *netlink.Rule) error {
+	err := ruleAdd(rule)
 	if errors.Is(err, syscall.EEXIST) {
 		return nil
 	}

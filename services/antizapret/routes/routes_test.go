@@ -190,7 +190,7 @@ func TestUpdateRoutesSkipsVPNRouteWhenVPNRouteUnchanged(t *testing.T) {
 	}
 }
 
-func TestUpdateRoutesAddsVPNClientRuleForSelfRoute(t *testing.T) {
+func TestUpdateRoutesKeepsCurrentVPNSubnetOutOfPolicyTable(t *testing.T) {
 	var routes []netlink.Route
 	rules := captureRuleAdd(t, func() {
 		routes = captureRouteReplace(t, func() {
@@ -207,14 +207,26 @@ func TestUpdateRoutesAddsVPNClientRuleForSelfRoute(t *testing.T) {
 	if len(routes) != 0 {
 		t.Fatalf("routes = %#v, want none", routes)
 	}
-	if len(rules) != 1 {
-		t.Fatalf("rules = %#v, want 1 rule", rules)
+	if len(rules) != 2 {
+		t.Fatalf("rules = %#v, want 2 rules", rules)
 	}
-	if rules[0].Src == nil || rules[0].Src.String() != "10.1.166.0/24" {
-		t.Fatalf("rules[0].Src = %v, want 10.1.166.0/24", rules[0].Src)
+	if rules[0].Dst == nil || rules[0].Dst.String() != "10.1.166.0/24" {
+		t.Fatalf("rules[0].Dst = %v, want 10.1.166.0/24", rules[0].Dst)
 	}
-	if rules[0].Table != vpnRouteTable {
-		t.Fatalf("rules[0].Table = %v, want %v", rules[0].Table, vpnRouteTable)
+	if rules[0].Src != nil {
+		t.Fatalf("rules[0].Src = %v, want any source", rules[0].Src)
+	}
+	if rules[0].Table != mainRouteTable || rules[0].Priority != vpnLocalPriority {
+		t.Fatalf("rules[0] table/priority = %v/%v, want %v/%v", rules[0].Table, rules[0].Priority, mainRouteTable, vpnLocalPriority)
+	}
+	if rules[1].Src == nil || rules[1].Src.String() != "10.1.166.0/24" {
+		t.Fatalf("rules[1].Src = %v, want 10.1.166.0/24", rules[1].Src)
+	}
+	if rules[1].Dst != nil {
+		t.Fatalf("rules[1].Dst = %v, want any destination", rules[1].Dst)
+	}
+	if rules[1].Table != vpnRouteTable || rules[1].Priority != vpnRulePriority {
+		t.Fatalf("rules[1] table/priority = %v/%v, want %v/%v", rules[1].Table, rules[1].Priority, vpnRouteTable, vpnRulePriority)
 	}
 }
 
