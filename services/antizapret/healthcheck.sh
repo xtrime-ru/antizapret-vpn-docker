@@ -21,8 +21,8 @@ if [ -f "$FLAG_FILE" ]; then
   trap cleanup EXIT HUP INT QUIT PIPE TERM
 fi
 
-RUNNING_COUNT=$(pgrep -f "dnsmap" | wc -l)
-if [ "$RUNNING_COUNT" -ne 1 ]; then
+RUNNING_COUNT=$(pgrep -f "[/]usr/bin/dnsmap" | wc -l)
+if [ "$RUNNING_COUNT" -eq 0 ]; then
   if [ -f "$FLAG_FILE" ]; then
     echo "healthcheck: dnsmap not found"
   else
