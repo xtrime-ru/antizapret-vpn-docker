@@ -18,7 +18,13 @@ fi
 mkdir -pv $OPENVPN_DIR/config
 cp -vf /opt/app/easy-rsa.vars $OPENVPN_DIR/config/easy-rsa.vars
 
-if [[ ! -f $OPENVPN_DIR/pki/ca.crt ]] || [[ ! -f $OPENVPN_DIR/pki/crl.pem ]]; then
+PKI_DIR="$OPENVPN_DIR/pki"
+if [[ ! -s "$PKI_DIR/ca.crt" ]]; then
+    if [[ -d "$PKI_DIR" ]] && [[ -n "$(find "$PKI_DIR" -mindepth 1 -print -quit)" ]]; then
+        echo "PKI directory is not empty, but ca.crt is missing or empty. Refusing to overwrite existing PKI." >&2
+        exit 1
+    fi
+
     export EASYRSA_BATCH=1 # see https://superuser.com/questions/1331293/easy-rsa-v3-execute-build-ca-and-gen-req-silently
     cd $EASY_RSA
 
@@ -55,6 +61,13 @@ if [[ ! -f $OPENVPN_DIR/pki/ca.crt ]] || [[ ! -f $OPENVPN_DIR/pki/crl.pem ]]; th
 
     # Copy to mounted volume
     cp -r $EASY_RSA/pki/. $OPENVPN_DIR/pki
+elif [[ ! -s "$PKI_DIR/crl.pem" ]]; then
+    echo 'Certificate revocation list is missing. Generating it from the existing CA...'
+    export EASYRSA_BATCH=1
+    export EASYRSA_PKI="$OPENVPN_DIR/pki"
+    cd "$EASY_RSA"
+    "$EASY_RSA/easyrsa" gen-crl
+    chmod +r "$OPENVPN_DIR/pki/crl.pem"
 else
     echo 'PKI already set up.'
 fi
