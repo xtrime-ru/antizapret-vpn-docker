@@ -20,12 +20,21 @@ CLIENTS=$(curl -s -X GET "http://127.0.0.1:$ADGUARDHOME_PORT/control/clients" -H
 if [ "$NEW_MD5" != "$OLD_MD5" ]; then
     echo "Config files changed"
 
-    curl -s "http://127.0.0.1:$ADGUARDHOME_PORT/control/filtering/refresh" -X 'POST' -H 'Content-Type: application/json' -H "Authorization: Basic $AUTH"  --data-raw '{"whitelist":false}' &
-    curl -s "http://127.0.0.1:$ADGUARDHOME_PORT/control/filtering/refresh" -X 'POST' -H 'Content-Type: application/json' -H "Authorization: Basic $AUTH"  --data-raw '{"whitelist":true}' &
-    echo "$NEW_MD5" > /.config_md5
-    wait
+    curl -fsS "http://127.0.0.1:$ADGUARDHOME_PORT/control/filtering/refresh" -X 'POST' -H 'Content-Type: application/json' -H "Authorization: Basic $AUTH"  --data-raw '{"whitelist":false}' &
+    FILTERS_REFRESH_PID=$!
+    curl -fsS "http://127.0.0.1:$ADGUARDHOME_PORT/control/filtering/refresh" -X 'POST' -H 'Content-Type: application/json' -H "Authorization: Basic $AUTH"  --data-raw '{"whitelist":true}' &
+    WHITELIST_REFRESH_PID=$!
 
-    curl -s "http://127.0.0.1:$ADGUARDHOME_PORT/control/cache_clear" -X 'POST' -H "Authorization: Basic $AUTH"
+    REFRESH_FAILED=0
+    wait "$FILTERS_REFRESH_PID" || REFRESH_FAILED=1
+    wait "$WHITELIST_REFRESH_PID" || REFRESH_FAILED=1
+    if [ "$REFRESH_FAILED" = "1" ]; then
+        echo "Failed to refresh AdGuard filters" >&2
+        exit 1
+    fi
+
+    curl -fsS "http://127.0.0.1:$ADGUARDHOME_PORT/control/cache_clear" -X 'POST' -H "Authorization: Basic $AUTH"
+    printf '%s\n' "$NEW_MD5" > /.config_md5
 fi
 
 update_client() {
