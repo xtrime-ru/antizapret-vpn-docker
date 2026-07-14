@@ -657,18 +657,18 @@ docker service update --force antizapret_az-world
 ```
 
 ### Подбор стратегий
-Для поиска рабочих стратегий остановите zapret2, запустите `blockcheck.sh`, затем снова запустите zapret2. В режиме Docker Compose:
+Для поиска рабочих стратегий остановите zapret2, запустите `blockcheck2.sh`, затем снова запустите zapret2. В режиме Docker Compose:
 
 ```sh
 docker exec $(docker ps -q --filter=name=az-local) sh /opt/zapret2/init.d/sysv/zapret2 stop
-docker exec $(docker ps -q --filter=name=az-local) sh /opt/zapret2/blockcheck.sh
+docker exec $(docker ps -q --filter=name=az-local) sh /opt/zapret2/blockcheck2.sh
 docker exec $(docker ps -q --filter=name=az-local) sh /opt/zapret2/init.d/sysv/zapret2 start
 ```
 
 Для более быстрого точечного поиска передайте домены и параметры поиска:
 
 ```sh
-docker exec $(docker ps -q --filter=name=az-local) sh -c 'REPEATS=8 DOMAINS="youtube.com discord.com" /opt/zapret2/blockcheck.sh'
+docker exec $(docker ps -q --filter=name=az-local) sh -c 'REPEATS=8 DOMAINS="youtube.com discord.com" /opt/zapret2/blockcheck2.sh'
 ```
 
 ## Переменные окружения
