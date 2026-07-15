@@ -20,11 +20,6 @@ cp -vf /opt/app/easy-rsa.vars $OPENVPN_DIR/config/easy-rsa.vars
 
 PKI_DIR="$OPENVPN_DIR/pki"
 if [[ ! -s "$PKI_DIR/ca.crt" ]]; then
-    if [[ -d "$PKI_DIR" ]] && [[ -n "$(find "$PKI_DIR" -mindepth 1 -print -quit)" ]]; then
-        echo "PKI directory is not empty, but ca.crt is missing or empty. Refusing to overwrite existing PKI." >&2
-        exit 1
-    fi
-
     export EASYRSA_BATCH=1 # see https://superuser.com/questions/1331293/easy-rsa-v3-execute-build-ca-and-gen-req-silently
     cd $EASY_RSA
 
