@@ -6,6 +6,7 @@ CERT_DIR="/data/caddy/certificates/self-signed"
 CERT_CRT="$CERT_DIR/selfsigned.crt"
 CERT_KEY="$CERT_DIR/selfsigned.key"
 CONFIG_FILE="/etc/caddy/Caddyfile"
+SITES_ENABLED_DIR="/config/sites-enabled"
 REACHABLE_SERVICES=""
 IS_SELF_SIGNED=0
 
@@ -139,6 +140,7 @@ EOF
 }
 
 main() {
+    mkdir -p "$SITES_ENABLED_DIR"
     : >"$CONFIG_FILE"
     get_services
 
@@ -152,6 +154,11 @@ main() {
     fi
 
     add_services_to_config
+
+    cat <<EOF >>"$CONFIG_FILE"
+
+import $SITES_ENABLED_DIR/*
+EOF
 
     echo
     echo "[INFO] Caddyfile has been successfully created at: $CONFIG_FILE"

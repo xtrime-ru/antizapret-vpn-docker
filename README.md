@@ -17,6 +17,7 @@ This repo is based on idea from original [AntiZapret LXD image](https://bitbucke
   - [After installation](#after-installation)
   - [Access admin panels](#access-admin-panels)
     - [HTTPS](#https)
+      - [Custom sites on ports 80 and 443](#custom-sites-on-ports-80-and-443)
     - [Local network](#local-network)
     - [HTTP](#http)
   - [Update](#update)
@@ -211,6 +212,26 @@ If you did not provide domain and email in its env it will generate self-signed 
 - openvpn: https://%your-server-ip%:3443
 - wireguard: https://%your-server-ip%:4443
 - wireguard-amnezia: https://%your-server-ip%:5443
+
+#### Custom sites on ports 80 and 443
+
+Additional Caddy configurations can be stored in `config/https/config/sites-enabled`. The directory is created automatically when the `https` container starts, and all files in it are imported into the main Caddyfile.
+
+For example, to expose the `my-app` service available on port `8080` in the Docker network, create `config/https/config/sites-enabled/my-app.caddy`:
+
+```caddyfile
+example.com {
+  reverse_proxy my-app:8080
+}
+```
+
+Caddy will accept requests for `example.com` on ports 80 and 443, automatically redirect HTTP to HTTPS, and manage the TLS certificate. The domain must point to the server, and the `my-app` service must be reachable from the `https` container through the shared Docker network.
+
+Restart the container after adding or changing a configuration:
+
+```shell
+docker service update --force antizapret_https || docker compose restart https
+```
 
 
 ### Local network
