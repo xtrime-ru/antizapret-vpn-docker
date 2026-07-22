@@ -76,7 +76,7 @@
     {
       "name": "ocserv",
       "repository": "antizapret-vpn-ocserv",
-      "version": "1.4.0",
+      "version": "6.7.0",
       "source": "services/ocserv",
       "compose": "compose.yml",
       "target": "ocserv",
