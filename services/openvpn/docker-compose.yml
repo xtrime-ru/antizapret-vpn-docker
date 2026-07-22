@@ -13,6 +13,8 @@ services:
     image: xtrime/antizapret-vpn-openvpn:6.7.4
     build:
       context: .
+      args:
+        OPENVPN_SERVER_IMAGE: ${OPENVPN_SERVER_IMAGE:-d3vilh/openvpn-server:latest}
       x-bake:
         platforms:
           - linux/amd64
@@ -61,6 +63,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile-ui
+      args:
+        OPENVPN_UI_IMAGE: ${OPENVPN_UI_IMAGE:-d3vilh/openvpn-ui:latest}
       x-bake:
         platforms:
           - linux/amd64
