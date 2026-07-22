@@ -6,9 +6,9 @@ services:
 
   https:
     environment:
-      # If not set, will be created and used self-signed certificate
+      # Optional domain for HTTPS services. Public IPv4 is used when empty.
       - PROXY_DOMAIN=
-      # If not set, will be created and used self-signed certificate
+      # Optional Let's Encrypt account email.
       - PROXY_EMAIL=
 
   # cloak:
