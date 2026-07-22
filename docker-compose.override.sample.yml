@@ -36,10 +36,8 @@ services:
     extends:
       file: services/openvpn/docker-compose.yml
       service: openvpn
-    # To use OZON08 fork instead of default d3vilh image:
-    # build:
-    #   args:
-    #     OPENVPN_SERVER_IMAGE: ozon08/openvpn-server:latest
+    # To use prebuilt OZON08 variant without local build:
+    # image: xtrime/antizapret-vpn-openvpn-ozon08:latest
     depends_on:
       - openvpn-ui
 
@@ -47,10 +45,8 @@ services:
     extends:
       file: services/openvpn/docker-compose.yml
       service: openvpn-ui
-    # To use OZON08 fork instead of default d3vilh image:
-    # build:
-    #   args:
-    #     OPENVPN_UI_IMAGE: ozon08/openvpn-ui:latest
+    # To use prebuilt OZON08 variant without local build:
+    # image: xtrime/antizapret-vpn-openvpn-ui-ozon08:latest
     environment:
       - OPENVPN_ADMIN_PASSWORD=password
 
