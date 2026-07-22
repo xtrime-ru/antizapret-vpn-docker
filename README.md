@@ -756,10 +756,10 @@ You can define these variables in docker-compose.override.yml file for your need
 - `OPENVPN_LOCAL_IP_RANGE=10.1.165.0` - subnet for ovpn clients. Subnet can be viewed in adguard journal or in ovpn-ui panel
 
 ### Openvpn build source images
-- Default sources are `d3vilh/openvpn-server:0.5.5` and `d3vilh/openvpn-ui:0.9.5.6`.
-- To use OZON08 forks, set build args in `docker-compose.override.yml`:
-  - `OPENVPN_SERVER_IMAGE=ozon08/openvpn-server:latest`
-  - `OPENVPN_UI_IMAGE=ozon08/openvpn-ui:latest`
+- Default prebuilt images are `xtrime/antizapret-vpn-openvpn:latest` and `xtrime/antizapret-vpn-openvpn-ui:latest`.
+- Prebuilt OZON08 variants are `xtrime/antizapret-vpn-openvpn-ozon08:latest` and `xtrime/antizapret-vpn-openvpn-ui-ozon08:latest`.
+- To use OZON08 without local build, override `image` for both services in `docker-compose.override.yml`.
+- If you build locally, you can also switch the base source images with build args:
 
 ### Wireguard/Wireguard Amnezia
 - `ROUTES` 
