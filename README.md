@@ -755,6 +755,12 @@ You can define these variables in docker-compose.override.yml file for your need
 - `OPENVPN_DNS=14.16.0.1` - DNS address for clients. Must be in `ANTIZAPRET_SUBNET`
 - `OPENVPN_LOCAL_IP_RANGE=10.1.165.0` - subnet for ovpn clients. Subnet can be viewed in adguard journal or in ovpn-ui panel
 
+### Openvpn build source images
+- Default sources are `d3vilh/openvpn-server:0.5.5` and `d3vilh/openvpn-ui:0.9.5.6`.
+- To use OZON08 forks, set build args in `docker-compose.override.yml`:
+  - `OPENVPN_SERVER_IMAGE=ozon08/openvpn-server:latest`
+  - `OPENVPN_UI_IMAGE=ozon08/openvpn-ui:latest`
+
 ### Wireguard/Wireguard Amnezia
 - `ROUTES` 
 - `WIREGUARD_PASSWORD=` - password for admin panel (used during initial setup only, change password via web UI afterwards)
