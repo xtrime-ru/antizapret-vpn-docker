@@ -743,6 +743,12 @@ docker exec $(docker ps -q --filter=name=az-local) sh -c 'REPEATS=8 DOMAINS="you
 - `OPENVPN_DNS=14.16.0.1` - DNS-адрес для клиентов. Должен быть в `ANTIZAPRET_SUBNET`
 - `OPENVPN_LOCAL_IP_RANGE=10.1.165.0` - подсеть для ovpn-клиентов. Подсеть можно увидеть в журнале adguard или в панели ovpn-ui
 
+### Образы-источники сборки Openvpn
+- По умолчанию используются `d3vilh/openvpn-server:0.5.5` и `d3vilh/openvpn-ui:0.9.5.6`.
+- Чтобы использовать форки OZON08, задайте build args в `docker-compose.override.yml`:
+  - `OPENVPN_SERVER_IMAGE=ozon08/openvpn-server:latest`
+  - `OPENVPN_UI_IMAGE=ozon08/openvpn-ui:latest`
+
 ### Wireguard/Wireguard Amnezia
 - `ROUTES`
 - `WIREGUARD_PASSWORD=` - пароль для админ-панели (используется только во время первичной настройки, пароль можно изменить через веб-интерфейс позже)
