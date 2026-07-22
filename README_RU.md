@@ -744,10 +744,10 @@ docker exec $(docker ps -q --filter=name=az-local) sh -c 'REPEATS=8 DOMAINS="you
 - `OPENVPN_LOCAL_IP_RANGE=10.1.165.0` - подсеть для ovpn-клиентов. Подсеть можно увидеть в журнале adguard или в панели ovpn-ui
 
 ### Образы-источники сборки Openvpn
-- По умолчанию используются `d3vilh/openvpn-server:0.5.5` и `d3vilh/openvpn-ui:0.9.5.6`.
-- Чтобы использовать форки OZON08, задайте build args в `docker-compose.override.yml`:
-  - `OPENVPN_SERVER_IMAGE=ozon08/openvpn-server:latest`
-  - `OPENVPN_UI_IMAGE=ozon08/openvpn-ui:latest`
+- По умолчанию используются готовые образы `xtrime/antizapret-vpn-openvpn:latest` и `xtrime/antizapret-vpn-openvpn-ui:latest`.
+- Готовые варианты на базе форков OZON08: `xtrime/antizapret-vpn-openvpn-ozon08:latest` и `xtrime/antizapret-vpn-openvpn-ui-ozon08:latest`.
+- Чтобы использовать OZON08 без локальной сборки, переопределите `image` для обоих сервисов в `docker-compose.override.yml`.
+- Если вы собираете локально, можно переключить базовые исходные образы через build args:
 
 ### Wireguard/Wireguard Amnezia
 - `ROUTES`
