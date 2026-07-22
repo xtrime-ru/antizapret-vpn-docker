@@ -46,6 +46,7 @@ Antizapret создан для того, чтобы перенаправлять
   - [DNS](#dns)
     - [Upstream DNS для Adguard](#upstream-dns-для-adguard)
     - [CDN + ECS](#cdn--ecs)
+  - [OpenConnect (ocserv)](#openconnect-ocserv)
   - [OpenVPN](#openvpn)
     - [Создание клиентских сертификатов](#создание-клиентских-сертификатов)
     - [Включение OpenVPN Data Channel Offload (DCO)](#включение-openvpn-data-channel-offload-dco)
@@ -65,7 +66,7 @@ https://t.me/antizapret_support
 
 - Модульный дизайн. В качестве строительных блоков нашей системы используются внешние высококачественные open-source модули/контейнеры.
 - Удобные веб-панели для администрирования VPN и DNS.
-- Множество VPN-транспортов: Wireguard, Amnezia Wireguard, OpenVPN.
+- Множество VPN-транспортов: WireGuard, AmneziaWG, OpenVPN и OpenConnect (ocserv).
 - AdguardHome в качестве основного DNS-резолвера и менеджера заблокированных доменов.
 - Многосерверная архитектура для обхода гео-ограничений сервисов. Разные домены используют разные серверы в качестве узлов выхода.
 - Файрвол для защиты от сканирования портов.
@@ -208,7 +209,8 @@ apt install -y iptables-persistent
 
 ### HTTPS
 По умолчанию все контейнеры доступны через https. Для управления сертификатами используется отдельный контейнер `https`.
-Если домен не задан, Caddy определяет публичный IPv4 сервера и запрашивает для него краткосрочный сертификат Let's Encrypt. До успешной проверки ACME используется постоянный самоподписанный сертификат, поэтому HTTPS-сервисы запускаются, даже когда порты `80/tcp` и `443/tcp` недоступны из Интернета.
+Если домен не задан, Caddy определяет публичный IPv4 сервера и запрашивает для него краткосрочный сертификат Let's Encrypt. До успешной проверки ACME используется постоянный самоподписанный сертификат, поэтому HTTPS и ocserv запускаются, даже когда порты `80/tcp` и `443/tcp` недоступны из Интернета.
+Caddy использует Layer 4 listener на `443/tcp`: обычный HTTPS-трафик остаётся в HTTP-сервере, а TLS-клиенты без HTTP ALPN передаются в ocserv. Исходный адрес клиента передаётся в ocserv через PROXY protocol v2. Канал DTLS публикуется напрямую на `443/udp`.
 
 - dashboard: https://%your-server-ip%:443
 - adguard: https://%your-server-ip%:1443
@@ -740,9 +742,17 @@ docker exec $(docker ps -q --filter=name=az-local) sh -c 'REPEATS=8 DOMAINS="you
 - `FILEBROWSER_PASSWORD=password`
 
 ### Https:
-- `PROXY_DOMAIN=` - необязательный домен HTTPS-сервисов. Если значение пустое, при запуске определяется публичный IPv4 сервера.
+- `PROXY_DOMAIN=` - необязательный общий домен HTTPS-сервисов и ocserv. Если значение пустое, при запуске определяется публичный IPv4 сервера.
 - `PROXY_EMAIL=` - необязательный email учётной записи Let's Encrypt.
 - `PROXY_IP=` - необязательное переопределение публичного IPv4 для окружений, где автоматическое определение недоступно.
+
+### OpenConnect (ocserv)
+- `ROUTES` - список VPN-контейнеров и их виртуальных адресов.
+- `OC_DEFAULT_ADDRESS=10.1.164.x` - диапазон адресов клиентов; значение должно оканчиваться на `.x`.
+- `OC_PORT=443` - внутренний TCP- и UDP-порт. TCP доступен через Caddy, UDP публикуется напрямую.
+- `OC_USER=admin` - пользователь, создаваемый при первом запуске.
+- `OC_USERPASS=password` - пароль пользователя, задаваемый при первом запуске.
+- `OC_SECRET=kvn` - секрет маскировки ocserv.
 
 ### Openvpn
 - `ROUTES`
@@ -797,6 +807,44 @@ ECS позволяет предоставить IP клиента в DNS-зап�
 По умолчанию ECS отключён. Entrypoint AdGuard не включает его автоматически ни в режиме Docker Compose, ни в режиме Docker Swarm.
 
 Чтобы включить ECS, откройте настройки DNS AdGuard Home по адресу `http://your-server-ip:3000/#dns`, включите EDNS Client Subnet и замените предзаполненный пример `77.88.8.8` на адрес, подходящий для вашего региона.
+
+## OpenConnect (ocserv)
+
+Сервис `ocserv` совместим с клиентами OpenConnect и Cisco AnyConnect. Он использует подсеть `10.1.164.0/24` и принимает TCP- и UDP-соединения на порту `443`. TCP-канал Caddy проксирует по внутренней Docker-сети, а Docker напрямую публикует только UDP-канал контейнера ocserv.
+Разделение TCP выполняется по ALPN: `h2`, `http/1.1` и `acme-tls/1` остаются в Caddy, а TLS-клиенты без HTTP ALPN направляются в ocserv. Поэтому HTTPS-клиент, который не сообщает HTTP ALPN, получит camouflage-ответ ocserv вместо Dashboard.
+
+В полном примере `docker-compose.override.sample.yml` сервис уже включён. Для существующей установки добавьте его в `docker-compose.override.yml` и задайте пользователя и надёжный пароль до первого запуска:
+
+```yaml
+services:
+  ocserv:
+    extends:
+      file: services/ocserv/compose.yml
+      service: ocserv
+    environment:
+      - OC_USER=admin
+      - OC_USERPASS=strongpassword
+```
+
+Без дополнительных настроек сервис `https` определяет публичный IPv4 сервера и создаёт постоянный резервный самоподписанный сертификат. Caddy обслуживает соединения этим сертификатом и независимо запрашивает публичный сертификат Let's Encrypt с SAN типа `IP Address`. Сертификаты на IP используют обязательный профиль `shortlived`, действуют 160 часов и обновляются автоматически. Неудачные ACME-попытки повторяются, а сервисы в это время остаются доступны с резервным сертификатом. Чтобы использовать один домен для HTTPS-сервисов и ocserv, задайте `PROXY_DOMAIN` сервису `https`.
+
+Разрешите входящие `443/tcp` и `443/udp`, затем запустите сервис:
+
+```shell
+docker compose up -d ocserv
+```
+
+Подключитесь клиентом Cisco Secure Client/AnyConnect к `%your-server-ip%` либо OpenConnect:
+
+```shell
+sudo openconnect --protocol=anyconnect 'https://%your-server-ip%/?kvn'
+```
+
+Строка запроса — это настроенный `OC_SECRET`; если вы переопределили переменную, замените `kvn` в URL.
+
+Сервис `https` хранит резервный сертификат и выбранный identity в `./config/https/data/ocserv`; публичные сертификаты остаются в управляемом хранилище Caddy. ocserv предпочитает действующий публичный сертификат и использует самоподписанный как резервный. Healthcheck перезапускает контейнер после продления, замены сертификата или изменения identity. Резервный сертификат сохраняется между перезапусками и генерируется заново только при изменении identity или приближении срока окончания. Если IP сервера изменился, перезапустите сервис `https`, чтобы он определил новый адрес. База пользователей сохраняется в `./config/ocserv`; `OC_USER` и `OC_USERPASS` применяются только при её первом создании.
+
+Подключение напрямую по IP поддерживается [OpenConnect](https://www.infradead.org/openconnect/manual.html) и [Cisco Secure Client](https://www.cisco.com/c/en/us/td/docs/security/vpn_client/anyconnect/Cisco-Secure-Client-5/admin/guide/b-cisco-secure-client-admin-guide-5-1/configure_vpn.html). Публичный сертификат на IP не требует ручной установки доверия или закрепления сертификата, необходимых при использовании самоподписанного сертификата.
 
 ## OpenVPN
 ### Создание клиентских сертификатов:
@@ -965,6 +1013,7 @@ iperf3 сервер включен в контейнер antizapret-vpn.
 - [AntiZapret VPN Container](https://bitbucket.org/anticensority/antizapret-vpn-container/src/master/) — исходный код LXD-контейнера
 - [AntiZapret PAC Generator](https://bitbucket.org/anticensority/antizapret-pac-generator-light/src/master/) — генератор автоконфигурации прокси для обхода цензуры в Российской Федерации
 - [WireGuard VPN](https://github.com/wg-easy/wg-easy) — используется для интеграции Wireguard
+- [ocserv](https://gitlab.com/openconnect/ocserv) — сервер OpenConnect
 - [OpenVPN](https://github.com/d3vilh/openvpn-ui) - используется для интеграции OpenVPN
 - [AdGuardHome](https://github.com/AdguardTeam/AdGuardHome) - DNS-резолвер
 - [filebrowser](https://github.com/filebrowser/filebrowser) - веб-браузер файлов и редактор

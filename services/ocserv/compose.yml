@@ -3,7 +3,7 @@ services:
   ocserv:
     init: true
     restart: unless-stopped
-    image: openconnect:1.4
+    image: xtrime/antizapret-vpn-ocserv:6.7.0
     hostname: ocserv.antizapret
     build:
       context: .
@@ -17,11 +17,11 @@ services:
         max-size: 1m
         max-file: 3
     healthcheck:
-      test: (/healthcheck.sh || kill -TERM 1) 2>&1 | tee /proc/1/fd/1
+      test: /healthcheck.sh
       interval: 10s
-      timeout: 1s
-      start_period: 5s
-      start_interval: 1s
+      timeout: 15s
+      start_period: 3m
+      start_interval: 5s
     cap_add:
       - NET_ADMIN
       - SYS_MODULE
@@ -32,6 +32,7 @@ services:
       net.ipv4.conf.all.src_valid_mark: "1"
     depends_on:
       - az-local
+      - https
     deploy:
       mode: replicated
       replicas: 1
@@ -43,13 +44,10 @@ services:
           memory: 200M
     environment:
       - OC_DEFAULT_ADDRESS=10.1.164.x
-      - OC_PORT=465
-      - SRV_CN=example.com
-      - SRV_CA="Example CA"
-      - USER_EMAIL="mail@example.com"
+      - OC_PORT=443
       - OC_USER=admin
       - OC_USERPASS=password
-      - OC_SECRET="kvn"
+      - OC_SECRET=kvn
       - TINI_SUBREAPER=true
       - |
         ROUTES=
@@ -64,6 +62,7 @@ services:
       - /etc/localtime:/etc/localtime:ro
       - $PWD/config/ocserv:/etc/ocserv
       - $PWD/config/antizapret/result:/opt/antizapret/result
+      - $PWD/config/https/data/ocserv:/https-data/ocserv:ro
+      - $PWD/config/https/data/caddy/certificates:/https-data/caddy/certificates:ro
     ports:
-      - 465:465/tcp
-      - 465:465/udp
+      - "443:443/udp"
