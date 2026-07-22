@@ -36,6 +36,10 @@ services:
     extends:
       file: services/openvpn/docker-compose.yml
       service: openvpn
+    # To use OZON08 fork instead of default d3vilh image:
+    # build:
+    #   args:
+    #     OPENVPN_SERVER_IMAGE: ozon08/openvpn-server:latest
     depends_on:
       - openvpn-ui
 
@@ -43,6 +47,10 @@ services:
     extends:
       file: services/openvpn/docker-compose.yml
       service: openvpn-ui
+    # To use OZON08 fork instead of default d3vilh image:
+    # build:
+    #   args:
+    #     OPENVPN_UI_IMAGE: ozon08/openvpn-ui:latest
     environment:
       - OPENVPN_ADMIN_PASSWORD=password
 
