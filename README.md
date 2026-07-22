@@ -46,6 +46,7 @@ This repo is based on idea from original [AntiZapret LXD image](https://bitbucke
   - [DNS](#dns)
     - [Adguard Upstream DNS](#adguard-upstream-dns)
     - [CDN + ECS](#cdn--ecs)
+  - [OpenConnect (ocserv)](#openconnect-ocserv)
   - [OpenVPN](#openvpn)
     - [Create client certificates](#create-client-certificates)
     - [Enable OpenVPN Data Channel Offload (DCO)](#enable-openvpn-data-channel-offload-dco)
@@ -65,7 +66,7 @@ https://t.me/antizapret_support
 
 - Modular design. External and high quality opensource modules/containers are used as builing blocks of our system. 
 - User friendly web panels for administration of VPN's and DNS.
-- Multiple VPN transports: Wireguard, Amnezia Wireguard, OpenVPN
+- Multiple VPN transports: WireGuard, AmneziaWG, OpenVPN, and OpenConnect (ocserv).
 - AdguardHome as main DNS resolver and blocked domains manager
 - Multi-Server Architecture to bypass services geo restrictions. Different domains use different servers as exit nodes.
 - Firewall to protect from port scanning
@@ -209,7 +210,8 @@ apt install -y iptables-persistent
 
 ### HTTPS
 By default, all container can be accessed via https. For certificated management separate `https` container is used.
-If no domain is configured, Caddy detects the server's public IPv4 address and requests a short-lived Let's Encrypt certificate for that address. A persistent self-signed certificate is served until ACME validation succeeds, so HTTPS services can still start when ports `80/tcp` and `443/tcp` are not reachable from the Internet.
+If no domain is configured, Caddy detects the server's public IPv4 address and requests a short-lived Let's Encrypt certificate for that address. A persistent self-signed certificate is served until ACME validation succeeds, so HTTPS and ocserv can still start when ports `80/tcp` and `443/tcp` are not reachable from the Internet.
+Caddy uses its Layer 4 listener on `443/tcp` to keep regular HTTPS traffic in the HTTP server and pass TLS clients without HTTP ALPN to ocserv. ocserv receives the original client address through PROXY protocol v2. Its DTLS channel is exposed directly on `443/udp`.
 
 - dashboard: https://%your-server-ip%:443
 - adguard: https://%your-server-ip%:1443
@@ -752,9 +754,17 @@ You can define these variables in docker-compose.override.yml file for your need
 - `FILEBROWSER_PASSWORD=password`
 
 ### Https:
-- `PROXY_DOMAIN=` - optional domain for the HTTPS services. If empty, the public IPv4 address is detected at startup.
+- `PROXY_DOMAIN=` - optional domain shared by the HTTPS services and ocserv. If empty, the public IPv4 address is detected at startup.
 - `PROXY_EMAIL=` - optional email for the Let's Encrypt account.
 - `PROXY_IP=` - optional public IPv4 override for environments where automatic detection is unavailable.
+
+### OpenConnect (ocserv)
+- `ROUTES` - list of VPN containers and their virtual addresses.
+- `OC_DEFAULT_ADDRESS=10.1.164.x` - client address range; the value must end in `.x`.
+- `OC_PORT=443` - internal TCP and UDP port. TCP is reached through Caddy; UDP is published directly.
+- `OC_USER=admin` - user created on the first start.
+- `OC_USERPASS=password` - password assigned on the first start.
+- `OC_SECRET=kvn` - ocserv camouflage secret.
 
 ### Openvpn
 - `ROUTES`
@@ -810,7 +820,43 @@ ECS is disabled by default. The AdGuard entrypoint does not enable it automatica
 
 To enable ECS, open the AdGuard Home DNS settings at `http://your-server-ip:3000/#dns`, enable EDNS Client Subnet, and replace the preconfigured example address `77.88.8.8` with an address appropriate for your location.
 
+## OpenConnect (ocserv)
 
+The `ocserv` service is compatible with OpenConnect and Cisco AnyConnect clients. It uses the `10.1.164.0/24` subnet and listens on TCP and UDP port `443`. Caddy proxies the TCP channel over the internal Docker network, while Docker publishes only the UDP channel directly from the ocserv container.
+TCP multiplexing uses ALPN: `h2`, `http/1.1`, and `acme-tls/1` stay in Caddy, while TLS clients without HTTP ALPN are sent to ocserv. Consequently, an HTTPS client which does not advertise HTTP ALPN will receive the ocserv camouflage response instead of the Dashboard.
+
+The service is already enabled in the complete `docker-compose.override.sample.yml`. For an existing installation, add it to `docker-compose.override.yml` and set a user and a strong password before the first start:
+
+```yaml
+services:
+  ocserv:
+    extends:
+      file: services/ocserv/compose.yml
+      service: ocserv
+    environment:
+      - OC_USER=admin
+      - OC_USERPASS=strongpassword
+```
+
+Without additional settings, the `https` service detects the server's public IPv4 address and creates a persistent self-signed fallback certificate. Caddy serves it while independently requesting a public Let's Encrypt certificate containing an `IP Address` SAN. IP certificates use the mandatory `shortlived` profile, are valid for 160 hours, and are renewed automatically. Failed ACME attempts are retried while the services remain available with the fallback. To use a domain for both HTTPS services and ocserv, set `PROXY_DOMAIN` for the `https` service.
+
+Allow incoming `443/tcp` and `443/udp`, then start the service:
+
+```shell
+docker compose up -d ocserv
+```
+
+Connect Cisco Secure Client/AnyConnect to `%your-server-ip%`, or use OpenConnect:
+
+```shell
+sudo openconnect --protocol=anyconnect 'https://%your-server-ip%/?kvn'
+```
+
+The query string is the configured `OC_SECRET`; change `kvn` in the URL when you override that variable.
+
+The `https` service stores the fallback and selected identity in `./config/https/data/ocserv`; public certificates remain in Caddy's managed storage. ocserv prefers a valid public certificate and falls back to the self-signed one. Its healthcheck restarts the container after renewal, certificate replacement, or an identity change. The fallback is retained between container restarts and regenerated only when the identity changes or it approaches expiration. If the server IP changes, restart the `https` service so it detects the new address. The user database remains persisted in `./config/ocserv` and `OC_USER`/`OC_USERPASS` are only applied on its first creation.
+
+Direct IP connections are supported by [OpenConnect](https://www.infradead.org/openconnect/manual.html) and [Cisco Secure Client](https://www.cisco.com/c/en/us/td/docs/security/vpn_client/anyconnect/Cisco-Secure-Client-5/admin/guide/b-cisco-secure-client-admin-guide-5-1/configure_vpn.html). A public IP certificate avoids the manual trust or certificate pinning required by a self-signed certificate.
 
 ## OpenVPN
 ### Create client certificates:
@@ -980,6 +1026,7 @@ iperf3 server is included in antizapret-vpn container.
 - [AntiZapret VPN Container](https://bitbucket.org/anticensority/antizapret-vpn-container/src/master/) — source code of the LXD-based container
 - [AntiZapret PAC Generator](https://bitbucket.org/anticensority/antizapret-pac-generator-light/src/master/) — proxy auto-configuration generator to bypass censorship of Russian Federation
 - [WireGuard VPN](https://github.com/wg-easy/wg-easy) — used for Wireguard integration
+- [ocserv](https://gitlab.com/openconnect/ocserv) — OpenConnect server
 - [OpenVPN](https://github.com/d3vilh/openvpn-ui) - used for OpenVPN integration
 - [AdGuardHome](https://github.com/AdguardTeam/AdGuardHome) - DNS resolver
 - [filebrowser](https://github.com/filebrowser/filebrowser) - web file browser & editor

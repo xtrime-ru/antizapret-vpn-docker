@@ -1,8 +1,11 @@
+ARG OCSERV_VERSION="1.5.0"
+
 # ========STAGE 1: BUILD========
 
 FROM ubuntu:24.04 AS builder
 
-ENV OCSERV_VERSION="1.4.0"
+ARG OCSERV_VERSION="1.5.0"
+ENV OCSERV_VERSION="${OCSERV_VERSION}"
 
 LABEL maintainer="Ivan Cherniy <kar-kar@r4ven.me>"
 
@@ -11,25 +14,27 @@ ARG DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-Eeuo", "pipefail", "-c"]
 
 RUN apt-get update && \
-    apt-get upgrade --yes && \
     apt-get install --yes --no-install-recommends \
-        curl build-essential pkg-config fakeroot devscripts \
-        iputils-ping ruby-ronn openconnect libuid-wrapper \
-        libnss-wrapper libsocket-wrapper gss-ntlmssp git-core make autoconf \
-        libtool autopoint gettext automake nettle-dev libwrap0-dev \
+        ca-certificates curl xz-utils build-essential meson ninja-build pkg-config gperf ipcalc \
+        libev-dev libgnutls28-dev libwrap0-dev \
         libpam0g-dev liblz4-dev libseccomp-dev libreadline-dev libnl-route-3-dev \
-        libkrb5-dev liboath-dev libradcli-dev libprotobuf-c-dev libtalloc-dev \
-        libhttp-parser-dev protobuf-c-compiler gperf liblockfile-bin \
-        nuttcp libpam-oath libev-dev libgnutls28-dev gnutls-bin haproxy \
-        yajl-tools libcurl4-gnutls-dev libcjose-dev libjansson-dev libssl-dev \
-        iproute2 libpam-wrapper tcpdump libopenconnect-dev iperf3 lcov ipcalc \
-        freeradius libfreeradius-dev gawk jq && \
-    curl -fLO https://www.infradead.org/ocserv/download/ocserv-"${OCSERV_VERSION}".tar.xz && \
-    tar -xvf ./ocserv-"${OCSERV_VERSION}".tar.xz && \
+        libkrb5-dev libtasn1-bin liboath-dev libradcli-dev libprotobuf-c-dev libtalloc-dev \
+        libhttp-parser-dev protobuf-c-compiler \
+        libcurl4-gnutls-dev libcjose-dev libjansson-dev libssl-dev && \
+    curl --fail --location --retry 3 --retry-all-errors \
+        --output ocserv-"${OCSERV_VERSION}".tar.gz \
+        https://gitlab.com/openconnect/ocserv/-/archive/"${OCSERV_VERSION}"/ocserv-"${OCSERV_VERSION}".tar.gz && \
+    tar -xzf ./ocserv-"${OCSERV_VERSION}".tar.gz && \
     cd ./ocserv-"${OCSERV_VERSION}"/ && \
-    ./configure --enable-oidc-auth && make && \
-    mkdir /usr/share/doc/ocserv/ && \
-    cp ./doc/sample.config /usr/share/doc/ocserv/
+    meson setup build \
+        --prefix=/usr \
+        --libexecdir=libexec \
+        -Doidc-auth=enabled \
+        -Dfirewall-script=iptables && \
+    ninja -C build && \
+    DESTDIR=/opt/ocserv meson install -C build && \
+    install -D -m 0644 ./doc/sample.config \
+        /opt/ocserv/usr/share/doc/ocserv/sample.config
 
 WORKDIR /ocserv-"${OCSERV_VERSION}"
 
@@ -37,36 +42,18 @@ WORKDIR /ocserv-"${OCSERV_VERSION}"
 
 FROM ubuntu:24.04
 
-ENV OCSERV_VERSION="1.4.0"
+ARG OCSERV_VERSION="1.5.0"
+ENV OCSERV_VERSION="${OCSERV_VERSION}"
 
 LABEL maintainer="Ivan Cherniy <kar-kar@r4ven.me>"
 
 STOPSIGNAL SIGTERM
 
-COPY --from=builder ["/ocserv-${OCSERV_VERSION}/src/occtl/occtl", "/usr/bin"]
-COPY --from=builder ["/ocserv-${OCSERV_VERSION}/src/ocpasswd/ocpasswd", "/usr/bin"]
-COPY --from=builder ["/ocserv-${OCSERV_VERSION}/src/ocserv-fw", "/usr/libexec"]
-COPY --from=builder ["/ocserv-${OCSERV_VERSION}/src/ocserv", "/usr/sbin"]
-COPY --from=builder ["/ocserv-${OCSERV_VERSION}/src/ocserv-worker", "/usr/sbin"]
-COPY --from=builder ["/usr/share/doc/ocserv", "/usr/share/doc/ocserv"]
+COPY --from=builder /opt/ocserv/ /
 
 ENV OCSERV_DIR="/etc/ocserv"
-ENV CERTS_DIR="${OCSERV_DIR}/certs"
-ENV SSL_DIR="${OCSERV_DIR}/ssl"
-ENV SECRETS_DIR="${OCSERV_DIR}/secrets"
 ENV SCRIPTS_DIR="${OCSERV_DIR}/scripts"
 ENV PATH="${SCRIPTS_DIR}:${PATH}"
-ENV SRV_CN="example.com" 
-ENV SRV_CA="Example CA"
-ENV OTP_ENABLE="false"
-ENV OTP_SEND_BY_EMAIL="false"
-ENV OTP_SEND_BY_TELEGRAM="false"
-ENV MSMTP_HOST="smtp.example.com"
-ENV MSMTP_PORT="465"
-ENV MSMTP_USER="mail@example.com"
-ENV MSMTP_PASSWORD="PaSsw0rD"
-ENV MSMTP_FROM="mail@example.com"
-ENV TG_TOKEN="1234567890:QWERTYuio-PA1DFGHJ2_KlzxcVBNmqWEr3t"
 
 WORKDIR $OCSERV_DIR
 
@@ -100,7 +87,6 @@ RUN apt-get update && \
         libwrap0 \
         tini \
         gettext \
-        gnutls-bin \
         iptables \
         iproute2 \
         iputils-ping \
@@ -119,13 +105,11 @@ RUN apt-get update && \
 
 COPY --from=xtrime/antizapret-vpn:6.7.9  /usr/bin/routes /usr/bin/routes
 
-COPY ./ocserv.sh /
-COPY ./ca.tmpl /
-COPY ./crl.tmpl /
+COPY --chmod=0755 ./ocserv.sh /
+COPY ./certificate.sh /
 COPY ./ocserv.tmpl /
-COPY ./server.tmpl /
 COPY ./az.tmpl /
-COPY ./healthcheck.sh /
+COPY --chmod=0755 ./healthcheck.sh /
 
 ENTRYPOINT ["/ocserv.sh"]
 

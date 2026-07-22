@@ -32,6 +32,14 @@ services:
       - FILEBROWSER_USERNAME=admin
       - FILEBROWSER_PASSWORD=password
 
+  ocserv:
+    extends:
+      file: services/ocserv/compose.yml
+      service: ocserv
+    environment:
+      - OC_USER=admin
+      - OC_USERPASS=strongpassword
+
   openvpn:
     extends:
       file: services/openvpn/docker-compose.yml

@@ -9,6 +9,7 @@ services:
       - SOCKS_PORT=8118
       - |
         ROUTES=
+        ocserv:10.1.164.0/24;
         openvpn:10.1.165.0/24;
         wireguard:10.1.166.0/24;
         wireguard-amnezia:10.1.167.0/24;
