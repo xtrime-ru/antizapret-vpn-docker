@@ -209,7 +209,7 @@ apt install -y iptables-persistent
 
 ### HTTPS
 By default, all container can be accessed via https. For certificated management separate `https` container is used.
-If you did not provide domain and email in its env it will generate self-signed certificates
+If no domain is configured, Caddy detects the server's public IPv4 address and requests a short-lived Let's Encrypt certificate for that address. A persistent self-signed certificate is served until ACME validation succeeds, so HTTPS services can still start when ports `80/tcp` and `443/tcp` are not reachable from the Internet.
 
 - dashboard: https://%your-server-ip%:443
 - adguard: https://%your-server-ip%:1443
@@ -752,8 +752,9 @@ You can define these variables in docker-compose.override.yml file for your need
 - `FILEBROWSER_PASSWORD=password`
 
 ### Https:
-- `PROXY_DOMAIN=` - create letsencrypt https certificate for domain. If not set host ip is used for self-signed certificate.
-- `PROXY_EMAIL=` - email for letsecnrypt certificate.
+- `PROXY_DOMAIN=` - optional domain for the HTTPS services. If empty, the public IPv4 address is detected at startup.
+- `PROXY_EMAIL=` - optional email for the Let's Encrypt account.
+- `PROXY_IP=` - optional public IPv4 override for environments where automatic detection is unavailable.
 
 ### Openvpn
 - `ROUTES`

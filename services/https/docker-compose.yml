@@ -10,7 +10,7 @@ services:
           - linux/arm64
     ports:
       - "80:80"
-      - "443:443"
+      - "443:443/tcp"
       - "1443:1443"
       - "2443:2443"
       - "3443:3443"
@@ -19,10 +19,11 @@ services:
       - "8143:8143"
       - "8243:8243"
     environment:
-      # If not set, will be created and used self-signed certificate
+      # Optional domain for HTTPS services. Public IPv4 is used when empty.
       - PROXY_DOMAIN=
-      # If not set, will be created and used self-signed certificate
+      # Optional Let's Encrypt account email.
       - PROXY_EMAIL=
+      - PROXY_IP=${PROXY_IP:-}
       # PROXY_SERVICE_N=external_port:internal_hostname:internal_port
       - PROXY_SERVICE_1=Dashboard:443:dashboard.antizapret:80
       - PROXY_SERVICE_2=AdGuard:1443:adguard.antizapret:3000
