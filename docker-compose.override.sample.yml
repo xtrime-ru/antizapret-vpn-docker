@@ -17,6 +17,10 @@ services:
       # Optional Let's Encrypt account email.
       - PROXY_EMAIL=${AZ_EMAIL}
 
+  firewall:
+    extra_hosts:
+      - "raw.githubusercontent.com:${GITHUB_RAW_IP}"
+
   # cloak:
   #   extends:
   #     file: services/cloak/docker-compose.yml
