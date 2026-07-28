@@ -1,3 +1,13 @@
+networks:
+  default:
+    driver: overlay
+    driver_opts:
+      encrypted: "true"
+      com.docker.network.driver.mtu: 1500
+  host:
+    name: host
+    external: true
+
 services:
   az-local:
     networks:
@@ -31,3 +41,8 @@ services:
   adguard:
     environment:
       - AZ_WORLD_ENABLED=1
+
+  firewall:
+    network_mode: !reset null
+    networks:
+      - host
