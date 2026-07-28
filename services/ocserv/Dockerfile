@@ -117,7 +117,7 @@ RUN apt-get update && \
     apt-get clean --yes && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 
-COPY --from=xtrime/antizapret-vpn:6.7.9  /usr/bin/routes /usr/bin/routes
+COPY --from=xtrime/antizapret-vpn:6.7.10  /usr/bin/routes /usr/bin/routes
 
 COPY ./ocserv.sh /
 COPY ./ca.tmpl /

@@ -393,8 +393,9 @@ func (a *app) linkIndexForGateway(gateway string) (int, error) {
 	return 0, fmt.Errorf("failed to resolve interface for gateway %s", gateway)
 }
 
-// addVPNClientRules keeps traffic to the current VPN subnet in the main table
-// and sends all traffic from VPN clients to the VPN policy table.
+// addVPNClientRules checks non-default routes in the main table first, so
+// connected networks stay local, and sends the remaining VPN client traffic
+// to the VPN policy table.
 func (a *app) addVPNClientRules(route routeSpec) error {
 	vpnSubnet, err := parseRouteDst(route.subnet)
 	if err != nil {
@@ -408,7 +409,8 @@ func (a *app) addVPNClientRules(route routeSpec) error {
 	localRule.Family = netlink.FAMILY_V4
 	localRule.Priority = vpnLocalPriority
 	localRule.Table = mainRouteTable
-	localRule.Dst = vpnSubnet
+	localRule.Src = vpnSubnet
+	localRule.SuppressPrefixlen = 0
 	if err := addRule(localRule); err != nil {
 		return err
 	}
