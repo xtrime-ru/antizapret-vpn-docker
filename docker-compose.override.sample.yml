@@ -1,25 +1,15 @@
-networks:
-  default:
-    driver_opts:
-      com.docker.network.driver.mtu: "${DOCKER_MTU:-1500}"
-
 services:
   adguard:
     environment:
-      - ADGUARDHOME_USERNAME=${AZ_USER}
-      - ADGUARDHOME_PASSWORD=${AZ_PASS}
-      - ROUTES=${ROUTES}
+      - ADGUARDHOME_USERNAME=admin
+      - ADGUARDHOME_PASSWORD=password
 
   https:
     environment:
       # Optional domain for HTTPS services. Public IPv4 is used when empty.
-      - PROXY_DOMAIN=${AZ_DOMAIN}
+      - PROXY_DOMAIN=
       # Optional Let's Encrypt account email.
-      - PROXY_EMAIL=${AZ_EMAIL}
-
-  firewall:
-    extra_hosts:
-      - "raw.githubusercontent.com:${GITHUB_RAW_IP}"
+      - PROXY_EMAIL=
 
   # cloak:
   #   extends:
@@ -31,27 +21,24 @@ services:
       file: services/dashboard/docker-compose.yml
       service: dashboard
     environment:
-      - DASHBOARD_USERNAME=${AZ_USER}
-      - DASHBOARD_PASSWORD=${AZ_PASS}
+      - DASHBOARD_USERNAME=admin
+      - DASHBOARD_PASSWORD=password
 
   filebrowser:
     extends:
       file: services/filebrowser/docker-compose.yml
       service: filebrowser
     environment:
-      - FILEBROWSER_USERNAME=${AZ_USER}
-      - FILEBROWSER_PASSWORD=${AZ_PASS}
+      - FILEBROWSER_USERNAME=admin
+      - FILEBROWSER_PASSWORD=password
 
   ocserv:
     extends:
       file: services/ocserv/compose.yml
       service: ocserv
     environment:
-      - OC_PORT=${OC_PORT}
-      - OC_USER=${AZ_USER}
-      - OC_USERPASS=${AZ_PASS}
-      - OC_SECRET=${OC_SECRET}
-      - ROUTES=${ROUTES}
+      - OC_USER=admin
+      - OC_USERPASS=strongpassword
 
   openvpn:
     extends:
@@ -59,35 +46,27 @@ services:
       service: openvpn
     depends_on:
       - openvpn-ui
-    environment:
-      - ROUTES=${ROUTES}
 
   openvpn-ui:
     extends:
       file: services/openvpn/docker-compose.yml
       service: openvpn-ui
     environment:
-      - OPENVPN_ADMIN_PASSWORD=${AZ_PASS}
-      - ROUTES=${ROUTES}
+      - OPENVPN_ADMIN_PASSWORD=password
 
   wireguard:
      extends:
        file: services/wireguard/docker-compose.yml
        service: wireguard
      environment:
-       - WIREGUARD_PASSWORD=${AZ_PASS}
-       - BGP_ENABLE=${BGP_ENABLE}
-       - MTU=${WG_MTU}
-       - ROUTES=${ROUTES}
+       - WIREGUARD_PASSWORD=strongpassword
 
   wireguard-amnezia:
     extends:
       file: services/wireguard/docker-compose.yml
       service: wireguard-amnezia
     environment:
-      - WIREGUARD_PASSWORD=${AZ_PASS}
-      - BGP_ENABLE=${BGP_ENABLE}
-      - ROUTES=${ROUTES}
+      - WIREGUARD_PASSWORD=strongpassword
 
   proxy-local:
     hostname: proxy-local.antizapret
@@ -98,7 +77,6 @@ services:
       # Use strong password because HTTPS proxy available from internet
       - PROXY_LOGIN=
       - PROXY_PASSWORD=
-      - ROUTES=${ROUTES}
     deploy:
       mode: replicated
       replicas: 1
@@ -115,7 +93,6 @@ services:
       # Use strong password because HTTPS proxy available from internet
       - PROXY_LOGIN=
       - PROXY_PASSWORD=
-      - ROUTES=${ROUTES}
     deploy:
       mode: replicated
       replicas: 1
