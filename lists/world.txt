@@ -288,8 +288,7 @@ nflxvideo.net
 hdrezka.me
 rezka.ag
 hdrezka.ac
-voidboost.cc
-voidboost.in
+/voidboost/
 
 lostfilm.tv
 
