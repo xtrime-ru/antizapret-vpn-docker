@@ -72,7 +72,9 @@ func main() {
 			project.Networks[key] = network
 		}
 	}
-	project.Networks["host"] = types.NetworkConfig{Name: "host", External: types.External{External: true}}
+	if _, exists := project.Networks["host"]; !exists {
+		project.Networks["host"] = types.NetworkConfig{Name: "host", External: types.External{External: true}}
+	}
 
 	// Remove unsupported fields for Swarm
 	for name, service := range project.Services {
