@@ -99,4 +99,4 @@ COPY ./ocserv.tmpl /
 COPY ./az.tmpl /
 COPY --chmod=0755 ./healthcheck.sh /
 
-ENTRYPOINT ["/ocserv.sh", "/usr/sbin/ocserv", "--config", "/etc/ocserv/ocserv.conf", "--foreground", "--log-stderr"]
+ENTRYPOINT ["/ocserv.sh", "/usr/sbin/ocserv", "--config", "/run/ocserv/ocserv.conf", "--foreground", "--log-stderr"]

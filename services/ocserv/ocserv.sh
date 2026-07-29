@@ -27,7 +27,11 @@ for octet in "$octet1" "$octet2" "$octet3"; do
 done
 export OC_IPV4_CIDR="${OC_DEFAULT_ADDRESS%.x}.0/24"
 export OC_SECRET="${OC_SECRET:-kvn}"
-OC_ROUTE="${OCSERV_DIR}/config-per-group"
+OCSERV_TEMPLATE="${OCSERV_DIR}/ocserv.tmpl"
+ROUTE_TEMPLATE="${OCSERV_DIR}/az.tmpl"
+RUNTIME_DIR="/run/ocserv"
+export OC_ROUTE="${RUNTIME_DIR}/config-per-group"
+RUNTIME_CONFIG="${RUNTIME_DIR}/ocserv.conf"
 CONFIG_FILES=(/opt/antizapret/result/ips*)
 
 wait_for_certificate() {
@@ -74,13 +78,25 @@ if [[ -r /usr/share/doc/ocserv/sample.config && ! -e "$OCSERV_DIR/sample.config"
 fi
 
 # Create ocserv config files
-envsubst < /ocserv.tmpl > "$OCSERV_DIR/ocserv.conf"
-envsubst < /az.tmpl > "$OC_ROUTE/az.0"
+if [[ ! -e "$OCSERV_TEMPLATE" ]]; then
+    cp /ocserv.tmpl "$OCSERV_TEMPLATE"
+fi
+if [[ ! -e "$ROUTE_TEMPLATE" ]]; then
+    cp /az.tmpl "$ROUTE_TEMPLATE"
+fi
+envsubst < "$OCSERV_TEMPLATE" > "$RUNTIME_CONFIG"
 # oc routes
-cp -f "$OC_ROUTE/az.0" "$OC_ROUTE/az"
+envsubst < "$ROUTE_TEMPLATE" > "$OC_ROUTE/az"
 if ((${#CONFIG_FILES[@]})); then
     sort -Vu "${CONFIG_FILES[@]}" | sed 's_.*_route = &_' >> "$OC_ROUTE/az"
 fi
+
+
+printf 'Generated ocserv config (%s):\n' "$RUNTIME_CONFIG"
+sed -E 's|^([[:space:]]*camouflage_secret[[:space:]]*=[[:space:]]*).*$|\1"***"|' "$RUNTIME_CONFIG"
+printf 'Generated ocserv group config (%s):\n' "$OC_ROUTE/az"
+cat "$OC_ROUTE/az"
+echo "***** Generated config end *****"
 
 # add user
 if [[ ! -e "$OCSERV_DIR/ocpasswd" ]]; then
