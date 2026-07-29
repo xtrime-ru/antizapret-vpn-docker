@@ -1,5 +1,3 @@
-ARG OCSERV_VERSION="1.5.0"
-
 # ========STAGE 1: BUILD========
 
 FROM ubuntu:24.04 AS builder
@@ -36,8 +34,6 @@ RUN apt-get update && \
     install -D -m 0644 ./doc/sample.config \
         /opt/ocserv/usr/share/doc/ocserv/sample.config
 
-WORKDIR /ocserv-"${OCSERV_VERSION}"
-
 # ========STAGE 2: RUNTIME========
 
 FROM ubuntu:24.04
@@ -62,7 +58,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && \
     apt-get install --yes --no-install-recommends \
         adduser \
-        ssl-cert \
+        openssl \
         libc6 \
         libcrypt1 \
         libev4t64 \
@@ -85,20 +81,11 @@ RUN apt-get update && \
         libcurl3-gnutls \
         libcjose0 \
         libwrap0 \
-        tini \
         gettext \
         iptables \
         iproute2 \
         iputils-ping \
-        less \
-        ca-certificates \
-        xxd \
-        libpam-oath \
-        oathtool \
-        qrencode \
-        curl \
-        jq \
-        msmtp && \
+        ca-certificates && \
     apt-get autoremove --yes && \
     apt-get clean --yes && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
@@ -111,9 +98,4 @@ COPY ./ocserv.tmpl /
 COPY ./az.tmpl /
 COPY --chmod=0755 ./healthcheck.sh /
 
-ENTRYPOINT ["/ocserv.sh"]
-
-CMD ["/usr/bin/tini", "--", "/usr/sbin/ocserv", "--config", "/etc/ocserv/ocserv.conf", "--foreground" ,"--log-stderr"]
-
-#HEALTHCHECK --interval=5m --timeout=3s \
-#    CMD curl -k https://localhost:443/ || exit 1
+ENTRYPOINT ["/ocserv.sh", "/usr/sbin/ocserv", "--config", "/etc/ocserv/ocserv.conf", "--foreground", "--log-stderr"]

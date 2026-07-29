@@ -1,7 +1,7 @@
 services:
   https:
     restart: unless-stopped
-    image: xtrime/antizapret-vpn-https:6.7.0
+    image: xtrime/antizapret-vpn-https:6.7.6
     build: 
       context: .
       x-bake:
@@ -24,6 +24,9 @@ services:
       # Optional Let's Encrypt account email.
       - PROXY_EMAIL=
       - PROXY_IP=${PROXY_IP:-}
+      # auto requests an ACME certificate; selfsigned disables ACME.
+      - PROXY_CERT_MODE=auto
+      - PROXY_ACME_CA=https://acme-v02.api.letsencrypt.org/directory
       # PROXY_SERVICE_N=external_port:internal_hostname:internal_port
       - PROXY_SERVICE_1=Dashboard:443:dashboard.antizapret:80
       - PROXY_SERVICE_2=AdGuard:1443:adguard.antizapret:3000

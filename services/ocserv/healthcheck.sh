@@ -39,20 +39,12 @@ if [ "$NEW_MD5" != "$OLD_MD5" ]; then
     exit 1
 fi
 
-NEW_CERT_IDENTITY=$(cat "$CERT_IDENTITY_FILE" 2>/dev/null || true)
-OLD_CERT_IDENTITY=$(cat /.certificate_identity 2>/dev/null || true)
-if [[ -z "$NEW_CERT_IDENTITY" || "$NEW_CERT_IDENTITY" != "$OLD_CERT_IDENTITY" ]]; then
-    echo "healthcheck: HTTPS certificate identity changed"
+if ! NEW_CERT_MD5=$(certificate_checksum); then
+    echo "healthcheck: HTTPS certificate state is unavailable"
     exit 1
 fi
-
-if ! find_https_certificate; then
-    echo "healthcheck: HTTPS certificate is unavailable"
-    exit 1
-fi
-NEW_CERT_MD5=$(md5sum "$SERVER_CERT" 2>/dev/null | cut -d' ' -f1 || true)
-OLD_CERT_MD5=$(cat /.certificate_md5 2>/dev/null || true)
+OLD_CERT_MD5=$(cat /.certificate_state_md5 2>/dev/null || true)
 if [[ -z "$NEW_CERT_MD5" || "$NEW_CERT_MD5" != "$OLD_CERT_MD5" ]]; then
-    echo "healthcheck: HTTPS certificate renewed"
+    echo "healthcheck: HTTPS certificate state changed"
     exit 1
 fi
