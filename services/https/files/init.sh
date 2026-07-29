@@ -2,10 +2,13 @@
 
 set -eu
 
-ACME_CA="https://acme-v02.api.letsencrypt.org/directory"
+ACME_CA="${PROXY_ACME_CA:-https://acme-v02.api.letsencrypt.org/directory}"
+CERT_MODE="${PROXY_CERT_MODE:-auto}"
 OCSERV_CERT_DIR="/data/ocserv"
 CERT_CRT="$OCSERV_CERT_DIR/certificate.crt"
 CERT_KEY="$OCSERV_CERT_DIR/certificate.key"
+FALLBACK_CRT="$OCSERV_CERT_DIR/fallback.crt"
+FALLBACK_KEY="$OCSERV_CERT_DIR/fallback.key"
 CERT_IDENTITY_FILE="$OCSERV_CERT_DIR/identity"
 CERT_TYPE_FILE="$OCSERV_CERT_DIR/identity.type"
 CONFIG_FILE="/etc/caddy/Caddyfile"
@@ -27,6 +30,13 @@ validate_ipv4() {
             }
         }
     '
+}
+
+validate_port() {
+    case "$1" in
+        ""|*[!0-9]*) return 1 ;;
+    esac
+    [ "$1" -ge 1 ] && [ "$1" -le 65535 ]
 }
 
 normalize_domain() {
@@ -51,6 +61,14 @@ detect_public_ipv4() {
 }
 
 resolve_certificate_identity() {
+    case "$CERT_MODE" in
+        auto|selfsigned) ;;
+        *)
+            echo "[ERROR] Invalid PROXY_CERT_MODE: $CERT_MODE. Expected: auto or selfsigned" >&2
+            exit 1
+            ;;
+    esac
+
     CERT_IDENTITY="${PROXY_DOMAIN:-}"
     if [ -n "$CERT_IDENTITY" ]; then
         CERT_IDENTITY=$(normalize_domain "$CERT_IDENTITY")
@@ -67,16 +85,16 @@ generate_fallback_certificate() {
     mkdir -p "$OCSERV_CERT_DIR"
     old_identity=$(cat "$CERT_IDENTITY_FILE" 2>/dev/null || true)
     if [ "$old_identity" != "$CERT_IDENTITY" ] \
-        || ! openssl x509 -in "$CERT_CRT" -noout -checkend 86400 >/dev/null 2>&1 \
-        || [ ! -s "$CERT_KEY" ]; then
+        || ! openssl x509 -in "$FALLBACK_CRT" -noout -checkend 86400 >/dev/null 2>&1 \
+        || [ ! -s "$FALLBACK_KEY" ]; then
         [ "$CERT_TYPE" = "ip" ] && san="IP:$CERT_IDENTITY" || san="DNS:$CERT_IDENTITY"
         echo "[INFO] Generating fallback certificate for $CERT_TYPE:$CERT_IDENTITY"
         openssl req -x509 -newkey rsa:2048 -sha256 -nodes -days 365 \
             -subj "/CN=$CERT_IDENTITY" -addext "subjectAltName=$san" \
-            -keyout "$CERT_KEY.tmp" -out "$CERT_CRT.tmp" >/dev/null 2>&1
-        chmod 600 "$CERT_KEY.tmp"
-        mv -f "$CERT_KEY.tmp" "$CERT_KEY"
-        mv -f "$CERT_CRT.tmp" "$CERT_CRT"
+            -keyout "$FALLBACK_KEY.tmp" -out "$FALLBACK_CRT.tmp" >/dev/null 2>&1
+        chmod 600 "$FALLBACK_KEY.tmp"
+        mv -f "$FALLBACK_KEY.tmp" "$FALLBACK_KEY"
+        mv -f "$FALLBACK_CRT.tmp" "$FALLBACK_CRT"
     fi
     printf '%s\n' "$CERT_IDENTITY" > "$CERT_IDENTITY_FILE.tmp"
     printf '%s\n' "$CERT_TYPE" > "$CERT_TYPE_FILE.tmp"
@@ -94,17 +112,17 @@ get_services() {
             break
         fi
 
-        name=$(echo "$service_value" | cut -d':' -f1)
-        external_port=$(echo "$service_value" | cut -d':' -f2)
-        internal_host=$(echo "$service_value" | cut -d':' -f3)
-        internal_port=$(echo "$service_value" | cut -d':' -f4)
+        IFS=: read -r name external_port internal_host internal_port remainder <<EOF
+$service_value
+EOF
 
-        if [ -z "$name" ] || [ -z "$external_port" ] || [ -z "$internal_host" ] || [ -z "$internal_port" ]; then
+        if [ -z "$name" ] || [ -z "$internal_host" ] || [ -n "$remainder" ] \
+            || ! validate_port "$external_port" || ! validate_port "$internal_port"; then
             echo "[ERROR] $service_var has an invalid format. Expected: name:external_port:internal_hostname:internal_port"
             exit 1
         fi
 
-        if [ "$PROXY_HOST" = "$CERT_IDENTITY" ] && [ "$external_port" -eq 443 ]; then
+        if [ "$external_port" -eq 443 ]; then
             HAS_CERT_SITE=1
         fi
         REACHABLE_SERVICES=$(printf "%s\n%s" "$REACHABLE_SERVICES" "$service_value")
@@ -115,6 +133,13 @@ get_services() {
 
 write_tls_policy() {
     host="$1"
+    if [ "$CERT_MODE" = "selfsigned" ]; then
+        cat <<EOF >>"$CONFIG_FILE"
+  tls $CERT_CRT $CERT_KEY
+EOF
+        return
+    fi
+
     if validate_ipv4 "$host"; then
         cat <<EOF >>"$CONFIG_FILE"
   tls $CERT_CRT $CERT_KEY {
@@ -133,9 +158,14 @@ EOF
 }
 
 generate_global_config() {
+    if [ "$CERT_MODE" = "auto" ]; then
+        auto_https_mode="ignore_loaded_certs"
+    else
+        auto_https_mode="disable_certs"
+    fi
     cat <<EOF >>"$CONFIG_FILE"
 {
-  auto_https ignore_loaded_certs
+  auto_https $auto_https_mode
   default_sni $CERT_IDENTITY
   http_port 80
   https_port 443
@@ -173,10 +203,9 @@ add_services_to_config() {
             continue
         fi
 
-        name=$(echo "$service_value" | cut -d':' -f1)
-        external_port=$(echo "$service_value" | cut -d':' -f2)
-        internal_host=$(echo "$service_value" | cut -d':' -f3)
-        internal_port=$(echo "$service_value" | cut -d':' -f4)
+        IFS=: read -r name external_port internal_host internal_port <<EOF
+$service_value
+EOF
         site_address="$PROXY_HOST:$external_port"
         if [ "$CERT_TYPE" = "ip" ]; then
             site_address="$site_address, :$external_port"
