@@ -1,7 +1,7 @@
 services:
   https:
     restart: unless-stopped
-    image: xtrime/antizapret-vpn-https:6.7.6
+    image: xtrime/antizapret-vpn-https:6.7.9
     build: 
       context: .
       x-bake:
@@ -11,6 +11,7 @@ services:
     ports:
       - "80:80"
       - "443:443/tcp"
+      - "444:444/tcp"
       - "1443:1443"
       - "2443:2443"
       - "3443:3443"
@@ -27,8 +28,9 @@ services:
       # auto requests an ACME certificate; selfsigned disables ACME.
       - PROXY_CERT_MODE=auto
       - PROXY_ACME_CA=https://acme-v02.api.letsencrypt.org/directory
+      - PROXY_HTTPS_PORT=444
       # PROXY_SERVICE_N=external_port:internal_hostname:internal_port
-      - PROXY_SERVICE_1=Dashboard:443:dashboard.antizapret:80
+      - PROXY_SERVICE_1=Dashboard:444:dashboard.antizapret:80
       - PROXY_SERVICE_2=AdGuard:1443:adguard.antizapret:3000
       - PROXY_SERVICE_3=File Browser:2443:filebrowser.antizapret:80
       - PROXY_SERVICE_4=OpenVPN UI:3443:openvpn-ui.antizapret:8080
