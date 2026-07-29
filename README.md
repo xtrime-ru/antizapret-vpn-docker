@@ -17,7 +17,7 @@ This repo is based on idea from original [AntiZapret LXD image](https://bitbucke
   - [After installation](#after-installation)
   - [Access admin panels](#access-admin-panels)
     - [HTTPS](#https)
-      - [Custom sites on ports 80 and 443](#custom-sites-on-ports-80-and-443)
+      - [Custom sites on ports 80 and 444](#custom-sites-on-ports-80-and-444)
     - [Local network](#local-network)
     - [HTTP](#http)
   - [Update](#update)
@@ -210,17 +210,17 @@ apt install -y iptables-persistent
 
 ### HTTPS
 By default, all container can be accessed via https. For certificated management separate `https` container is used.
-If no domain is configured, Caddy detects the server's public IPv4 address and requests a short-lived Let's Encrypt certificate for that address. A persistent self-signed certificate is served until ACME validation succeeds, so HTTPS and ocserv can still start when ports `80/tcp` and `443/tcp` are not reachable from the Internet.
-Caddy uses its Layer 4 listener on `443/tcp` to keep regular HTTPS traffic in the HTTP server and pass TLS clients without HTTP ALPN to ocserv. ocserv receives the original client address through PROXY protocol v2. Its DTLS channel is exposed directly on `443/udp`.
+If no domain is configured, Caddy detects the server's public IPv4 address and requests a short-lived Let's Encrypt certificate for that address. A persistent self-signed certificate is served until ACME validation succeeds, so HTTPS and ocserv can still start when `80/tcp` is not reachable from the Internet.
+Caddy forwards all connections from its Layer 4 listener on `443/tcp` to ocserv and passes the original client address through PROXY protocol v2. The Dashboard uses the separate HTTPS port `444/tcp`, while the ocserv DTLS channel is exposed directly on `443/udp`.
 
-- dashboard: https://%your-server-ip%:443
+- dashboard: https://%your-server-ip%:444
 - adguard: https://%your-server-ip%:1443
 - filebrowser: https://%your-server-ip%:2443
 - openvpn: https://%your-server-ip%:3443
 - wireguard: https://%your-server-ip%:4443
 - wireguard-amnezia: https://%your-server-ip%:5443
 
-#### Custom sites on ports 80 and 443
+#### Custom sites on ports 80 and 444
 
 Additional Caddy configurations can be stored in `config/https/config/sites-enabled`. The directory is created automatically when the `https` container starts, and all files in it are imported into the main Caddyfile.
 
@@ -232,7 +232,7 @@ example.com {
 }
 ```
 
-Caddy will accept requests for `example.com` on ports 80 and 443, automatically redirect HTTP to HTTPS, and manage the TLS certificate. The domain must point to the server, and the `my-app` service must be reachable from the `https` container through the shared Docker network.
+Caddy will accept requests for `example.com` on ports 80 and 444, automatically redirect HTTP to HTTPS port 444, and manage the TLS certificate. The domain must point to the server, and the `my-app` service must be reachable from the `https` container through the shared Docker network.
 
 Restart the container after adding or changing a configuration:
 
@@ -759,11 +759,12 @@ You can define these variables in docker-compose.override.yml file for your need
 - `PROXY_IP=` - optional public IPv4 override for environments where automatic detection is unavailable.
 - `PROXY_CERT_MODE=auto` - certificate mode: `auto` keeps a self-signed fallback while requesting an ACME certificate; `selfsigned` disables ACME requests.
 - `PROXY_ACME_CA=https://acme-v02.api.letsencrypt.org/directory` - ACME directory URL. Use the Let's Encrypt staging directory while testing certificate issuance.
+- `PROXY_HTTPS_PORT=444` - HTTPS port for the Dashboard and custom Caddy sites. Port `443/tcp` is reserved for ocserv Layer 4 traffic.
 
 ### OpenConnect (ocserv)
 - `ROUTES` - list of VPN containers and their virtual addresses.
 - `OC_DEFAULT_ADDRESS=10.1.164.x` - client address range; the value must end in `.x`.
-- `OC_PORT=443` - internal TCP and UDP port. TCP is reached through Caddy; UDP is published directly.
+- `OC_PORT=443` - internal TCP and UDP port. Caddy forwards all public `443/tcp` connections to it; UDP is published directly.
 - `OC_USER=admin` - user created on the first start.
 - `OC_USERPASS=password` - password assigned on the first start.
 - `OC_SECRET=kvn` - ocserv camouflage secret.
@@ -824,8 +825,7 @@ To enable ECS, open the AdGuard Home DNS settings at `http://your-server-ip:3000
 
 ## OpenConnect (ocserv)
 
-The `ocserv` service is compatible with OpenConnect and Cisco AnyConnect clients. It uses the `10.1.164.0/24` subnet and listens on TCP and UDP port `443`. Caddy proxies the TCP channel over the internal Docker network, while Docker publishes only the UDP channel directly from the ocserv container.
-TCP multiplexing uses ALPN: `h2`, `http/1.1`, and `acme-tls/1` stay in Caddy, while TLS clients without HTTP ALPN are sent to ocserv. Consequently, an HTTPS client which does not advertise HTTP ALPN will receive the ocserv camouflage response instead of the Dashboard.
+The `ocserv` service is compatible with OpenConnect and Cisco AnyConnect clients. It uses the `10.1.164.0/24` subnet and listens on TCP and UDP port `443`. Caddy forwards every public `443/tcp` connection to ocserv over the internal Docker network with PROXY protocol v2, while Docker publishes the UDP channel directly from the ocserv container. The Dashboard is available separately on `444/tcp`; no ALPN-based multiplexing is performed on port 443.
 
 The service is already enabled in the complete `docker-compose.override.sample.yml`. For an existing installation, add it to `docker-compose.override.yml` and set a user and a strong password before the first start:
 
@@ -840,7 +840,7 @@ services:
       - OC_USERPASS=strongpassword
 ```
 
-Without additional settings, the `https` service detects the server's public IPv4 address and creates a persistent self-signed fallback certificate. Caddy serves it while independently requesting a public Let's Encrypt certificate containing an `IP Address` SAN, then switches to the managed certificate without stopping the services. IP certificates use the mandatory `shortlived` profile, are valid for 160 hours, and are renewed automatically. Failed ACME attempts are retried while the services remain available with the fallback. For a local installation without a public IP, set `PROXY_CERT_MODE=selfsigned` to disable ACME attempts. To use a domain for both HTTPS services and ocserv, set `PROXY_DOMAIN` for the `https` service.
+Without additional settings, the `https` service detects the server's public IPv4 address and creates a persistent self-signed fallback certificate. Caddy serves it on port 444 while independently requesting a public Let's Encrypt certificate containing an `IP Address` SAN, then switches to the managed certificate without stopping the services. Because port 443 is reserved for ocserv, ACME validation uses HTTP-01 on port 80. IP certificates use the mandatory `shortlived` profile, are valid for 160 hours, and are renewed automatically. Failed ACME attempts are retried while the services remain available with the fallback. For a local installation without a public IP, set `PROXY_CERT_MODE=selfsigned` to disable ACME attempts. To use a domain for both HTTPS services and ocserv, set `PROXY_DOMAIN` for the `https` service.
 
 Allow incoming `443/tcp` and `443/udp`, then start the service:
 
@@ -891,7 +891,7 @@ sudo openconnect --protocol=anyconnect --user username \
   'https://SERVER/?kvn'
 ```
 
-In an OpenConnect GUI, select the Cisco AnyConnect protocol and enter the same complete URL. In Cisco Secure Client/AnyConnect, enter `SERVER/?kvn` in the connection field, connect, and provide the username and password. A browser cannot test the VPN endpoint: browsers advertise HTTP ALPN and Caddy routes them to the Dashboard instead of ocserv.
+In an OpenConnect GUI, select the Cisco AnyConnect protocol and enter the same complete URL. In Cisco Secure Client/AnyConnect, enter `SERVER/?kvn` in the connection field, connect, and provide the username and password. Port 443 is dedicated to ocserv regardless of ALPN; open the Dashboard at `https://SERVER:444`.
 
 With a public ACME certificate, no additional certificate setup is needed. When the self-signed fallback is active, inspect the active certificate before accepting the client warning:
 

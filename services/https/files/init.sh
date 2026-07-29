@@ -4,6 +4,7 @@ set -eu
 
 ACME_CA="${PROXY_ACME_CA:-https://acme-v02.api.letsencrypt.org/directory}"
 CERT_MODE="${PROXY_CERT_MODE:-auto}"
+HTTPS_PORT="${PROXY_HTTPS_PORT:-444}"
 OCSERV_CERT_DIR="/data/ocserv"
 CERT_CRT="$OCSERV_CERT_DIR/certificate.crt"
 CERT_KEY="$OCSERV_CERT_DIR/certificate.key"
@@ -69,6 +70,11 @@ resolve_certificate_identity() {
             ;;
     esac
 
+    if ! validate_port "$HTTPS_PORT"; then
+        echo "[ERROR] Invalid PROXY_HTTPS_PORT: $HTTPS_PORT" >&2
+        exit 1
+    fi
+
     CERT_IDENTITY="${PROXY_DOMAIN:-}"
     if [ -n "$CERT_IDENTITY" ]; then
         CERT_IDENTITY=$(normalize_domain "$CERT_IDENTITY")
@@ -122,7 +128,7 @@ EOF
             exit 1
         fi
 
-        if [ "$external_port" -eq 443 ]; then
+        if [ "$external_port" -eq "$HTTPS_PORT" ]; then
             HAS_CERT_SITE=1
         fi
         REACHABLE_SERVICES=$(printf "%s\n%s" "$REACHABLE_SERVICES" "$service_value")
@@ -145,13 +151,16 @@ EOF
   tls $CERT_CRT $CERT_KEY {
     issuer acme $ACME_CA {
       profile shortlived
+      disable_tlsalpn_challenge
     }
   }
 EOF
     else
         cat <<EOF >>"$CONFIG_FILE"
   tls $CERT_CRT $CERT_KEY {
-    issuer acme $ACME_CA
+    issuer acme $ACME_CA {
+      disable_tlsalpn_challenge
+    }
   }
 EOF
     fi
@@ -159,33 +168,33 @@ EOF
 
 generate_global_config() {
     if [ "$CERT_MODE" = "auto" ]; then
-        auto_https_mode="ignore_loaded_certs"
+        auto_https_mode="ignore_loaded_certs disable_redirects"
     else
-        auto_https_mode="disable_certs"
+        auto_https_mode="disable_certs disable_redirects"
     fi
     cat <<EOF >>"$CONFIG_FILE"
 {
   auto_https $auto_https_mode
   default_sni $CERT_IDENTITY
   http_port 80
-  https_port 443
-  servers :443 {
-    protocols h1 h2
-    listener_wrappers {
-      layer4 {
-        @ocserv {
-          tls
-          not tls alpn h2 http/1.1 acme-tls/1
-        }
-        route @ocserv {
-          proxy {
-            proxy_protocol v2
-            upstream ocserv.antizapret:443
-          }
+  https_port $HTTPS_PORT
+  layer4 {
+    :443 {
+      route {
+        proxy {
+          proxy_protocol v2
+          upstream ocserv.antizapret:443
         }
       }
+    }
+  }
+  servers {
+    listener_wrappers {
+      http_redirect
       tls
     }
+  }
+  servers :80 {
   }
 EOF
     if [ -n "${PROXY_EMAIL:-}" ]; then
@@ -236,6 +245,16 @@ EOF
     done
 }
 
+add_http_redirect() {
+    cat <<EOF >>"$CONFIG_FILE"
+
+#HTTP to Dashboard#
+http://$PROXY_HOST, :80 {
+  redir https://{host}:$HTTPS_PORT{uri} 308
+}
+EOF
+}
+
 add_ocserv_certificate_site() {
     if [ "$HAS_CERT_SITE" -eq 1 ]; then
         return
@@ -244,7 +263,7 @@ add_ocserv_certificate_site() {
     cat <<EOF >>"$CONFIG_FILE"
 
 #ocserv certificate automation#
-$CERT_IDENTITY:443 {
+$CERT_IDENTITY:$HTTPS_PORT {
 EOF
     write_tls_policy "$CERT_IDENTITY"
     cat <<EOF >>"$CONFIG_FILE"
@@ -260,6 +279,7 @@ main() {
     generate_fallback_certificate
     get_services
     generate_global_config
+    add_http_redirect
     add_services_to_config
     add_ocserv_certificate_site
 
