@@ -85,6 +85,7 @@ RUN apt-get update && \
         iptables \
         iproute2 \
         iputils-ping \
+        less \
         ca-certificates && \
     apt-get autoremove --yes && \
     apt-get clean --yes && \
