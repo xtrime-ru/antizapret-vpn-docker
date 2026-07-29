@@ -874,6 +874,8 @@ docker compose exec ocserv occtl show users
 
 The password database is persisted in `./config/ocserv/ocpasswd`.
 
+`./config/ocserv/ocserv.tmpl` and `./config/ocserv/az.tmpl` are persistent, editable templates created only when absent. On every start, environment placeholders are rendered into `/run/ocserv/ocserv.conf` and `/run/ocserv/config-per-group/az`; the generated `az` file is then extended with the current IP routes. Edit the `.tmpl` files, not the generated runtime files, and restart the container to apply changes. Templates containing literal values continue to work; an environment variable changes a setting only when its placeholder is present in the template.
+
 ### Client setup
 
 The server address has the following format:
