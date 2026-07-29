@@ -1,9 +1,8 @@
-#https://github.com/r4ven-me/openconnect/tree/main/src/server/v1.4
 services:
   ocserv:
     init: true
     restart: unless-stopped
-    image: xtrime/antizapret-vpn-ocserv:6.7.5
+    image: xtrime/antizapret-vpn-ocserv:6.7.6
     hostname: ocserv.antizapret
     build:
       context: .
@@ -48,7 +47,6 @@ services:
       - OC_USER=admin
       - OC_USERPASS=password
       - OC_SECRET=kvn
-      - TINI_SUBREAPER=true
       - |
         ROUTES=
         ocserv:10.1.164.0/24;
@@ -63,6 +61,5 @@ services:
       - $PWD/config/ocserv:/etc/ocserv
       - $PWD/config/antizapret/result:/opt/antizapret/result
       - $PWD/config/https/data/ocserv:/https-data/ocserv:ro
-      - $PWD/config/https/data/caddy/certificates:/https-data/caddy/certificates:ro
     ports:
       - "443:443/udp"

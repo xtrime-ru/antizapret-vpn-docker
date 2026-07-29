@@ -757,6 +757,8 @@ You can define these variables in docker-compose.override.yml file for your need
 - `PROXY_DOMAIN=` - optional domain shared by the HTTPS services and ocserv. If empty, the public IPv4 address is detected at startup.
 - `PROXY_EMAIL=` - optional email for the Let's Encrypt account.
 - `PROXY_IP=` - optional public IPv4 override for environments where automatic detection is unavailable.
+- `PROXY_CERT_MODE=auto` - certificate mode: `auto` keeps a self-signed fallback while requesting an ACME certificate; `selfsigned` disables ACME requests.
+- `PROXY_ACME_CA=https://acme-v02.api.letsencrypt.org/directory` - ACME directory URL. Use the Let's Encrypt staging directory while testing certificate issuance.
 
 ### OpenConnect (ocserv)
 - `ROUTES` - list of VPN containers and their virtual addresses.
@@ -838,7 +840,7 @@ services:
       - OC_USERPASS=strongpassword
 ```
 
-Without additional settings, the `https` service detects the server's public IPv4 address and creates a persistent self-signed fallback certificate. Caddy serves it while independently requesting a public Let's Encrypt certificate containing an `IP Address` SAN. IP certificates use the mandatory `shortlived` profile, are valid for 160 hours, and are renewed automatically. Failed ACME attempts are retried while the services remain available with the fallback. To use a domain for both HTTPS services and ocserv, set `PROXY_DOMAIN` for the `https` service.
+Without additional settings, the `https` service detects the server's public IPv4 address and creates a persistent self-signed fallback certificate. Caddy serves it while independently requesting a public Let's Encrypt certificate containing an `IP Address` SAN, then switches to the managed certificate without stopping the services. IP certificates use the mandatory `shortlived` profile, are valid for 160 hours, and are renewed automatically. Failed ACME attempts are retried while the services remain available with the fallback. For a local installation without a public IP, set `PROXY_CERT_MODE=selfsigned` to disable ACME attempts. To use a domain for both HTTPS services and ocserv, set `PROXY_DOMAIN` for the `https` service.
 
 Allow incoming `443/tcp` and `443/udp`, then start the service:
 
@@ -846,15 +848,61 @@ Allow incoming `443/tcp` and `443/udp`, then start the service:
 docker compose up -d ocserv
 ```
 
-Connect Cisco Secure Client/AnyConnect to `%your-server-ip%`, or use OpenConnect:
+### User management
+
+`OC_USER` and `OC_USERPASS` create the initial user only when `./config/ocserv/ocpasswd` does not exist. To add a user or change an existing user's password, run the following command and enter the new password twice:
 
 ```shell
-sudo openconnect --protocol=anyconnect 'https://%your-server-ip%/?kvn'
+docker compose exec ocserv \
+  ocpasswd -g az -c /etc/ocserv/ocpasswd username
 ```
 
-The query string is the configured `OC_SECRET`; change `kvn` in the URL when you override that variable.
+To delete, lock, or unlock a user:
 
-The `https` service stores the fallback and selected identity in `./config/https/data/ocserv`; public certificates remain in Caddy's managed storage. ocserv prefers a valid public certificate and falls back to the self-signed one. Its healthcheck restarts the container after renewal, certificate replacement, or an identity change. The fallback is retained between container restarts and regenerated only when the identity changes or it approaches expiration. If the server IP changes, restart the `https` service so it detects the new address. The user database remains persisted in `./config/ocserv` and `OC_USER`/`OC_USERPASS` are only applied on its first creation.
+```shell
+docker compose exec ocserv ocpasswd -d -c /etc/ocserv/ocpasswd username
+docker compose exec ocserv ocpasswd -l -c /etc/ocserv/ocpasswd username
+docker compose exec ocserv ocpasswd -u -c /etc/ocserv/ocpasswd username
+```
+
+To inspect the server and currently connected users:
+
+```shell
+docker compose exec ocserv occtl show status
+docker compose exec ocserv occtl show users
+```
+
+The password database is persisted in `./config/ocserv/ocpasswd`.
+
+### Client setup
+
+The server address has the following format:
+
+```text
+https://SERVER/?SECRET
+```
+
+Use `PROXY_DOMAIN` as `SERVER` when configured; otherwise use the server's public IP. `SECRET` is the configured `OC_SECRET` and defaults to `kvn`. The query string is required by ocserv camouflage mode.
+
+For OpenConnect, specify the AnyConnect protocol and the user created above:
+
+```shell
+sudo openconnect --protocol=anyconnect --user username \
+  'https://SERVER/?kvn'
+```
+
+In an OpenConnect GUI, select the Cisco AnyConnect protocol and enter the same complete URL. In Cisco Secure Client/AnyConnect, enter `SERVER/?kvn` in the connection field, connect, and provide the username and password. A browser cannot test the VPN endpoint: browsers advertise HTTP ALPN and Caddy routes them to the Dashboard instead of ocserv.
+
+With a public ACME certificate, no additional certificate setup is needed. When the self-signed fallback is active, inspect the active certificate before accepting the client warning:
+
+```shell
+openssl x509 -in ./config/https/data/ocserv/certificate.crt \
+  -noout -subject -issuer -fingerprint -sha256
+```
+
+OpenConnect can pin the fingerprint offered in its warning with the `--servercert` option. The pin changes when Caddy switches from the fallback to a managed certificate.
+
+The `https` service stores the fallback, active certificate, and selected identity in `./config/https/data/ocserv`; the original public certificate remains in Caddy's managed storage. Caddy copies a valid managed certificate to the active path and uses the self-signed fallback until one is available. If the managed certificate expires or disappears before renewal succeeds, Caddy switches back to the fallback and automatically activates the managed certificate when it becomes available again. ocserv reads the same active certificate, and its healthcheck restarts the container after renewal, certificate replacement, or an identity change. The fallback is retained between container restarts and regenerated only when the identity changes or it approaches expiration. If the server IP changes, restart the `https` service so it detects the new address.
 
 Direct IP connections are supported by [OpenConnect](https://www.infradead.org/openconnect/manual.html) and [Cisco Secure Client](https://www.cisco.com/c/en/us/td/docs/security/vpn_client/anyconnect/Cisco-Secure-Client-5/admin/guide/b-cisco-secure-client-admin-guide-5-1/configure_vpn.html). A public IP certificate avoids the manual trust or certificate pinning required by a self-signed certificate.
 

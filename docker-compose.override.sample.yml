@@ -10,6 +10,10 @@ services:
       - PROXY_DOMAIN=
       # Optional Let's Encrypt account email.
       - PROXY_EMAIL=
+      # Use selfsigned to disable ACME requests on local installations.
+      - PROXY_CERT_MODE=auto
+      # Use the staging directory while testing certificate issuance.
+      # - PROXY_ACME_CA=https://acme-staging-v02.api.letsencrypt.org/directory
 
   # cloak:
   #   extends:

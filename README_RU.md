@@ -745,6 +745,8 @@ docker exec $(docker ps -q --filter=name=az-local) sh -c 'REPEATS=8 DOMAINS="you
 - `PROXY_DOMAIN=` - необязательный общий домен HTTPS-сервисов и ocserv. Если значение пустое, при запуске определяется публичный IPv4 сервера.
 - `PROXY_EMAIL=` - необязательный email учётной записи Let's Encrypt.
 - `PROXY_IP=` - необязательное переопределение публичного IPv4 для окружений, где автоматическое определение недоступно.
+- `PROXY_CERT_MODE=auto` - режим сертификата: `auto` сохраняет самоподписанный fallback и запрашивает сертификат через ACME; `selfsigned` отключает ACME-запросы.
+- `PROXY_ACME_CA=https://acme-v02.api.letsencrypt.org/directory` - URL каталога ACME. Для тестирования выпуска сертификатов используйте staging-каталог Let's Encrypt.
 
 ### OpenConnect (ocserv)
 - `ROUTES` - список VPN-контейнеров и их виртуальных адресов.
@@ -826,7 +828,7 @@ services:
       - OC_USERPASS=strongpassword
 ```
 
-Без дополнительных настроек сервис `https` определяет публичный IPv4 сервера и создаёт постоянный резервный самоподписанный сертификат. Caddy обслуживает соединения этим сертификатом и независимо запрашивает публичный сертификат Let's Encrypt с SAN типа `IP Address`. Сертификаты на IP используют обязательный профиль `shortlived`, действуют 160 часов и обновляются автоматически. Неудачные ACME-попытки повторяются, а сервисы в это время остаются доступны с резервным сертификатом. Чтобы использовать один домен для HTTPS-сервисов и ocserv, задайте `PROXY_DOMAIN` сервису `https`.
+Без дополнительных настроек сервис `https` определяет публичный IPv4 сервера и создаёт постоянный резервный самоподписанный сертификат. Caddy обслуживает соединения этим сертификатом, независимо запрашивает публичный сертификат Let's Encrypt с SAN типа `IP Address`, а затем переключается на него без остановки сервисов. Сертификаты на IP используют обязательный профиль `shortlived`, действуют 160 часов и обновляются автоматически. Неудачные ACME-попытки повторяются, а сервисы в это время остаются доступны с резервным сертификатом. Для локальной установки без публичного IP задайте `PROXY_CERT_MODE=selfsigned`, чтобы отключить ACME-запросы. Чтобы использовать один домен для HTTPS-сервисов и ocserv, задайте `PROXY_DOMAIN` сервису `https`.
 
 Разрешите входящие `443/tcp` и `443/udp`, затем запустите сервис:
 
@@ -834,15 +836,61 @@ services:
 docker compose up -d ocserv
 ```
 
-Подключитесь клиентом Cisco Secure Client/AnyConnect к `%your-server-ip%` либо OpenConnect:
+### Управление пользователями
+
+`OC_USER` и `OC_USERPASS` создают начального пользователя, только если файла `./config/ocserv/ocpasswd` ещё нет. Чтобы добавить пользователя или сменить пароль существующего пользователя, выполните команду и дважды введите новый пароль:
 
 ```shell
-sudo openconnect --protocol=anyconnect 'https://%your-server-ip%/?kvn'
+docker compose exec ocserv \
+  ocpasswd -g az -c /etc/ocserv/ocpasswd username
 ```
 
-Строка запроса — это настроенный `OC_SECRET`; если вы переопределили переменную, замените `kvn` в URL.
+Удаление, блокировка и разблокировка пользователя:
 
-Сервис `https` хранит резервный сертификат и выбранный identity в `./config/https/data/ocserv`; публичные сертификаты остаются в управляемом хранилище Caddy. ocserv предпочитает действующий публичный сертификат и использует самоподписанный как резервный. Healthcheck перезапускает контейнер после продления, замены сертификата или изменения identity. Резервный сертификат сохраняется между перезапусками и генерируется заново только при изменении identity или приближении срока окончания. Если IP сервера изменился, перезапустите сервис `https`, чтобы он определил новый адрес. База пользователей сохраняется в `./config/ocserv`; `OC_USER` и `OC_USERPASS` применяются только при её первом создании.
+```shell
+docker compose exec ocserv ocpasswd -d -c /etc/ocserv/ocpasswd username
+docker compose exec ocserv ocpasswd -l -c /etc/ocserv/ocpasswd username
+docker compose exec ocserv ocpasswd -u -c /etc/ocserv/ocpasswd username
+```
+
+Проверка состояния сервера и подключённых пользователей:
+
+```shell
+docker compose exec ocserv occtl show status
+docker compose exec ocserv occtl show users
+```
+
+База паролей сохраняется в `./config/ocserv/ocpasswd`.
+
+### Настройка клиента
+
+Адрес сервера имеет следующий формат:
+
+```text
+https://SERVER/?SECRET
+```
+
+Если настроен `PROXY_DOMAIN`, используйте его вместо `SERVER`; иначе укажите публичный IP сервера. `SECRET` — значение `OC_SECRET`, по умолчанию `kvn`. Строка запроса обязательна из-за режима маскировки ocserv.
+
+Для OpenConnect укажите протокол AnyConnect и созданного выше пользователя:
+
+```shell
+sudo openconnect --protocol=anyconnect --user username \
+  'https://SERVER/?kvn'
+```
+
+В графическом клиенте OpenConnect выберите протокол Cisco AnyConnect и укажите тот же полный URL. В Cisco Secure Client/AnyConnect введите `SERVER/?kvn` в поле подключения, подключитесь и укажите имя пользователя и пароль. Проверить VPN через браузер нельзя: браузер сообщает HTTP ALPN, поэтому Caddy направляет его в Dashboard, а не в ocserv.
+
+При использовании публичного ACME-сертификата дополнительная настройка сертификатов не нужна. Если активен резервный самоподписанный сертификат, перед подтверждением предупреждения проверьте активный сертификат:
+
+```shell
+openssl x509 -in ./config/https/data/ocserv/certificate.crt \
+  -noout -subject -issuer -fingerprint -sha256
+```
+
+OpenConnect позволяет закрепить fingerprint из предупреждения параметром `--servercert`. После переключения Caddy с fallback на managed-сертификат pin изменится.
+
+Сервис `https` хранит резервный, активный сертификат и выбранный identity в `./config/https/data/ocserv`; оригинал публичного сертификата остаётся в управляемом хранилище Caddy. Caddy копирует действующий управляемый сертификат в активный путь, а до его появления использует самоподписанный fallback. Если managed-сертификат истёк или исчез до успешного продления, Caddy возвращается на fallback и автоматически активирует managed-сертификат, когда тот снова появляется. ocserv читает тот же активный сертификат, а healthcheck перезапускает контейнер после продления, замены сертификата или изменения identity. Резервный сертификат сохраняется между перезапусками и генерируется заново только при изменении identity или приближении срока окончания. Если IP сервера изменился, перезапустите сервис `https`, чтобы он определил новый адрес.
 
 Подключение напрямую по IP поддерживается [OpenConnect](https://www.infradead.org/openconnect/manual.html) и [Cisco Secure Client](https://www.cisco.com/c/en/us/td/docs/security/vpn_client/anyconnect/Cisco-Secure-Client-5/admin/guide/b-cisco-secure-client-admin-guide-5-1/configure_vpn.html). Публичный сертификат на IP не требует ручной установки доверия или закрепления сертификата, необходимых при использовании самоподписанного сертификата.
 

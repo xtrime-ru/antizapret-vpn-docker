@@ -14,7 +14,18 @@ OC_DEFAULT_ADDRESS="${OC_DEFAULT_ADDRESS:-10.1.164.x}"
 export OC_PORT="${OC_PORT:-443}"
 OC_USER="${OC_USER:-admin}"
 OC_USERPASS="${OC_USERPASS:-pASSword}"
-export OC_IPV4_CIDR="${OC_DEFAULT_ADDRESS/x/0}/24"
+if [[ ! "$OC_DEFAULT_ADDRESS" =~ ^([0-9]{1,3}\.){3}x$ ]]; then
+    echo "Invalid OC_DEFAULT_ADDRESS: $OC_DEFAULT_ADDRESS. Expected an IPv4 template ending in .x" >&2
+    exit 1
+fi
+IFS=. read -r octet1 octet2 octet3 _ <<< "$OC_DEFAULT_ADDRESS"
+for octet in "$octet1" "$octet2" "$octet3"; do
+    if ((10#$octet > 255)); then
+        echo "Invalid OC_DEFAULT_ADDRESS: $OC_DEFAULT_ADDRESS" >&2
+        exit 1
+    fi
+done
+export OC_IPV4_CIDR="${OC_DEFAULT_ADDRESS%.x}.0/24"
 export OC_SECRET="${OC_SECRET:-kvn}"
 OC_ROUTE="${OCSERV_DIR}/config-per-group"
 CONFIG_FILES=(/opt/antizapret/result/ips*)
@@ -56,12 +67,7 @@ case "$CERT_TYPE" in
         ;;
 esac
 
-# Create config dirs
-for sub_dir in "$OC_ROUTE"; do
-    if [[ ! -d "$sub_dir" ]]; then
-        mkdir -p "$sub_dir"
-    fi
-done
+mkdir -p "$OC_ROUTE"
 # Create old sample.config
 if [[ -r /usr/share/doc/ocserv/sample.config && ! -e "$OCSERV_DIR/sample.config" ]]; then
     cp /usr/share/doc/ocserv/sample.config "$OCSERV_DIR/"
@@ -86,8 +92,7 @@ fi
 routes --vpn &
 
 config_checksum > /.config_md5
-printf '%s\n' "$CERT_IDENTITY" > /.certificate_identity
-md5sum "$SERVER_CERT" | cut -d' ' -f1 > /.certificate_md5
+certificate_checksum > /.certificate_state_md5
 
 # Configure network
 mkdir -p /dev/net

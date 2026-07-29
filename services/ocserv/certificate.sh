@@ -1,22 +1,29 @@
 HTTPS_CERT_DIR="${HTTPS_CERT_DIR:-/https-data/ocserv}"
-HTTPS_CERT_STORAGE="${HTTPS_CERT_STORAGE:-/https-data/caddy/certificates}"
 CERT_IDENTITY_FILE="$HTTPS_CERT_DIR/identity"
 CERT_TYPE_FILE="$HTTPS_CERT_DIR/identity.type"
 
 find_https_certificate() {
-    certificate_identity=$(cat "$CERT_IDENTITY_FILE" 2>/dev/null || true)
-    certificate_dir="$HTTPS_CERT_STORAGE/acme-v02.api.letsencrypt.org-directory/$certificate_identity"
-    SERVER_CERT="$certificate_dir/$certificate_identity.crt"
-    SERVER_KEY="$certificate_dir/$certificate_identity.key"
+    SERVER_CERT="$HTTPS_CERT_DIR/certificate.crt"
+    SERVER_KEY="$HTTPS_CERT_DIR/certificate.key"
     if ! openssl x509 -in "$SERVER_CERT" -noout -checkend 0 >/dev/null 2>&1 \
         || [ ! -s "$SERVER_KEY" ]; then
-        SERVER_CERT="$HTTPS_CERT_DIR/certificate.crt"
-        SERVER_KEY="$HTTPS_CERT_DIR/certificate.key"
+        return 1
     fi
-    if openssl x509 -in "$SERVER_CERT" -noout -checkend 0 >/dev/null 2>&1 \
-        && [ -s "$SERVER_KEY" ]; then
-        export SERVER_CERT SERVER_KEY
-        return 0
-    fi
-    return 1
+    export SERVER_CERT SERVER_KEY
+}
+
+certificate_checksum() {
+    find_https_certificate \
+        && [ -s "$CERT_IDENTITY_FILE" ] \
+        && [ -s "$CERT_TYPE_FILE" ] \
+        || return 1
+
+    {
+        printf 'identity\0'
+        cat "$CERT_IDENTITY_FILE"
+        printf '\0type\0'
+        cat "$CERT_TYPE_FILE"
+        printf '\0certificate\0'
+        cat "$SERVER_CERT"
+    } | md5sum | cut -d' ' -f1
 }
