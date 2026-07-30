@@ -2,8 +2,8 @@ networks:
   default:
     driver: overlay
     driver_opts:
-      encrypted: "true"
-      com.docker.network.driver.mtu: 1500
+      encrypted: "${DOCKER_ENC:-"true"}"
+      com.docker.network.driver.mtu: "${DOCKER_MTU:-1500}"
   host:
     name: host
     external: true
@@ -17,6 +17,14 @@ services:
           - az-local.antizapret
     environment:
       - AZ_SUBNET=14.16.0.0/15
+      - IPTABLES_SAVE_DISABLED=${IPTABLES_SAVE_DISABLED:-0}
+      - IPS_URL=${IPS_URL}
+      - IPS_WORLD_URL=${IPS_WORLD_URL}
+      - ASN_URL=${ASN_URL}
+      - ASN_WORLD_URL=${ASN_WORLD_URL}
+      - ROUTES=${ROUTES}
+    extra_hosts:
+      - "raw.githubusercontent.com:${GITHUB_RAW_IP}"
 
   az-world:
     hostname: az-world.antizapret
@@ -37,6 +45,14 @@ services:
     environment:
       - CLIENT=az-world
       - AZ_SUBNET=14.18.0.0/15
+      - IPTABLES_SAVE_DISABLED=${IPTABLES_SAVE_DISABLED:-0}
+      - IPS_URL=${IPS_URL}
+      - IPS_WORLD_URL=${IPS_WORLD_URL}
+      - ASN_URL=${ASN_URL}
+      - ASN_WORLD_URL=${ASN_WORLD_URL}
+      - ROUTES=${ROUTES}
+    extra_hosts:
+      - "raw.githubusercontent.com:${GITHUB_RAW_IP}"
 
   adguard:
     environment:
