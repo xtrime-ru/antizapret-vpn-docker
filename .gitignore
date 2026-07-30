@@ -3,4 +3,5 @@
 !.gitkeep
 !.dockerignore
 /docker-compose.override.yml
+/compose.swarm.env
 /config/
