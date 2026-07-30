@@ -92,6 +92,7 @@ services:
       # Use strong password because HTTPS proxy available from internet
       - PROXY_LOGIN=${PROXY_LOGIN:-}
       - PROXY_PASSWORD=${PROXY_PASSWORD:-}
+      - ROUTES=${ROUTES}
     deploy:
       mode: replicated
       replicas: 1
@@ -108,6 +109,7 @@ services:
       # Use strong password because HTTPS proxy available from internet
       - PROXY_LOGIN=${PROXY_LOGIN:-}
       - PROXY_PASSWORD=${PROXY_PASSWORD:-}
+      - ROUTES=${ROUTES}
     deploy:
       mode: replicated
       replicas: 1
