@@ -407,6 +407,8 @@ jira.com
 atl-paas.net
 atlassian.com
 atlassian.net
+plati.io
+plati.market
 
 # Xerox
 xerox.co.uk
