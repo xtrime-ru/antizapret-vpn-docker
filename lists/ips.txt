@@ -16,14 +16,6 @@
 172.64.0.0/13
 131.0.72.0/22
 
-# AWS eu-west-1 (Ireland) - WhatsApp entry servers
-52.209.0.0/16
-54.194.0.0/16
-
-# AWS us-east-2 (Ohio) - WhatsApp entry servers
-3.16.0.0/12
-3.128.0.0/10
-
 # Warframe Chat
 172.232.25.131/32
 

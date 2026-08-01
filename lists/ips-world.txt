@@ -52,3 +52,11 @@
 185.60.216.0/22
 185.89.216.0/22
 204.15.20.0/22
+
+# AWS eu-west-1 (Ireland) - WhatsApp entry servers
+52.209.0.0/16
+54.194.0.0/16
+
+# AWS us-east-2 (Ohio) - WhatsApp entry servers
+3.16.0.0/12
+3.128.0.0/10
