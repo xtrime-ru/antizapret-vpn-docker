@@ -3,23 +3,24 @@ WORKDIR /app
 COPY ./api/go.* .
 RUN go mod download
 COPY ./api .
-RUN go build -o app
+RUN go test ./... && go build -o app
 
 FROM golang:1.26 AS builder-compose2swarm
 WORKDIR /app
 COPY ./compose2swarm/go.* .
 RUN go mod download
 COPY ./compose2swarm .
-RUN go build -o compose2swarm
+RUN go test ./... && go build -o compose2swarm
 
 FROM golang:1.26 AS builder-routes
 WORKDIR /app
 COPY ./routes/go.* .
 RUN go mod download
 COPY ./routes .
-RUN CGO_ENABLED=0 GOOS=linux go build -a -tags netgo -ldflags '-w -s -extldflags "-static"' -o routes
+RUN go test ./... && \
+    CGO_ENABLED=0 GOOS=linux go build -a -tags netgo -ldflags '-w -s -extldflags "-static"' -o routes
 
-FROM ubuntu:24.04
+FROM ubuntu:24.04 AS runtime-base
 
 WORKDIR /root
 
@@ -57,15 +58,31 @@ RUN mkdir -p /usr/share/GeoIP && \
     curl -fL --retry 3 -o /usr/share/GeoIP/GeoLite2-ASN.mmdb \
         https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-ASN.mmdb
 
+FROM runtime-base AS test-dnsmap
+WORKDIR /root/antizapret
+COPY ./root/antizapret/dnsmap.py ./root/antizapret/test_dnsmap.py ./
+RUN python3 -B -m unittest discover -v
+
+FROM test-dnsmap AS runtime-files
+COPY ./root /runtime/root
+COPY ./init.sh ./healthcheck.sh /runtime/
+
+RUN <<-"EOF" bash -ex
+    for list in /runtime/root/antizapret/config/*-custom.txt; do rm -f $list; done
+    rm -f /runtime/root/antizapret/test_*.py
+EOF
+
+FROM runtime-base
+
+WORKDIR /root
+
 COPY --from=builder-api /app/app /opt/api/app
 COPY --from=builder-compose2swarm /app/compose2swarm /usr/bin/compose2swarm
 COPY --from=builder-routes /app/routes /usr/bin/routes
 COPY --from=vernette/ss-zapret2:v1.0.2 /opt/zapret2/ /opt/zapret2/
-COPY . /
+COPY --from=runtime-files /runtime/ /
 
 RUN <<-"EOF" bash -ex
-    for list in antizapret/config/*-custom.txt; do rm -f $list; done
-
     cp -a /opt/zapret2/lua.dist /opt/zapret2/lua
     cp -a /opt/zapret2/files/fake.dist /opt/zapret2/files/fake
 
