@@ -282,6 +282,23 @@ class AsnListTests(ResolverTestCase):
 
         self.output.assert_any_call('ASN lookup for 192.0.2.1: None')
 
+    def test_empty_and_unspecified_addresses_skip_asn_lookup(self):
+        resolver = self.make_resolver()
+
+        for address in (None, '', '0.0.0.0'):
+            with self.subTest(address=address):
+                self.assertFalse(resolver.is_blocked_asn(address))
+
+        self.asn_database.get.assert_not_called()
+
+    def test_missing_asn_data_is_logged(self):
+        resolver = self.make_resolver()
+        self.asn_database.get.return_value = None
+
+        self.assertFalse(resolver.is_blocked_asn('192.0.2.1'))
+
+        self.output.assert_any_call('ASN data not found for 192.0.2.1')
+
     def test_plain_substring_does_not_normalize_punctuation(self):
         resolver = self.make_resolver()
         resolver.asn_match_rules = dnsmap.AsnMatchRules(
@@ -482,6 +499,35 @@ class ResolverContractTests(ResolverTestCase):
         reply = resolver.resolve(request, Mock())
 
         self.assertEqual(reply.header.rcode, RCODE.SERVFAIL)
+        resolver.add_mapping.assert_not_called()
+
+    def test_resolver_servfail_is_returned_without_asn_lookup(self):
+        request = DNSRecord.question('example.com', 'A')
+        resolver = self.resolver_with_replies([
+            dns_reply(request, rcode=RCODE.SERVFAIL),
+            dns_reply(request, ['192.0.2.1'], rcode=RCODE.SERVFAIL),
+        ], asn_match=True)
+
+        reply = resolver.resolve(request, Mock())
+
+        self.assertEqual(reply.header.rcode, RCODE.SERVFAIL)
+        resolver.is_blocked_asn.assert_not_called()
+        resolver.add_mapping.assert_not_called()
+
+    def test_empty_resolver_answer_preserves_filtered_reply(self):
+        request = DNSRecord.question('empty.example', 'A')
+        filtered_reply = dns_reply(request, rcode=RCODE.SERVFAIL)
+        resolved_reply = dns_reply(request)
+        resolver = self.resolver_with_replies([
+            filtered_reply,
+            resolved_reply,
+        ], asn_match=True)
+
+        reply = resolver.resolve(request, Mock())
+
+        self.assertIs(reply, filtered_reply)
+        self.assertEqual(reply.header.rcode, RCODE.SERVFAIL)
+        resolver.is_blocked_asn.assert_not_called()
         resolver.add_mapping.assert_not_called()
 
     def test_resolver_servfail_is_returned_without_asn_lookup(self):
