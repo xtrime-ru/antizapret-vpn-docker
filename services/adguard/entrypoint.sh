@@ -59,6 +59,31 @@ if [ "$AZ_WORLD_ENABLED" = "1" ]; then
 fi
 echo "$CONFIG_MD5" > /.config_md5
 
+function ensure_filter () {
+    local filter_url="$1"
+    local filter_name="$2"
+    local filter_id
+
+    if FILTER_URL="$filter_url" yq -e '.filters[] | select(.url == strenv(FILTER_URL))' /opt/adguardhome/conf/AdGuardHome.yaml >/dev/null; then
+        return
+    fi
+
+    filter_id=$(yq -r '([.filters[].id] | max // 0) + 1' /opt/adguardhome/conf/AdGuardHome.yaml)
+    FILTER_URL="$filter_url" FILTER_NAME="$filter_name" FILTER_ID="$filter_id" yq -i '
+        .filters += [{
+            "enabled": true,
+            "url": strenv(FILTER_URL),
+            "name": strenv(FILTER_NAME),
+            "id": env(FILTER_ID)
+        }]
+    ' /opt/adguardhome/conf/AdGuardHome.yaml
+}
+
+ensure_filter 'http://az-local.antizapret/list/?regex=1&filter_custom=0&filter_dist=0&file=/root/antizapret/config/exclude-hosts-dist.txt' 'Excluded Dist Local Rules'
+ensure_filter 'http://az-local.antizapret/list/?regex=1&filter_custom=0&filter_dist=0&file=/root/antizapret/config/custom/exclude-hosts-custom.txt' 'Excluded Custom Local Rules'
+ensure_filter 'http://az-world.antizapret/list/?regex=1&filter_custom=0&filter_dist=0&file=/root/antizapret/config/exclude-hosts-dist.txt' 'Excluded Dist World Rules'
+ensure_filter 'http://az-world.antizapret/list/?regex=1&filter_custom=0&filter_dist=0&file=/root/antizapret/config/custom/exclude-hosts-custom.txt' 'Excluded Custom World Rules'
+
 yq -i '
     .http.address="0.0.0.0:'$ADGUARDHOME_PORT'" |
     .http.doh.insecure_enabled=true |

@@ -144,6 +144,22 @@ filters:
     url: http://az-local.antizapret/list/?filter_dist=1&url=https://blockedin.org/api/v3/domains/
     name: Blockedin.org List
     id: 12
+  - enabled: true
+    url: http://az-local.antizapret/list/?regex=1&filter_custom=0&filter_dist=0&file=/root/antizapret/config/exclude-hosts-dist.txt
+    name: Excluded Dist Local Rules
+    id: 13
+  - enabled: true
+    url: http://az-local.antizapret/list/?regex=1&filter_custom=0&filter_dist=0&file=/root/antizapret/config/custom/exclude-hosts-custom.txt
+    name: Excluded Custom Local Rules
+    id: 14
+  - enabled: true
+    url: http://az-world.antizapret/list/?regex=1&filter_custom=0&filter_dist=0&file=/root/antizapret/config/exclude-hosts-dist.txt
+    name: Excluded Dist World Rules
+    id: 15
+  - enabled: true
+    url: http://az-world.antizapret/list/?regex=1&filter_custom=0&filter_dist=0&file=/root/antizapret/config/custom/exclude-hosts-custom.txt
+    name: Excluded Custom World Rules
+    id: 16
 whitelist_filters: []
 user_rules:
   - '||*^$dnsrewrite=SERVFAIL,client=az-local'

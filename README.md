@@ -550,18 +550,44 @@ Options for adapter:
  - `raw=0` - dont modify rules
  - `suffix=1` - add "$dnsrewrite,client=xxx" to rules
  - `dnsrewrite=SERVFAIL` - set custom dnsrewrite value
+ - `regex=0` - wrap each input line as an AdGuard regular expression rule
+
+The `exclude-hosts-dist.txt` and `exclude-hosts-custom.txt` files are also loaded into AdGuard as DNS rewrite exceptions. A matching domain is resolved to its real address instead of being routed through the corresponding VPN node. Patterns use extended regular expression syntax; already slash-delimited expressions are accepted as well. Local and world rules are loaded from their respective `az-local` and `az-world` containers and are scoped to the matching AdGuard client.
 
 ## Adding IPs/Subnets
 Add ips and subnets to `./config/antizapret/custom/include-ips-custom.txt`. 
 Containers periodically check changes in config folder (every 5-10 seconds) and restart/update after any change.
 
 ## Adding ASNs
-Add ASN numbers (`AS13335` or `13335`) or a part of an organization name (`Cloudflare`) to
-`./config/antizapret/custom/include-asn-custom.txt`. Use `include-asn-world-custom.txt` for
-the world node. DNS response addresses belonging to these ASNs will be routed through the
-corresponding VPN node. Organization names are matched as case-insensitive substrings against
-the raw MaxMind organization name. Use `/regex pattern/` to match with a case-insensitive
-regular expression instead, for example `/\bg-?core\b/`.
+
+ASN rules route domains through a VPN node based on the network that owns their resolved IPv4
+addresses. When the regular AdGuard request for `az-local` or `az-world` returns `SERVFAIL`,
+`dnsmap` resolves the domain directly through the `az-resolver` client and looks up every A
+record in the MaxMind ASN database. If at least one address matches a rule, all IPv4 addresses
+from that DNS response are mapped through the corresponding VPN node. If there are no A records
+or none of their networks match, the original filtered response is preserved.
+
+Custom rule files:
+
+- Local node: `./config/antizapret/custom/include-asn-custom.txt`
+- World node: `./config/antizapret/custom/include-asn-world-custom.txt`
+- Remove local rules: `./config/antizapret/custom/exclude-asn-custom.txt`
+- Remove world rules: `./config/antizapret/custom/exclude-asn-world-custom.txt`
+
+Each non-empty line may contain:
+
+- An exact ASN number: `AS13335` or `13335`
+- A case-insensitive substring of the raw MaxMind organization name: `Cloudflare`
+- A case-insensitive regular expression enclosed in `/`: `/\bg-?core\b/`
+
+Comments start with `#` and may be placed on separate lines or after a rule. Distribution rules
+from `ASN_URL` and `ASN_WORLD_URL` are combined with the respective custom include files. Exclude
+files remove exact lines case-insensitively before the runtime lists are generated.
+
+For filter debugging, `dnsmap` logs the IP address, ASN, and organization for both matching and
+non-matching networks. `ASN data not found` means that MaxMind has no record for the address.
+Empty addresses and `0.0.0.0` are ignored without a database lookup. A successful match also
+prints the exact ASN, substring, or regex rule that triggered routing.
 
 [Online DPI check](https://hyperion-cs.github.io/dpi-checkers/ru/tcp-16-20/)
 

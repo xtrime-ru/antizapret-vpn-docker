@@ -108,6 +108,7 @@ type ListRequest struct {
 	Raw          bool   `schema:"raw"`           //dont modify rules
 	Suffix       bool   `schema:"suffix"`        //add $dnsrewrite,client=xxx to rules
 	DnsRewrite   string `schema:"dnsrewrite"`    //value for $dnsrewrite
+	Regex        bool   `schema:"regex"`         //convert each line from an ERE to an AdGuard regex rule
 }
 
 type RegexFilter struct {
@@ -345,7 +346,9 @@ func adaptList(w http.ResponseWriter, r *http.Request) {
 			if req.Raw || out == "" || strings.HasPrefix(out, "!") || strings.HasPrefix(out, "#") {
 				//
 			} else {
-				if !strings.HasPrefix(line, "/") {
+				if req.Regex && !(strings.HasPrefix(out, "/") && strings.HasSuffix(out, "/")) {
+					out = "/" + strings.ReplaceAll(out, "/", `\/`) + "/"
+				} else if !req.Regex && !strings.HasPrefix(out, "/") {
 					out = "||" + out + "^"
 				}
 				if req.Allow {
