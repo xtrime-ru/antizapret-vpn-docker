@@ -237,6 +237,7 @@ class ProxyResolver(BaseResolver):
         record = self.asn_database.get(address)
         print('ASN lookup for {}: {}'.format(address, record))
         if not record:
+            print('ASN data not found for {}'.format(address))
             return False
         asn = record.get('autonomous_system_number')
         raw_organization = record.get('autonomous_system_organization') or ''
@@ -258,6 +259,7 @@ class ProxyResolver(BaseResolver):
         if rule:
             print('ASN match for {}: rule: {}'.format(address, rule))
             return True
+        print('ASN no match for {}: AS{}; organization: {}'.format(address, asn, raw_organization))
         return False
 
     def get_mapping(self, real_addr):
