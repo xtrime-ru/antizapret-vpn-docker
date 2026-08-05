@@ -10,7 +10,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from dnslib import A, DNSRecord, QTYPE, RCODE, RR
+from dnslib import A, CNAME, DNSRecord, QTYPE, RCODE, RR
 
 import dnsmap
 
@@ -245,8 +245,10 @@ class AsnListTests(ResolverTestCase):
 
         self.assertTrue(resolver.is_blocked_asn('192.0.2.1'))
         self.output.assert_any_call(
-            'ASN match for 192.0.2.1: AS62041; organization: Telegram Messenger, Inc.; rule: telegram'
+            "ASN lookup for 192.0.2.1: {'autonomous_system_number': 62041, "
+            "'autonomous_system_organization': 'Telegram Messenger, Inc.'}"
         )
+        self.output.assert_any_call('ASN match for 192.0.2.1: rule: telegram')
 
     def test_asn_match_logs_matching_rule(self):
         resolver = self.make_resolver()
@@ -258,8 +260,27 @@ class AsnListTests(ResolverTestCase):
 
         self.assertTrue(resolver.is_blocked_asn('192.0.2.1'))
         self.output.assert_any_call(
-            'ASN match for 192.0.2.1: AS13335; organization: Cloudflare, Inc.; rule: AS13335'
+            "ASN lookup for 192.0.2.1: {'autonomous_system_number': 13335, "
+            "'autonomous_system_organization': 'Cloudflare, Inc.'}"
         )
+        self.output.assert_any_call('ASN match for 192.0.2.1: rule: AS13335')
+
+    def test_empty_and_unspecified_addresses_skip_asn_lookup(self):
+        resolver = self.make_resolver()
+
+        for address in (None, '', '0.0.0.0'):
+            with self.subTest(address=address):
+                self.assertFalse(resolver.is_blocked_asn(address))
+
+        self.asn_database.get.assert_not_called()
+
+    def test_missing_asn_data_is_logged(self):
+        resolver = self.make_resolver()
+        self.asn_database.get.return_value = None
+
+        self.assertFalse(resolver.is_blocked_asn('192.0.2.1'))
+
+        self.output.assert_any_call('ASN lookup for 192.0.2.1: None')
 
     def test_plain_substring_does_not_normalize_punctuation(self):
         resolver = self.make_resolver()
@@ -274,6 +295,10 @@ class AsnListTests(ResolverTestCase):
         }
 
         self.assertFalse(resolver.is_blocked_asn('192.0.2.1'))
+        self.output.assert_any_call(
+            "ASN lookup for 192.0.2.1: {'autonomous_system_number': 199524, "
+            "'autonomous_system_organization': 'G-Core Labs S.A.'}"
+        )
 
     def test_regex_organization_match_supports_word_boundaries(self):
         resolver = self.make_resolver()
@@ -288,9 +313,7 @@ class AsnListTests(ResolverTestCase):
         }
 
         self.assertTrue(resolver.is_blocked_asn('192.0.2.1'))
-        self.output.assert_any_call(
-            'ASN match for 192.0.2.1: AS199524; organization: G-Core Labs S.A.; rule: /\\bg-?core\\b/'
-        )
+        self.output.assert_any_call('ASN match for 192.0.2.1: rule: /\\bg-?core\\b/')
 
         self.asn_database.get.return_value = {
             'autonomous_system_number': 64500,
@@ -311,9 +334,7 @@ class AsnListTests(ResolverTestCase):
         }
 
         self.assertTrue(resolver.is_blocked_asn('192.0.2.1'))
-        self.output.assert_any_call(
-            'ASN match for 192.0.2.1: AS13238; organization: Яндекс LLC; rule: /яндекс/'
-        )
+        self.output.assert_any_call('ASN match for 192.0.2.1: rule: /яндекс/')
 
     def test_line_without_closing_regex_delimiter_is_substring_rule(self):
         self.asn_file.write_text('/gcore\n', encoding='utf-8')
@@ -463,6 +484,35 @@ class ResolverContractTests(ResolverTestCase):
         self.assertEqual(reply.header.rcode, RCODE.SERVFAIL)
         resolver.add_mapping.assert_not_called()
 
+    def test_resolver_servfail_is_returned_without_asn_lookup(self):
+        request = DNSRecord.question('example.com', 'A')
+        resolver = self.resolver_with_replies([
+            dns_reply(request, rcode=RCODE.SERVFAIL),
+            dns_reply(request, ['192.0.2.1'], rcode=RCODE.SERVFAIL),
+        ], asn_match=True)
+
+        reply = resolver.resolve(request, Mock())
+
+        self.assertEqual(reply.header.rcode, RCODE.SERVFAIL)
+        resolver.is_blocked_asn.assert_not_called()
+        resolver.add_mapping.assert_not_called()
+
+    def test_empty_resolver_answer_preserves_filtered_reply(self):
+        request = DNSRecord.question('empty.example', 'A')
+        filtered_reply = dns_reply(request, rcode=RCODE.SERVFAIL)
+        resolved_reply = dns_reply(request)
+        resolver = self.resolver_with_replies([
+            filtered_reply,
+            resolved_reply,
+        ], asn_match=True)
+
+        reply = resolver.resolve(request, Mock())
+
+        self.assertIs(reply, filtered_reply)
+        self.assertEqual(reply.header.rcode, RCODE.SERVFAIL)
+        resolver.is_blocked_asn.assert_not_called()
+        resolver.add_mapping.assert_not_called()
+
     def test_one_asn_match_maps_all_resolved_addresses(self):
         request = DNSRecord.question('example.com', 'A')
         resolver = self.resolver_with_replies([
@@ -493,6 +543,22 @@ class ResolverContractTests(ResolverTestCase):
 
         self.assertEqual(reply.header.rcode, RCODE.NOERROR)
         self.assertEqual(reply.rr, [])
+        resolver.add_mapping.assert_not_called()
+
+    def test_answer_without_ipv4_address_is_preserved(self):
+        request = DNSRecord.question('alias.example', 'A')
+        upstream_reply = dns_reply(request)
+        upstream_reply.add_answer(RR(
+            request.q.qname,
+            QTYPE.CNAME,
+            rdata=CNAME('target.example'),
+        ))
+        resolver = self.resolver_with_replies([upstream_reply])
+
+        reply = resolver.resolve(request, Mock())
+
+        self.assertIs(reply, upstream_reply)
+        self.assertEqual(reply.rr[0].rtype, QTYPE.CNAME)
         resolver.add_mapping.assert_not_called()
 
     def test_aaaa_and_https_are_suppressed(self):

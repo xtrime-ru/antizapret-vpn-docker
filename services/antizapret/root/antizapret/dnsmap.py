@@ -232,7 +232,10 @@ class ProxyResolver(BaseResolver):
         traceback.print_exc()
 
     def is_blocked_asn(self, address):
+        if not address or address == '0.0.0.0':
+            return False
         record = self.asn_database.get(address)
+        print('ASN lookup for {}: {}'.format(address, record))
         if not record:
             return False
         asn = record.get('autonomous_system_number')
@@ -253,7 +256,7 @@ class ProxyResolver(BaseResolver):
                         rule = rule_line
                         break
         if rule:
-            print('ASN match for {}: AS{}; organization: {}; rule: {}'.format(address, asn, raw_organization, rule))
+            print('ASN match for {}: rule: {}'.format(address, rule))
             return True
         return False
 
@@ -349,6 +352,8 @@ class ProxyResolver(BaseResolver):
                 if reply.header.rcode == RCODE.SERVFAIL:
                     filtered_reply = reply
                     resolved_reply = self.query_doh(request, self.resolver_client_id)
+                    if resolved_reply.header.rcode != RCODE.NOERROR:
+                        return resolved_reply
                     real_addresses = [
                         str(record.rdata)
                         for record in resolved_reply.rr
@@ -357,6 +362,9 @@ class ProxyResolver(BaseResolver):
                     if not any(self.is_blocked_asn(address) for address in real_addresses):
                         return filtered_reply
                     reply = resolved_reply
+
+                if not any(record.rtype == QTYPE.A for record in reply.rr):
+                    return reply
 
                 newrr = []
                 for record in reply.rr:
