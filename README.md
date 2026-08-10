@@ -552,7 +552,7 @@ Options for adapter:
  - `dnsrewrite=SERVFAIL` - set custom dnsrewrite value
  - `regex=0` - wrap each input line as an AdGuard regular expression rule
 
-The `exclude-hosts-dist.txt` and `exclude-hosts-custom.txt` files are also loaded into AdGuard as DNS rewrite exceptions. A matching domain is resolved to its real address instead of being routed through the corresponding VPN node. Patterns use extended regular expression syntax; already slash-delimited expressions are accepted as well. Local and world rules are loaded from their respective `az-local` and `az-world` containers and are scoped to the matching AdGuard client.
+The `exclude-hosts-custom.txt` file from each exit container is also loaded into AdGuard as a blocking DNS rewrite for the `az-resolver` client. This prevents a matching domain from being routed through a VPN node by an ASN rule. Patterns use extended regular expression syntax; already slash-delimited expressions are accepted as well.
 
 ## Adding IPs/Subnets
 Add ips and subnets to `./config/antizapret/custom/include-ips-custom.txt`. 
