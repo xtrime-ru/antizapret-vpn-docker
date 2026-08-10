@@ -79,10 +79,8 @@ function ensure_filter () {
     ' /opt/adguardhome/conf/AdGuardHome.yaml
 }
 
-ensure_filter 'http://az-local.antizapret/list/?regex=1&filter_custom=0&filter_dist=0&file=/root/antizapret/config/exclude-hosts-dist.txt' 'Excluded Dist Local Rules'
-ensure_filter 'http://az-local.antizapret/list/?regex=1&filter_custom=0&filter_dist=0&file=/root/antizapret/config/custom/exclude-hosts-custom.txt' 'Excluded Custom Local Rules'
-ensure_filter 'http://az-world.antizapret/list/?regex=1&filter_custom=0&filter_dist=0&file=/root/antizapret/config/exclude-hosts-dist.txt' 'Excluded Dist World Rules'
-ensure_filter 'http://az-world.antizapret/list/?regex=1&filter_custom=0&filter_dist=0&file=/root/antizapret/config/custom/exclude-hosts-custom.txt' 'Excluded Custom World Rules'
+ensure_filter 'http://az-local.antizapret/list/?regex=1&allow=0&client=az-resolver&filter_custom=0&filter_dist=0&file=/root/antizapret/config/custom/exclude-hosts-custom.txt' 'Excluded Custom Local Rules'
+ensure_filter 'http://az-world.antizapret/list/?regex=1&allow=0&client=az-resolver&filter_custom=0&filter_dist=0&file=/root/antizapret/config/custom/exclude-hosts-custom.txt' 'Excluded Custom World Rules'
 
 yq -i '
     .http.address="0.0.0.0:'$ADGUARDHOME_PORT'" |

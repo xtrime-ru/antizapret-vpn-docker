@@ -101,7 +101,7 @@ func TestAdaptListAllowsIPURLWithCredentials(t *testing.T) {
 	}
 }
 
-func TestAdaptListConvertsExcludePatternsToClientRegexExceptions(t *testing.T) {
+func TestAdaptListConvertsExcludePatternsToResolverServfailRules(t *testing.T) {
 	root := useListRoot(t)
 	listPath := filepath.Join(root, "exclude-hosts-custom.txt")
 	contents := "example\\.com\n/foo[0-9]+\\.net/\npath/segment\n# comment\n"
@@ -109,19 +109,15 @@ func TestAdaptListConvertsExcludePatternsToClientRegexExceptions(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	oldClient := DefaultClient
-	DefaultClient = "az-world"
-	t.Cleanup(func() { DefaultClient = oldClient })
-
-	requestURL := "/list/?regex=1&filter_custom=0&filter_dist=0&file=" + url.QueryEscape(listPath)
+	requestURL := "/list/?regex=1&allow=0&client=az-resolver&filter_custom=0&filter_dist=0&file=" + url.QueryEscape(listPath)
 	request := httptest.NewRequest(http.MethodGet, requestURL, nil)
 	response := httptest.NewRecorder()
 
 	adaptList(response, request)
 
-	want := "@@/example\\.com/$dnsrewrite,client=az-world\n" +
-		"@@/foo[0-9]+\\.net/$dnsrewrite,client=az-world\n" +
-		"@@/path\\/segment/$dnsrewrite,client=az-world\n" +
+	want := "/example\\.com/$dnsrewrite=SERVFAIL,client=az-resolver\n" +
+		"/foo[0-9]+\\.net/$dnsrewrite=SERVFAIL,client=az-resolver\n" +
+		"/path\\/segment/$dnsrewrite=SERVFAIL,client=az-resolver\n" +
 		"# comment\n"
 	if response.Code != http.StatusOK || response.Body.String() != want {
 		t.Fatalf("status = %d, body = %q, want %q", response.Code, response.Body.String(), want)
