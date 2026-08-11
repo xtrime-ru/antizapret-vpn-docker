@@ -962,35 +962,40 @@ DCO несовместим с устаревшими шифрами и буде�
 
 https://github.com/amnezia-vpn/amneziawg-linux-kernel-module?tab=readme-ov-file#ubuntu
 
-#### Ubuntu 26.04
-Модуль ядра AmneziaWG пока недоступен для Ubuntu 26.04. Модуль от 24.04 работает на 26.04, поэтому шаги ниже используют пакет для 24.04.
+Образ WireGuard основан на стабильном `wg-easy` 15.3 и заменяет встроенные инструменты AmneziaWG 2.0 на инструменты AmneziaWG 3.0. На хост установите только соответствующий DKMS-модуль ядра; `awg` и `awg-quick` уже включены в образ контейнера.
 
-1. `sudo add-apt-repository ppa:amnezia/ppa`
-2. `sudo sed -i 's/\bresolute\b/noble/g' /etc/apt/sources.list.d/amnezia-ubuntu-ppa-resolute.sources`
-3. `sudo apt update`
-4. `sudo apt install -y amneziawg`
-5. Перезапустите сервер или `docker compose restart wireguard-amnezia`
-6. Проверьте список модулей ядра `dkms status`,
-   и убедитесь, что запущена куча процессов `[kworker/X:X-wg-crypt-wg0]`.
+#### Ubuntu 26.04
+
+```bash
+sudo add-apt-repository ppa:amnezia/ppa
+sudo sed -i 's/\bresolute\b/noble/g' /etc/apt/sources.list.d/amnezia-ubuntu-ppa-resolute.sources
+sudo apt update
+sudo apt install -y linux-headers-$(uname -r) amneziawg-dkms
+```
 
 #### Ubuntu 24.04
-1. `sudo add-apt-repository ppa:amnezia/ppa`
-2. `sudo apt install -y amneziawg`
-3. перезапустите сервер или `docker compose restart wireguard-amnezia`
-4. проверьте список модулей ядра `dkms status`,
-   и убедитесь, что запущена куча процессов `[kworker/X:X-wg-crypt-wg0]`.
+
+```bash
+sudo add-apt-repository ppa:amnezia/ppa
+sudo apt update
+sudo apt install -y linux-headers-$(uname -r) amneziawg-dkms
+```
 
 #### Ubuntu 20.04, 22.04
-1. Отредактируйте `etc/apt/sources.list` и раскомментируйте `deb-src http://archive.ubuntu.com/ubuntu ... main restricted`
-2. `sudo apt update`
-3. `sudo apt install -y software-properties-common python3-launchpadlib gnupg2 linux-headers-$(uname -r)`
-4. установите исходный код ядра `sudo apt-get source linux-image-$(uname -r)`
-5. `sudo add-apt-repository ppa:amnezia/ppa`
-6. `sudo apt install -y amneziawg`
-7. `sudo dkms install -m amneziawg -v 1.0.0`
-8. перезапустите сервер или `docker compose restart wireguard-amnezia`
-9. проверьте список модулей ядра `dkms status`,
-   и убедитесь, что запущена куча процессов `[kworker/X:X-wg-crypt-wg0]`.
+
+1. Отредактируйте `/etc/apt/sources.list` и раскомментируйте `deb-src http://archive.ubuntu.com/ubuntu ... main restricted`.
+2. Выполните:
+
+```bash
+sudo apt update
+sudo apt install -y software-properties-common python3-launchpadlib gnupg2 linux-headers-$(uname -r)
+sudo apt-get source linux-image-$(uname -r)
+sudo add-apt-repository ppa:amnezia/ppa
+sudo apt update
+sudo apt install -y amneziawg-dkms
+```
+
+После установки или обновления модуля перезагрузите хост: перезапуска одного контейнера недостаточно для замены загруженного модуля. Затем убедитесь, что `dkms status` показывает AmneziaWG со статусом `installed` для запущенного ядра, а команда `lsmod | grep amneziawg` находит загруженный модуль.
 
 ### Параметры AmneziaWG
 

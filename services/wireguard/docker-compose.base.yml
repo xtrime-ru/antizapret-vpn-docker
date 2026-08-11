@@ -6,7 +6,8 @@ services:
     build:
       context: .
       args:
-        - IMAGE=ghcr.io/wg-easy/wg-easy:15
+        - IMAGE=ghcr.io/wg-easy/wg-easy:15.3
+        - AWG_TOOLS_VERSION=v3.0.20260805
       x-bake:
         platforms:
           - linux/amd64
