@@ -19,7 +19,7 @@ RUN apk del -U -r --no-cache iptables \
     && chmod +x /usr/bin/awg /usr/bin/awg-quick \
     && apk cache clean
 
-COPY --from=xtrime/antizapret-vpn:6.7.10  /usr/bin/routes /usr/bin/routes
+COPY --from=xtrime/antizapret-vpn:6.8.0  /usr/bin/routes /usr/bin/routes
 
 COPY bird.conf.template /
 COPY init.sh /
