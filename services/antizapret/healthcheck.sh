@@ -4,6 +4,9 @@ exec > >(tee /proc/1/fd/1) 2>&1
 
 set -e
 
+source /etc/default/antizapret
+[ "$WARP_ENABLED" != "1" ] || warp-cli --accept-tos status | grep -q Connected
+
 FLAG_FILE="/tmp/.dns_started"
 
 function cleanup() {

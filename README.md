@@ -42,6 +42,7 @@ This repo is based on idea from original [AntiZapret LXD image](https://bitbucke
   - [Using zapret2](#zapret2)
     - [Changing configuration](#changing-configuration)
     - [Strategy selection](#strategy-selection)
+  - [Cloudflare WARP](#cloudflare-warp)
   - [Environment Variables](#environment-variables)
   - [DNS](#dns)
     - [Adguard Upstream DNS](#adguard-upstream-dns)
@@ -749,6 +750,43 @@ For a faster targeted search, pass domains and search options:
 docker exec $(docker ps -q --filter=name=az-local) sh -c 'REPEATS=8 DOMAINS="youtube.com discord.com" /opt/zapret2/blockcheck2.sh'
 ```
 
+## Cloudflare WARP
+
+The official Cloudflare WARP client is included in the `antizapret` image but is
+disabled by default. Enable it for an exit node in
+`docker-compose.override.yml`:
+
+```yaml
+services:
+  az-local:
+    environment:
+      - WARP_ENABLED=1
+```
+
+Use `az-world` instead to enable WARP on the world exit node. Examples for both
+nodes are at the end of `docker-compose.override.sample.yml`; the world example
+is commented out.
+
+Apply the configuration normally. No additional WARP command is needed:
+
+```shell
+docker compose up -d
+```
+
+The registration is persisted in `./config/antizapret/warp`. WARP runs in
+traffic-only mode to leave DNS under Antizapret control and uses MASQUE. Since
+zapret2 starts first, its QUIC strategy processes the outer WARP tunnel traffic
+on UDP/443.
+
+### Docker Swarm
+
+The same `WARP_ENABLED=1` setting works for `az-local` and `az-world` in Swarm.
+Apply the override using the regular deployment command:
+
+```shell
+docker compose --env-file compose.swarm.env config | docker run --pull always --rm -i xtrime/antizapret-vpn:6 compose2swarm | docker stack deploy --prune -c - antizapret
+```
+
 
 ## Environment Variables
 
@@ -761,6 +799,7 @@ You can define these variables in docker-compose.override.yml file for your need
 - `ROUTES` - list of VPN containers and their virtual addresses. Used for iperf3 server.
 - `DOALL_DISABLED=` - skip list generation inside the container. Normally leave unset: init uses a shared `result` owner file so Docker Compose generates lists only once, while Swarm nodes generate them independently on their local volumes.
 - `IPTABLES_SAVE_DISABLED=` - skip iptables rules restore on startup and save on shutdown.
+- `WARP_ENABLED=0` - set to `1` to route exit-node traffic through Cloudflare WARP.
 - `IPS_URL=` - semicolon-separated URLs with IP prefixes for the local node. The merged result is written to `result/ips.txt`.
 - `IPS_WORLD_URL=` - semicolon-separated URLs with IP prefixes for the world node. The merged result is written to `result/ips-world.txt`.
 - `ASN_URL=` - semicolon-separated URLs with ASN numbers or organization names for the local node. The merged result is written to `result/asn.txt`.
