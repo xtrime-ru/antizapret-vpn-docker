@@ -42,6 +42,7 @@ Antizapret создан для того, чтобы перенаправлять
   - [Использование zapret2](#zapret2)
     - [Изменение конфигураций](#изменение-конфигураций)
     - [Подбор стратегий](#подбор-стратегий)
+  - [Cloudflare WARP](#cloudflare-warp)
   - [Переменные окружения](#переменные-окружения)
   - [DNS](#dns)
     - [Upstream DNS для Adguard](#upstream-dns-для-adguard)
@@ -741,6 +742,43 @@ docker exec $(docker ps -q --filter=name=az-local) sh /opt/zapret2/init.d/sysv/z
 docker exec $(docker ps -q --filter=name=az-local) sh -c 'REPEATS=8 DOMAINS="youtube.com discord.com" /opt/zapret2/blockcheck2.sh'
 ```
 
+## Cloudflare WARP
+
+Официальный клиент Cloudflare WARP установлен в образ `antizapret`, но по
+умолчанию выключен. Включите его для нужного узла выхода в
+`docker-compose.override.yml`:
+
+```yaml
+services:
+  az-local:
+    environment:
+      - WARP_ENABLED=1
+```
+
+Чтобы включить WARP на зарубежном узле выхода, используйте `az-world`. Примеры
+для обоих узлов находятся в конце `docker-compose.override.sample.yml`; пример
+для `az-world` закомментирован.
+
+Примените конфигурацию как обычно. Отдельные команды WARP не нужны:
+
+```shell
+docker compose up -d
+```
+
+Регистрация сохраняется в `./config/antizapret/warp`. WARP работает в режиме
+только для трафика, оставляя DNS под управлением Antizapret, и использует
+MASQUE. Поскольку zapret2 запускается раньше, его QUIC-стратегия обрабатывает
+внешний трафик WARP-туннеля на UDP/443.
+
+### Docker Swarm
+
+Та же настройка `WARP_ENABLED=1` работает для `az-local` и `az-world` в Swarm.
+Примените override обычной командой развёртывания:
+
+```shell
+docker compose --env-file compose.swarm.env config | docker run --pull always --rm -i xtrime/antizapret-vpn:6 compose2swarm | docker stack deploy --prune -c - antizapret
+```
+
 ## Переменные окружения
 
 Вы можете определить эти переменные в файле docker-compose.override.yml для своих нужд:
@@ -752,6 +790,7 @@ docker exec $(docker ps -q --filter=name=az-local) sh -c 'REPEATS=8 DOMAINS="you
 - `ROUTES` - список VPN-контейнеров и их виртуальных адресов. Используется для iperf3 сервера.
 - `DOALL_DISABLED=` - пропустить генерацию списков внутри контейнера. Обычно оставляйте пустым: init использует owner-файл на общем volume `result`, поэтому в Docker Compose списки генерируются только один раз, а в Swarm узлы генерируют их независимо на своих локальных volumes.
 - `IPTABLES_SAVE_DISABLED=` - пропустить восстановление правил iptables при запуске и сохранение при остановке.
+- `WARP_ENABLED=0` - задайте `1`, чтобы направить трафик узла выхода через Cloudflare WARP.
 - `IPS_URL=` - URL списков IP-префиксов для локального узла, разделённые точкой с запятой. Объединённый результат записывается в `result/ips.txt`.
 - `IPS_WORLD_URL=` - URL списков IP-префиксов для зарубежного узла, разделённые точкой с запятой. Объединённый результат записывается в `result/ips-world.txt`.
 - `ASN_URL=` - URL списков номеров ASN или названий организаций для локального узла, разделённые точкой с запятой. Объединённый результат записывается в `result/asn.txt`.
