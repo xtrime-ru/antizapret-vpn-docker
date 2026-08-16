@@ -76,22 +76,28 @@ function ensure_filter () {
             "name": strenv(FILTER_NAME),
             "id": env(FILTER_ID)
         }]
-    ' /opt/adguardhome/conf/AdGuardHome.yaml
+    ' /opt/adguardhome/conf/AdGuardHome.yaml || exit 1
 }
 
 ensure_filter 'http://az-local.antizapret/list/?regex=1&allow=0&client=az-resolver&filter_custom=0&filter_dist=0&file=/root/antizapret/config/custom/exclude-hosts-custom.txt' 'Excluded Custom Local Rules'
 ensure_filter 'http://az-world.antizapret/list/?regex=1&allow=0&client=az-resolver&filter_custom=0&filter_dist=0&file=/root/antizapret/config/custom/exclude-hosts-custom.txt' 'Excluded Custom World Rules'
 
+ADGUARDHOME_PORT="$ADGUARDHOME_PORT" \
+ADGUARDHOME_USERNAME="$ADGUARDHOME_USERNAME" \
+ADGUARDHOME_PASSWORD_HASH="$ADGUARDHOME_PASSWORD_HASH" \
+AZ_LOCAL_HOST="$AZ_LOCAL_HOST" \
+AZ_WORLD_CLIENT_IDS="$AZ_WORLD_CLIENT_IDS" \
+COREDNS_HOST="$COREDNS_HOST" \
 yq -i '
-    .http.address="0.0.0.0:'$ADGUARDHOME_PORT'" |
+    .http.address = "0.0.0.0:" + strenv(ADGUARDHOME_PORT) |
     .http.doh.insecure_enabled=true |
     .dns.use_private_ptr_resolvers=false |
     .dns.local_ptr_upstreams=[] |
-    .users[0].name="'$ADGUARDHOME_USERNAME'" |
-    .users[0].password="'$ADGUARDHOME_PASSWORD_HASH'" |
-    (.clients.persistent[] | select(.name == "az-local") | .ids) = ["az-local", "'$AZ_LOCAL_HOST'"] |
-    (.clients.persistent[] | select(.name == "az-world") | .ids) = '$AZ_WORLD_CLIENT_IDS' |
-    (.clients.persistent[] | select(.name == "coredns") | .ids) = ["'$COREDNS_HOST'"] |
+    .users[0].name=strenv(ADGUARDHOME_USERNAME) |
+    .users[0].password=strenv(ADGUARDHOME_PASSWORD_HASH) |
+    (.clients.persistent[] | select(.name == "az-local") | .ids) = ["az-local", strenv(AZ_LOCAL_HOST)] |
+    (.clients.persistent[] | select(.name == "az-world") | .ids) = env(AZ_WORLD_CLIENT_IDS) |
+    (.clients.persistent[] | select(.name == "coredns") | .ids) = [strenv(COREDNS_HOST)] |
     .clients.persistent = (
       [.clients.persistent[] | select(.name != "az-resolver")] + [{
         "name": "az-resolver",
@@ -102,7 +108,7 @@ yq -i '
         "use_global_blocked_services": true
       }]
     )
-    ' /opt/adguardhome/conf/AdGuardHome.yaml
+    ' /opt/adguardhome/conf/AdGuardHome.yaml || exit 1
 
 sed -i 's/antizapret-vpn-docker\/v5/antizapret-vpn-docker\/v6/g' /opt/adguardhome/conf/AdGuardHome.yaml
 
