@@ -962,7 +962,7 @@ DCO несовместим с устаревшими шифрами и буде�
 
 https://github.com/amnezia-vpn/amneziawg-linux-kernel-module?tab=readme-ov-file#ubuntu
 
-Образ WireGuard основан на стабильном `wg-easy` 15.3 и заменяет встроенные инструменты AmneziaWG 2.0 на инструменты AmneziaWG 3.0. На хост установите только соответствующий DKMS-модуль ядра; `awg` и `awg-quick` уже включены в образ контейнера.
+Образ WireGuard основан на стабильном `wg-easy` 15.4.0 и заменяет встроенные инструменты AmneziaWG 3.0 на инструменты AmneziaWG 3.1. На хост установите только соответствующий DKMS-модуль ядра; `awg` и `awg-quick` уже включены в образ контейнера.
 
 #### Ubuntu 26.04
 

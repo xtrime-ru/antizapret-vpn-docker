@@ -1,13 +1,16 @@
-ARG IMAGE=ghcr.io/wg-easy/wg-easy:15.3
+ARG IMAGE=ghcr.io/wg-easy/wg-easy:15.4.0
 
 FROM ${IMAGE} AS awg-tools-build
 
-ARG AWG_TOOLS_VERSION=v3.0.20260805
+ARG AWG_TOOLS_VERSION=v3.1.20260812
 
 RUN apk add -U --no-cache build-base git linux-headers \
     && git clone --depth 1 --branch "${AWG_TOOLS_VERSION}" \
         https://github.com/amnezia-vpn/amneziawg-tools.git /tmp/amneziawg-tools \
-    && make -C /tmp/amneziawg-tools/src
+    && make -C /tmp/amneziawg-tools/src \
+    && sed -i \
+        's|\[\[ $proto == -4 \]\] && cmd sysctl -q net\.ipv4\.conf\.all\.src_valid_mark=1|[[ $proto == -4 ]] \&\& [[ $(sysctl -n net.ipv4.conf.all.src_valid_mark) != 1 ]] \&\& cmd sysctl -q net.ipv4.conf.all.src_valid_mark=1|' \
+        /tmp/amneziawg-tools/src/wg-quick/linux.bash
 
 FROM ${IMAGE}
 

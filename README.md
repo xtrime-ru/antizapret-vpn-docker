@@ -972,7 +972,7 @@ DCO is incompatible with legacy ciphers and will be disabled. This is also incre
 
 https://github.com/amnezia-vpn/amneziawg-linux-kernel-module?tab=readme-ov-file#ubuntu
 
-The WireGuard image is based on stable `wg-easy` 15.3 and replaces its AmneziaWG 2.0 tools with AmneziaWG 3.0 tools. Install only the matching DKMS kernel module on the host; `awg` and `awg-quick` are already included in the container image.
+The WireGuard image is based on stable `wg-easy` 15.4.0 and replaces its AmneziaWG 3.0 tools with AmneziaWG 3.1 tools. Install only the matching DKMS kernel module on the host; `awg` and `awg-quick` are already included in the container image.
 
 #### Ubuntu 26.04
 
