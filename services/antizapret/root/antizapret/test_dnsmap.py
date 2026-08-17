@@ -231,6 +231,21 @@ class AsnListTests(ResolverTestCase):
         self.assertEqual(rules.regex_rules[0][0], '/\\bg-?core\\b/')
         self.assertEqual(rules.regex_rules[0][1].pattern, '\\bg-?core\\b')
 
+    def test_list_parser_combines_semicolon_separated_files(self):
+        world_asn_file = Path(self.temp_directory.name) / 'asn-world.txt'
+        self.asn_file.write_text('AS13335\nCloudflare\n', encoding='utf-8')
+        world_asn_file.write_text('AS62041\nTelegram\n', encoding='utf-8')
+
+        rules = dnsmap.ProxyResolver.load_asn_list(
+            '{};{}'.format(self.asn_file, world_asn_file)
+        )
+
+        self.assertEqual(rules.asn_rules, {13335: 'AS13335', 62041: 'AS62041'})
+        self.assertEqual(
+            rules.substring_rules,
+            [('Cloudflare', 'cloudflare'), ('Telegram', 'telegram')]
+        )
+
     def test_organization_name_uses_case_insensitive_substring_match(self):
         resolver = self.make_resolver()
         resolver.asn_match_rules = dnsmap.AsnMatchRules(

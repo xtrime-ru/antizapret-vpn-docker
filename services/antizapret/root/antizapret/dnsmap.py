@@ -115,22 +115,24 @@ class ProxyResolver(BaseResolver):
         asn_rules = {}
         substring_rules = []
         regex_rules = []
-        with open(path, encoding='utf-8') as asn_list:
-            for raw_line in asn_list:
-                line = raw_line.split('#', 1)[0].strip()
-                if not line:
-                    continue
-                normalized_asn = line.upper()
-                if normalized_asn.startswith('AS') and normalized_asn[2:].isdigit():
-                    asn = int(normalized_asn[2:])
-                    asn_rules[asn] = line
-                elif line.isdigit():
-                    asn = int(line)
-                    asn_rules[asn] = line
-                elif line.startswith('/') and line.endswith('/'):
-                    regex_rules.append(cls.organization_regex_rule(line))
-                else:
-                    substring_rules.append(cls.organization_substring_rule(line))
+        paths = [item.strip() for item in str(path).split(';') if item.strip()]
+        for asn_path in paths:
+            with open(asn_path, encoding='utf-8') as asn_list:
+                for raw_line in asn_list:
+                    line = raw_line.split('#', 1)[0].strip()
+                    if not line:
+                        continue
+                    normalized_asn = line.upper()
+                    if normalized_asn.startswith('AS') and normalized_asn[2:].isdigit():
+                        asn = int(normalized_asn[2:])
+                        asn_rules[asn] = line
+                    elif line.isdigit():
+                        asn = int(line)
+                        asn_rules[asn] = line
+                    elif line.startswith('/') and line.endswith('/'):
+                        regex_rules.append(cls.organization_regex_rule(line))
+                    else:
+                        substring_rules.append(cls.organization_substring_rule(line))
         return AsnMatchRules(asn_rules, substring_rules, regex_rules)
 
     def reload_asn_list(self):
@@ -502,7 +504,7 @@ if __name__ == '__main__':
     p.add_argument("--resolver-client-id", default="az-resolver",
                    help="AdGuard client ID used to resolve SERVFAIL responses")
     p.add_argument("--asn-file", default="/root/antizapret/result/asn.txt",
-                   help="Blocked ASN numbers and organization names")
+                   help="Semicolon-separated files with blocked ASN numbers and organization names")
     p.add_argument("--asn-database", default="/usr/share/GeoIP/GeoLite2-ASN.mmdb",
                    help="MaxMind ASN database")
     args = p.parse_args()

@@ -190,6 +190,46 @@ func TestUpdateRoutesSkipsVPNRouteWhenVPNRouteUnchanged(t *testing.T) {
 	}
 }
 
+func TestUpdateRoutesSkipsAliasResolvingToLocalAddress(t *testing.T) {
+	restoreLookup := stubLookupIP(t, map[string]string{
+		"az-local": "10.200.0.2",
+		"az-world": "10.200.0.2",
+	})
+	defer restoreLookup()
+
+	routes := captureRouteReplace(t, func() {
+		(&app{
+			self:          "az-local",
+			routes:        []routeSpec{{host: "az-world", subnet: "14.18.0.0/15"}},
+			routeGateways: map[string]string{},
+		}).updateRoutes()
+	})
+
+	if len(routes) != 0 {
+		t.Fatalf("routes = %#v, want none", routes)
+	}
+}
+
+func TestUpdateRoutesKeepsAliasResolvingToRemoteAddress(t *testing.T) {
+	restoreLookup := stubLookupIP(t, map[string]string{
+		"az-local": "10.200.0.2",
+		"az-world": "10.200.0.3",
+	})
+	defer restoreLookup()
+
+	routes := captureRouteReplace(t, func() {
+		(&app{
+			self:          "az-local",
+			routes:        []routeSpec{{host: "az-world", subnet: "14.18.0.0/15"}},
+			routeGateways: map[string]string{},
+		}).updateRoutes()
+	})
+
+	if len(routes) != 1 {
+		t.Fatalf("routes = %#v, want one", routes)
+	}
+}
+
 func TestUpdateRoutesChecksNonDefaultMainRoutesBeforeVPNPolicyTable(t *testing.T) {
 	var routes []netlink.Route
 	rules := captureRuleAdd(t, func() {

@@ -29,6 +29,7 @@ IPS_URL='${IPS_URL:-""}'
 IPS_WORLD_URL='${IPS_WORLD_URL:-""}'
 ASN_URL='${ASN_URL:-""}'
 ASN_WORLD_URL='${ASN_WORLD_URL:-""}'
+ASN_FILES='${ASN_FILES:-""}'
 AZ_SUBNET=${AZ_SUBNET:-"14.16.0.0/15"}
 LC_ALL=C.UTF-8
 EOF
@@ -151,6 +152,4 @@ postrun 'while true; do /opt/api/app; done'
 postrun 'while true; do sleep 6h; timeout 10m /usr/bin/doall; done'
 postrun 'while true; do /usr/bin/iperf3 -s -1; done'
 
-ASN_RESULT="/root/antizapret/result/asn.txt"
-[ "$CLIENT" = "az-world" ] && ASN_RESULT="/root/antizapret/result/asn-world.txt"
-/usr/bin/dnsmap -a 0.0.0.0 --iprange "$AZ_SUBNET" --asn-file "$ASN_RESULT"
+/usr/bin/dnsmap -a 0.0.0.0 --iprange "$AZ_SUBNET" --asn-file "$ASN_FILES"

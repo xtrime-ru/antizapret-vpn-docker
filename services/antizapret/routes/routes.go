@@ -212,6 +212,10 @@ func dnsRedirectRules(destination string) [][]string {
 func (a *app) updateRoutes() {
 	start := time.Now()
 	a.logVerbose("route update started")
+	selfGateway := ""
+	if a.self != "" {
+		selfGateway = a.resolve(a.self)
+	}
 	if a.routeGateways == nil {
 		a.routeGateways = make(map[string]string, len(a.routes))
 	}
@@ -223,11 +227,15 @@ func (a *app) updateRoutes() {
 	}
 
 	for _, route := range a.routes {
-
-		if a.vpn && route.host == a.self {
+		isSelf := route.host == a.self
+		if a.vpn && isSelf {
 			if err := a.addVPNClientRules(route); err != nil {
 				fmt.Fprintf(os.Stderr, "failed to add VPN client rules: host=%s subnet=%s error=%v\n", route.host, route.subnet, err)
 			}
+		}
+		if isSelf {
+			a.logVerbose("route skipped: host=%s subnet=%s reason=self", route.host, route.subnet)
+			continue
 		}
 
 		gateway := a.resolve(route.host)
@@ -235,9 +243,8 @@ func (a *app) updateRoutes() {
 			a.logVerbose("route skipped: host=%s subnet=%s reason=unresolved", route.host, route.subnet)
 			continue
 		}
-
-		if route.host == a.self {
-			a.logVerbose("route skipped: host=%s subnet=%s reason=self", route.host, route.subnet)
+		if gateway == selfGateway {
+			a.logVerbose("route skipped: host=%s subnet=%s reason=self-alias gateway=%s", route.host, route.subnet, gateway)
 			continue
 		}
 

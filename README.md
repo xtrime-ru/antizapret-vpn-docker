@@ -584,6 +584,10 @@ Comments start with `#` and may be placed on separate lines or after a rule. Dis
 from `ASN_URL` and `ASN_WORLD_URL` are combined with the respective custom include files. Exclude
 files remove exact lines case-insensitively before the runtime lists are generated.
 
+In single-server Compose mode, `ASN_FILES` points `az-local` to both resulting ASN files, so both
+lists are routed through the local exit node. In Swarm mode, each exit service receives only its own
+ASN file.
+
 For filter debugging, `dnsmap` logs the IP address, ASN, and organization for both matching and
 non-matching networks. `ASN data not found` means that MaxMind has no record for the address.
 Empty addresses and `0.0.0.0` are ignored without a database lookup. A successful match also
@@ -761,6 +765,7 @@ You can define these variables in docker-compose.override.yml file for your need
 - `IPS_WORLD_URL=` - semicolon-separated URLs with IP prefixes for the world node. The merged result is written to `result/ips-world.txt`.
 - `ASN_URL=` - semicolon-separated URLs with ASN numbers or organization names for the local node. The merged result is written to `result/asn.txt`.
 - `ASN_WORLD_URL=` - semicolon-separated URLs with ASN numbers or organization names for the world node. The merged result is written to `result/asn-world.txt`.
+- `ASN_FILES=` - semicolon-separated runtime ASN files read by `dnsmap`. Compose sets both `asn.txt` and `asn-world.txt` for `az-local`; Swarm sets only the corresponding file for each exit service.
 - `ZAPRET_ENABLED=0` - set to `1` to enable zapret2 traffic modification for HTTP, HTTPS, and QUIC traffic passing through the container. 
 - `ZAPRET_CONFIG=/opt/zapret2/config/zapret.conf` - path inside the container to the zapret2 configuration file. The default config is created automatically on first start and is persisted at `./config/antizapret/zapret2/zapret.conf`.
 
