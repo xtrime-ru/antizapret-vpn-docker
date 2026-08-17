@@ -18,6 +18,9 @@ services:
       - net.ipv4.conf.all.route_localnet=1
     extra_hosts:
       - "raw.githubusercontent.com=185.199.108.133"
+      - "github.io=185.199.110.153"
+      - "xtrime-ru.github.io=185.199.110.153"
+      - "adguardteam.github.io=185.199.110.153"
     healthcheck:
       test: (timeout 10m /root/healthcheck.sh || kill -TERM 1) 2>&1 | tee /proc/1/fd/1
       interval: 10s

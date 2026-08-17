@@ -10,6 +10,9 @@ services:
       - net.ipv4.conf.all.src_valid_mark=1
     extra_hosts:
       - "raw.githubusercontent.com=185.199.108.133"
+      - "github.io=185.199.110.153"
+      - "xtrime-ru.github.io=185.199.110.153"
+      - "adguardteam.github.io=185.199.110.153"
     build: 
       context: .
       x-bake:
