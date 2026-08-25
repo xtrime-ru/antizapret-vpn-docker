@@ -124,7 +124,7 @@ filters:
     url: http://az-world.antizapret/list/?url=https://xtrime-ru.github.io/antizapret-vpn-docker/lists/world.txt
     name: Dist World Rules
     id: 7
-  - enabled: true
+  - enabled: false
     url: http://az-local.antizapret/list/?raw=1&url=https://xtrime-ru.github.io/antizapret-vpn-docker/lists/block.txt
     name: Block Spyware
     id: 8
