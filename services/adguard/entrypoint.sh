@@ -97,18 +97,22 @@ yq -i '
     .users[0].password=strenv(ADGUARDHOME_PASSWORD_HASH) |
     (.clients.persistent[] | select(.name == "az-local") | .ids) = ["az-local", strenv(AZ_LOCAL_HOST)] |
     (.clients.persistent[] | select(.name == "az-world") | .ids) = env(AZ_WORLD_CLIENT_IDS) |
-    (.clients.persistent[] | select(.name == "coredns") | .ids) = [strenv(COREDNS_HOST)] |
-    .clients.persistent = (
-      [.clients.persistent[] | select(.name != "az-resolver")] + [{
-        "name": "az-resolver",
-        "ids": ["az-resolver"],
-        "tags": [],
-        "upstreams": ["1.1.1.1", "8.8.8.8", "8.8.4.4", "9.9.9.11", "149.112.112.11"],
-        "use_global_settings": true,
-        "use_global_blocked_services": true
-      }]
-    )
+    (.clients.persistent[] | select(.name == "coredns") | .ids) = [strenv(COREDNS_HOST)]
     ' /opt/adguardhome/conf/AdGuardHome.yaml || exit 1
+
+if ! yq -e '.clients.persistent[] | select(.name == "az-resolver")' /opt/adguardhome/conf/AdGuardHome.yaml >/dev/null; then
+    AZ_WORLD_UPSTREAMS=$(yq -o=json '.clients.persistent[] | select(.name == "az-world") | .upstreams' /opt/adguardhome/conf/AdGuardHome.yaml) || exit 1
+    AZ_WORLD_UPSTREAMS="$AZ_WORLD_UPSTREAMS" yq -i '
+        .clients.persistent += [{
+            "name": "az-resolver",
+            "ids": ["az-resolver"],
+            "tags": [],
+            "upstreams": env(AZ_WORLD_UPSTREAMS),
+            "use_global_settings": true,
+            "use_global_blocked_services": true
+        }]
+    ' /opt/adguardhome/conf/AdGuardHome.yaml || exit 1
+fi
 
 sed -i 's/antizapret-vpn-docker\/v5/antizapret-vpn-docker\/v6/g' /opt/adguardhome/conf/AdGuardHome.yaml
 
