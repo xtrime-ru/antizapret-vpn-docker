@@ -8,7 +8,7 @@ DigitalOcean
 Contabo
 Oracle
 /\bg-?core\b/
-Vultr
+AS20473
 Scaleway
 OVH
 Akamai
