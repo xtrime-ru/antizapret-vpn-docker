@@ -101,13 +101,13 @@ yq -i '
     ' /opt/adguardhome/conf/AdGuardHome.yaml || exit 1
 
 if ! yq -e '.clients.persistent[] | select(.name == "az-resolver")' /opt/adguardhome/conf/AdGuardHome.yaml >/dev/null; then
-    AZ_WORLD_UPSTREAMS=$(yq -o=json '.clients.persistent[] | select(.name == "az-world") | .upstreams' /opt/adguardhome/conf/AdGuardHome.yaml) || exit 1
-    AZ_WORLD_UPSTREAMS="$AZ_WORLD_UPSTREAMS" yq -i '
+    AZ_LOCAL_UPSTREAMS=$(yq -o=json '.clients.persistent[] | select(.name == "az-local") | .upstreams' /opt/adguardhome/conf/AdGuardHome.yaml) || exit 1
+    AZ_LOCAL_UPSTREAMS="$AZ_LOCAL_UPSTREAMS" yq -i '
         .clients.persistent += [{
             "name": "az-resolver",
             "ids": ["az-resolver"],
             "tags": [],
-            "upstreams": env(AZ_WORLD_UPSTREAMS),
+            "upstreams": env(AZ_LOCAL_UPSTREAMS),
             "use_global_settings": true,
             "use_global_blocked_services": true
         }]
