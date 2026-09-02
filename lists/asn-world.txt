@@ -15,5 +15,3 @@ Akamai
 /cdn77|datacamp/
 
 Apple
-Meta
-Facebook
