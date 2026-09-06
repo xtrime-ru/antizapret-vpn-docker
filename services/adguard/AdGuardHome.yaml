@@ -225,7 +225,7 @@ clients:
         - https://cloudflare-dns.com/dns-query
         - https://dns.google/dns-query
         - https://dns11.quad9.net/dns-query
-        - '[/themoviedb.org/tmdb.org/tmdb-image-prod.b-cdn.net/]https://dns12.quad9.net/dns-query'
+        - '[/themoviedb.org/tmdb.org/tmdb-image-prod.b-cdn.net/]https://cloudflare-dns.com/dns-query'
         - '[/warthunder.com/gaijin.net/]77.88.8.8'
         - '[/gemini.google.com/generativelanguage.googleapis.com/alkalimining-pa.googleapis.com/proactivebackend-pa.googleapis.com/ai.google.dev/aistudio.google.com/alkalimakersuite-pa.clients6.google.com/]https://xbox-dns.ru/dns-query'
       use_global_settings: true
@@ -239,7 +239,7 @@ clients:
         - https://dns.google/dns-query
         - https://dns11.quad9.net/dns-query
         - '[/akamai.net/akamaiedge.net/akadns.net/microsoft.com/ru/su/xn--p1ai/]77.88.8.8 62.76.76.62'
-        - '[/themoviedb.org/tmdb.org/tmdb-image-prod.b-cdn.net/]https://dns12.quad9.net/dns-query'
+        - '[/themoviedb.org/tmdb.org/tmdb-image-prod.b-cdn.net/]https://cloudflare-dns.com/dns-query'
         - '[/warthunder.com/gaijin.net/]77.88.8.8'
         - '[/gemini.google.com/generativelanguage.googleapis.com/alkalimining-pa.googleapis.com/proactivebackend-pa.googleapis.com/ai.google.dev/aistudio.google.com/alkalimakersuite-pa.clients6.google.com/]https://xbox-dns.ru/dns-query'
       use_global_settings: true
@@ -252,7 +252,7 @@ clients:
         - https://dns.google/dns-query
         - https://dns11.quad9.net/dns-query
         - '[/akamai.net/akamaiedge.net/akadns.net/microsoft.com/ru/su/xn--p1ai/]77.88.8.8 62.76.76.62'
-        - '[/themoviedb.org/tmdb.org/tmdb-image-prod.b-cdn.net/]https://dns12.quad9.net/dns-query'
+        - '[/themoviedb.org/tmdb.org/tmdb-image-prod.b-cdn.net/]https://cloudflare-dns.com/dns-query'
         - '[/warthunder.com/gaijin.net/]77.88.8.8'
         - '[/gemini.google.com/generativelanguage.googleapis.com/alkalimining-pa.googleapis.com/proactivebackend-pa.googleapis.com/ai.google.dev/aistudio.google.com/alkalimakersuite-pa.clients6.google.com/]https://xbox-dns.ru/dns-query'
       use_global_settings: true
