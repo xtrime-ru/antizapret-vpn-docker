@@ -82,6 +82,13 @@ function ensure_filter () {
 ensure_filter 'http://az-local.antizapret/list/?regex=1&allow=0&client=az-resolver&filter_custom=0&filter_dist=0&file=/root/antizapret/config/custom/exclude-hosts-custom.txt' 'Excluded Custom Local Rules'
 ensure_filter 'http://az-world.antizapret/list/?regex=1&allow=0&client=az-resolver&filter_custom=0&filter_dist=0&file=/root/antizapret/config/custom/exclude-hosts-custom.txt' 'Excluded Custom World Rules'
 
+# AdGuard's migration to schema 34 replaces http.doh with the legacy TLS flag.
+# Set that flag before startup; let AdGuard migrate the remaining configuration.
+ADGUARD_SCHEMA_VERSION=$(yq '.schema_version // 0' /opt/adguardhome/conf/AdGuardHome.yaml) || exit 1
+if [ "$ADGUARD_SCHEMA_VERSION" -lt 34 ]; then
+    yq -i '.tls.allow_unencrypted_doh = true' /opt/adguardhome/conf/AdGuardHome.yaml || exit 1
+fi
+
 ADGUARDHOME_PORT="$ADGUARDHOME_PORT" \
 ADGUARDHOME_USERNAME="$ADGUARDHOME_USERNAME" \
 ADGUARDHOME_PASSWORD_HASH="$ADGUARDHOME_PASSWORD_HASH" \
