@@ -886,6 +886,14 @@ You can define these variables in docker-compose.override.yml file for your need
 ### Adguard Upstream DNS
 AdGuard sends regular client queries through CoreDNS. For direct resolution used by ASN matching, the entrypoint configures the `az-resolver` client with Cloudflare, Google, and Quad9 upstreams. The generated configuration is stored in `./config/adguard/conf/AdGuardHome.yaml` and can be changed through the AdGuard Home UI.
 
+The third-party `xbox-dns.ru` resolver can be configured manually as a domain-specific upstream when Gemini incorrectly detects the country from the exit server's IP address and refuses to work because of geographic restrictions. For example:
+
+```text
+[/gemini.google.com/generativelanguage.googleapis.com/ai.google.dev/aistudio.google.com/]https://xbox-dns.ru/dns-query
+```
+
+This resolver may return proxy addresses instead of the service's original addresses. These proxy endpoints do not support QUIC or UDP forwarding. Applications that require HTTP/3/QUIC and do not reliably fall back to TCP may therefore fail to connect. For this reason, `xbox-dns.ru` is not enabled in the default configuration.
+
 ### CDN + ECS
 Some domains can resolve differently, depending on subnet (geoip) of client. In this case using of DNS located on remote server will break some services.
 ECS allow to provide client IP in DNS requests to upstream server and get correct results.
