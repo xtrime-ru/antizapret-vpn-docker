@@ -45,7 +45,12 @@ func doallHandler(w http.ResponseWriter, r *http.Request) {
 		mu.Unlock()
 	}()
 
-	cmd := exec.Command("/root/antizapret/doall.sh")
+	cmd := exec.Command(
+		"timeout",
+		"--kill-after=5s",
+		"10m",
+		"/root/antizapret/doall.sh",
+	)
 
 	output, err := cmd.CombinedOutput()
 

@@ -76,6 +76,13 @@ function cleanup_doall_owner () {
     rm -f "$DOALL_LOCAL_OWNER_FILE" /tmp/.doall_lock
 }
 
+function generated_lists_available () {
+    [ -z "${IPS_URL:-}" ] || [ -s /root/antizapret/result/ips.txt ] || return 1
+    [ -z "${IPS_WORLD_URL:-}" ] || [ -s /root/antizapret/result/ips-world.txt ] || return 1
+    [ -z "${ASN_URL:-}" ] || [ -s /root/antizapret/result/asn.txt ] || return 1
+    [ -z "${ASN_WORLD_URL:-}" ] || [ -s /root/antizapret/result/asn-world.txt ] || return 1
+}
+
 configure_doall_owner
 trap cleanup_doall_owner EXIT HUP INT QUIT PIPE TERM
 
@@ -169,10 +176,17 @@ if [ "$WARP_ENABLED" = "1" ]; then
     iptables -t mangle -A FORWARD -o CloudflareWARP -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
 fi
 
-timeout 5m /usr/bin/doall || echo 'doall failed during startup, continuing with existing lists'
+if ! timeout --kill-after=5s 5m /usr/bin/doall; then
+    if generated_lists_available; then
+        echo 'doall failed during startup, continuing with existing lists'
+    else
+        echo 'doall failed during startup and no generated lists are available'
+        exit 1
+    fi
+fi
 
 postrun 'while true; do /opt/api/app; done'
-postrun 'while true; do sleep 6h; timeout 10m /usr/bin/doall; done'
+postrun 'while true; do sleep 6h; timeout --kill-after=5s 10m /usr/bin/doall; done'
 postrun 'while true; do /usr/bin/iperf3 -s -1; done'
 
 /usr/bin/dnsmap -a 0.0.0.0 --iprange "$AZ_SUBNET" --asn-file "$ASN_FILES"
