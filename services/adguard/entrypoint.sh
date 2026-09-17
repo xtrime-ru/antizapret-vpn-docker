@@ -121,6 +121,13 @@ if ! yq -e '.clients.persistent[] | select(.name == "az-resolver")' /opt/adguard
     ' /opt/adguardhome/conf/AdGuardHome.yaml || exit 1
 fi
 
+# Client-specific upstream configurations use independent DNS caches.  Apply
+# the defaults to existing managed clients as well as newly generated configs.
+yq -i '
+    (.clients.persistent[] | select(.name == "az-local" or .name == "az-world" or .name == "coredns" or .name == "az-resolver") | .upstreams_cache_enabled) = true |
+    (.clients.persistent[] | select(.name == "az-local" or .name == "az-world" or .name == "coredns" or .name == "az-resolver") | .upstreams_cache_size) = 1048576
+    ' /opt/adguardhome/conf/AdGuardHome.yaml || exit 1
+
 sed -i 's/antizapret-vpn-docker\/v5/antizapret-vpn-docker\/v6/g' /opt/adguardhome/conf/AdGuardHome.yaml
 
 touch "$INIT_FILE"
