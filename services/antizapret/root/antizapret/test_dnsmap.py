@@ -89,6 +89,7 @@ class ResolverTestCase(unittest.TestCase):
             'asn_database_reader': self.asn_database,
             'iptables_runner': self.iptables_runner,
             'load_existing_mappings': False,
+            'mapping_batch_delay': 0.001,
         }
         arguments.update(overrides)
         resolver = dnsmap.ProxyResolver(**arguments)
@@ -438,6 +439,15 @@ class AsnListTests(ResolverTestCase):
 
 
 class MappingTests(ResolverTestCase):
+    class TrackingDict(dict):
+        def __init__(self):
+            super().__init__()
+            self.was_cleared = False
+
+        def clear(self):
+            self.was_cleared = True
+            super().clear()
+
     def test_range_must_leave_an_address_after_dns_reservation(self):
         with self.assertRaisesRegex(ValueError, 'no addresses available'):
             self.make_resolver(iprange='14.16.0.1/32')
@@ -453,12 +463,61 @@ class MappingTests(ResolverTestCase):
 
     def test_iptables_success_commits_mapping(self):
         resolver = self.make_resolver()
+        resolver.pending_mappings = self.TrackingDict()
 
         self.assertEqual(resolver.add_mapping('192.0.2.1'), '14.16.0.2')
 
         self.assertEqual(resolver.get_mapping('192.0.2.1'), '14.16.0.2')
+        self.assertTrue(resolver.pending_mappings.was_cleared)
         command = self.iptables_runner.call_args.args[0]
-        self.assertEqual(command[-1], '192.0.2.1')
+        self.assertEqual(command, ['iptables-restore', '--wait', '--noflush'])
+        self.assertIn(
+            '-A dnsmap -d 14.16.0.2 -j DNAT --to-destination 192.0.2.1',
+            self.iptables_runner.call_args.kwargs['input'],
+        )
+
+    def test_concurrent_mappings_are_applied_in_one_batch(self):
+        resolver = self.make_resolver(mapping_batch_delay=0.05)
+        barrier = threading.Barrier(3)
+
+        def add_mapping(address):
+            barrier.wait()
+            return resolver.add_mapping(address)
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            futures = [
+                executor.submit(add_mapping, '192.0.2.1'),
+                executor.submit(add_mapping, '192.0.2.2'),
+            ]
+            barrier.wait()
+            self.assertEqual(
+                {future.result() for future in futures},
+                {'14.16.0.2', '14.16.0.3'},
+            )
+
+        self.iptables_runner.assert_called_once()
+        rules = self.iptables_runner.call_args.kwargs['input']
+        self.assertIn('--to-destination 192.0.2.1', rules)
+        self.assertIn('--to-destination 192.0.2.2', rules)
+
+    def test_concurrent_duplicate_mapping_is_only_added_once(self):
+        resolver = self.make_resolver(mapping_batch_delay=0.05)
+        barrier = threading.Barrier(3)
+
+        def add_mapping():
+            barrier.wait()
+            return resolver.add_mapping('192.0.2.1')
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            futures = [executor.submit(add_mapping) for _ in range(2)]
+            barrier.wait()
+            self.assertEqual(
+                [future.result() for future in futures],
+                ['14.16.0.2', '14.16.0.2'],
+            )
+
+        rules = self.iptables_runner.call_args.kwargs['input']
+        self.assertEqual(rules.count('--to-destination 192.0.2.1'), 1)
 
     def test_exhausted_range_flushes_old_mappings_and_starts_over(self):
         resolver = self.make_resolver(iprange='14.16.0.0/30')
@@ -469,7 +528,35 @@ class MappingTests(ResolverTestCase):
         self.assertEqual(resolver.ipmap, {'192.0.2.2': '14.16.0.2'})
         commands = [call.args[0] for call in self.iptables_runner.call_args_list]
         self.assertEqual(commands[1], ['iptables', '-w', '-t', 'nat', '-F', 'dnsmap'])
-        self.assertEqual(commands[2][-1], '192.0.2.2')
+        self.assertIn(
+            '--to-destination 192.0.2.2',
+            self.iptables_runner.call_args_list[2].kwargs['input'],
+        )
+
+    def test_batch_is_not_partially_allocated_when_range_is_exhausted(self):
+        resolver = self.make_resolver(iprange='14.16.0.0/29')
+        for index in range(4):
+            resolver.add_mapping('192.0.2.{}'.format(index + 1))
+
+        mappings = resolver.add_mappings(['192.0.2.10', '192.0.2.11'])
+
+        self.assertEqual(mappings, {
+            '192.0.2.10': '14.16.0.2',
+            '192.0.2.11': '14.16.0.3',
+        })
+        self.assertEqual(resolver.ipmap, mappings)
+        commands = [call.args[0] for call in self.iptables_runner.call_args_list]
+        self.assertEqual(commands[-2], ['iptables', '-w', '-t', 'nat', '-F', 'dnsmap'])
+        rules = self.iptables_runner.call_args_list[-1].kwargs['input']
+        self.assertIn('--to-destination 192.0.2.10', rules)
+        self.assertIn('--to-destination 192.0.2.11', rules)
+
+    def test_mapping_is_rejected_after_resolver_stops(self):
+        resolver = self.make_resolver()
+        resolver.close()
+
+        self.assertFalse(resolver.add_mapping('192.0.2.1'))
+        self.iptables_runner.assert_not_called()
 
     def test_failed_flush_preserves_old_mappings(self):
         def run_iptables(command, **kwargs):
@@ -492,7 +579,10 @@ class ResolverContractTests(ResolverTestCase):
         resolver = self.make_resolver()
         resolver.query_doh = Mock(side_effect=replies)
         resolver.is_blocked_asn = Mock(return_value=asn_match)
-        resolver.add_mapping = Mock(side_effect=['14.16.0.2', '14.16.0.3'])
+        resolver.add_mappings = Mock(side_effect=lambda addresses: {
+            address: '14.16.0.{}'.format(index + 2)
+            for index, address in enumerate(addresses)
+        })
         return resolver
 
     def test_filtered_a_answer_is_mapped_without_asn_lookup(self):
@@ -514,7 +604,7 @@ class ResolverContractTests(ResolverTestCase):
         reply = resolver.resolve(request, Mock())
 
         self.assertEqual(reply.header.rcode, RCODE.SERVFAIL)
-        resolver.add_mapping.assert_not_called()
+        resolver.add_mappings.assert_not_called()
 
     def test_resolver_servfail_is_returned_without_asn_lookup(self):
         request = DNSRecord.question('example.com', 'A')
@@ -527,7 +617,7 @@ class ResolverContractTests(ResolverTestCase):
 
         self.assertEqual(reply.header.rcode, RCODE.SERVFAIL)
         resolver.is_blocked_asn.assert_not_called()
-        resolver.add_mapping.assert_not_called()
+        resolver.add_mappings.assert_not_called()
 
     def test_empty_resolver_answer_preserves_filtered_reply(self):
         request = DNSRecord.question('empty.example', 'A')
@@ -543,7 +633,7 @@ class ResolverContractTests(ResolverTestCase):
         self.assertIs(reply, filtered_reply)
         self.assertEqual(reply.header.rcode, RCODE.SERVFAIL)
         resolver.is_blocked_asn.assert_not_called()
-        resolver.add_mapping.assert_not_called()
+        resolver.add_mappings.assert_not_called()
 
     def test_resolver_servfail_is_returned_without_asn_lookup(self):
         request = DNSRecord.question('example.com', 'A')
@@ -556,7 +646,7 @@ class ResolverContractTests(ResolverTestCase):
 
         self.assertEqual(reply.header.rcode, RCODE.SERVFAIL)
         resolver.is_blocked_asn.assert_not_called()
-        resolver.add_mapping.assert_not_called()
+        resolver.add_mappings.assert_not_called()
 
     def test_empty_resolver_answer_preserves_filtered_reply(self):
         request = DNSRecord.question('empty.example', 'A')
@@ -572,7 +662,7 @@ class ResolverContractTests(ResolverTestCase):
         self.assertIs(reply, filtered_reply)
         self.assertEqual(reply.header.rcode, RCODE.SERVFAIL)
         resolver.is_blocked_asn.assert_not_called()
-        resolver.add_mapping.assert_not_called()
+        resolver.add_mappings.assert_not_called()
 
     def test_one_asn_match_maps_all_resolved_addresses(self):
         request = DNSRecord.question('example.com', 'A')
@@ -585,7 +675,7 @@ class ResolverContractTests(ResolverTestCase):
         reply = resolver.resolve(request, Mock())
 
         self.assertEqual([str(record.rdata) for record in reply.rr], ['14.16.0.2', '14.16.0.3'])
-        self.assertEqual(resolver.add_mapping.call_count, 2)
+        resolver.add_mappings.assert_called_once_with(['192.0.2.1', '192.0.2.2'])
 
     def test_nxdomain_is_preserved(self):
         request = DNSRecord.question('missing.example', 'A')
@@ -594,7 +684,7 @@ class ResolverContractTests(ResolverTestCase):
         reply = resolver.resolve(request, Mock())
 
         self.assertEqual(reply.header.rcode, RCODE.NXDOMAIN)
-        resolver.add_mapping.assert_not_called()
+        resolver.add_mappings.assert_not_called()
 
     def test_empty_noerror_answer_is_preserved(self):
         request = DNSRecord.question('empty.example', 'A')
@@ -604,7 +694,7 @@ class ResolverContractTests(ResolverTestCase):
 
         self.assertEqual(reply.header.rcode, RCODE.NOERROR)
         self.assertEqual(reply.rr, [])
-        resolver.add_mapping.assert_not_called()
+        resolver.add_mappings.assert_not_called()
 
     def test_answer_without_ipv4_address_is_preserved(self):
         request = DNSRecord.question('alias.example', 'A')
@@ -620,7 +710,7 @@ class ResolverContractTests(ResolverTestCase):
 
         self.assertIs(reply, upstream_reply)
         self.assertEqual(reply.rr[0].rtype, QTYPE.CNAME)
-        resolver.add_mapping.assert_not_called()
+        resolver.add_mappings.assert_not_called()
 
     def test_aaaa_and_https_are_suppressed(self):
         for query_type in ('AAAA', 'HTTPS'):

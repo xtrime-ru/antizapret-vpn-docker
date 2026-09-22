@@ -16,6 +16,7 @@ from dnslib.server import DNSServer, DNSHandler, BaseResolver, DNSLogger
 
 
 AsnMatchRules = namedtuple('AsnMatchRules', ('asn_rules', 'substring_rules', 'regex_rules'))
+MappingRequest = namedtuple('MappingRequest', ('real_addr', 'fake_addr', 'event'))
 
 
 class DoHError(Exception):
@@ -33,6 +34,7 @@ class DoHProtocolError(DoHError):
 class ProxyResolver(BaseResolver):
     MAX_DOH_RESPONSE_SIZE = 65535
     ERROR_LOG_INTERVAL = 5
+    MAPPING_BATCH_DELAY = 0.05
     """
         Proxy resolver - passes all requests to upstream DNS server and
         returns response
@@ -57,7 +59,8 @@ class ProxyResolver(BaseResolver):
     def __init__(self,address,port,doh_port,timeout,iprange,client_id,
                  resolver_client_id,asn_file,asn_database,tablename='dnsmap',
                  asn_database_reader=None, iptables_runner=None,
-                 connection_factory=None, load_existing_mappings=True):
+                 connection_factory=None, load_existing_mappings=True,
+                 mapping_batch_delay=MAPPING_BATCH_DELAY):
         self.address = address
         self.port = port
         self.timeout = timeout
@@ -81,10 +84,17 @@ class ProxyResolver(BaseResolver):
         self.asn_database = asn_database_reader or maxminddb.open_database(asn_database)
         self.iprange = IPv4Network(iprange)
         self.unassigned_addresses = self.new_unassigned_addresses()
+        self.mapping_capacity = len(self.unassigned_addresses)
 
         self.ipmap = {}
         self.tablename = tablename
         self.mapping_lock = threading.RLock()
+        self.mapping_condition = threading.Condition(self.mapping_lock)
+        self.pending_mappings = {}
+        self.mapping_batch = []
+        self.mapping_batch_delay = mapping_batch_delay
+        self.mapping_batch_running = False
+        self.mapping_stopping = False
 
         # Load existing mappings
         if load_existing_mappings:
@@ -210,6 +220,11 @@ class ProxyResolver(BaseResolver):
                         connection.close()
 
     def close(self):
+        with self.mapping_condition:
+            self.mapping_stopping = True
+            self.mapping_condition.notify_all()
+            while self.mapping_batch_running:
+                self.mapping_condition.wait()
         while True:
             try:
                 self.doh_connections.get_nowait().close()
@@ -265,7 +280,8 @@ class ProxyResolver(BaseResolver):
         return False
 
     def get_mapping(self, real_addr):
-        return self.ipmap.get(real_addr)
+        with self.mapping_lock:
+            return self.ipmap.get(real_addr)
 
     def new_unassigned_addresses(self):
         addresses = deque([str(address) for address in self.iprange.hosts()])
@@ -295,51 +311,135 @@ class ProxyResolver(BaseResolver):
         return True
 
     def add_mapping(self, real_addr, fake_addr=None):
-        with self.mapping_lock:
-            existing_fake_addr = self.get_mapping(real_addr)
-            if existing_fake_addr:
-                if fake_addr:
+        if fake_addr:
+            with self.mapping_lock:
+                existing_fake_addr = self.get_mapping(real_addr)
+                if existing_fake_addr:
                     print("ERROR: Real addr {} is already mapped to {}, ignoring duplicate mapping to {}".format(
                         real_addr, existing_fake_addr, fake_addr
                     ))
                     return True
-                return existing_fake_addr
-
-            if fake_addr:
                 try:
                     self.unassigned_addresses.remove(fake_addr)
-                    self.ipmap[real_addr]=fake_addr
+                    self.ipmap[real_addr] = fake_addr
                     print('Mapping {} to {}'.format(fake_addr, real_addr))
                 except ValueError:
                     print("ERROR: Fake addr {} not in unassigned addresses list".format(fake_addr))
                     return False
-            else:
-                try:
-                    fake_addr = self.unassigned_addresses.popleft()
-                except IndexError:
-                    if not self.reset_mappings():
-                        return False
-                    fake_addr = self.unassigned_addresses.popleft()
-                command = [
-                    'iptables', '-w', '-t', 'nat', '-A', self.tablename,
-                    '-d', fake_addr, '-j', 'DNAT', '--to', real_addr,
-                ]
-                try:
-                    result = self.iptables_runner(command, capture_output=True, text=True)
-                except OSError as error:
-                    self.unassigned_addresses.appendleft(fake_addr)
-                    print('ERROR: Failed to execute iptables: {}'.format(error))
-                    return False
-                if result.returncode != 0:
-                    self.unassigned_addresses.appendleft(fake_addr)
-                    print('ERROR: Failed to add mapping {} to {}: {}'.format(
-                        fake_addr, real_addr, result.stderr.strip()
-                    ))
-                    return False
-                print('Mapping {} to {}'.format(fake_addr, real_addr))
-                self.ipmap[real_addr]=fake_addr
-                return fake_addr
-            return True
+                return True
+
+        return self.add_mappings([real_addr]).get(real_addr, False)
+
+    def add_mappings(self, real_addresses):
+        unique_addresses = list(dict.fromkeys(real_addresses))
+        if len(unique_addresses) > self.mapping_capacity:
+            print('ERROR: Not enough fake IP addresses for {} mappings'.format(
+                len(unique_addresses)
+            ))
+            return {real_addr: None for real_addr in unique_addresses}
+
+        with self.mapping_condition:
+            if self.mapping_stopping:
+                return {real_addr: None for real_addr in unique_addresses}
+
+            new_addresses = [
+                real_addr
+                for real_addr in unique_addresses
+                if not self.get_mapping(real_addr)
+                and real_addr not in self.pending_mappings
+            ]
+            if len(new_addresses) > len(self.unassigned_addresses):
+                if self.pending_mappings:
+                    return {real_addr: None for real_addr in unique_addresses}
+                if not self.reset_mappings():
+                    return {real_addr: None for real_addr in unique_addresses}
+
+            requests = {}
+            is_batch_leader = False
+            for real_addr in unique_addresses:
+                existing_fake_addr = self.get_mapping(real_addr)
+                if existing_fake_addr:
+                    continue
+                existing_request = self.pending_mappings.get(real_addr)
+                if existing_request:
+                    requests[real_addr] = existing_request
+                    continue
+
+                fake_addr = self.unassigned_addresses.popleft()
+                request = MappingRequest(real_addr, fake_addr, threading.Event())
+                self.pending_mappings[real_addr] = request
+                self.mapping_batch.append(request)
+                requests[real_addr] = request
+            if requests:
+                if not self.mapping_batch_running:
+                    self.mapping_batch_running = True
+                    is_batch_leader = True
+                self.mapping_condition.notify()
+
+        if is_batch_leader:
+            self.apply_mapping_batches()
+
+        for request in requests.values():
+            request.event.wait()
+
+        return {
+            real_addr: self.get_mapping(real_addr)
+            for real_addr in unique_addresses
+        }
+
+    def apply_mapping_batches(self):
+        while True:
+            with self.mapping_condition:
+                deadline = time.monotonic() + self.mapping_batch_delay
+                while not self.mapping_stopping:
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        break
+                    self.mapping_condition.wait(remaining)
+
+                batch = self.mapping_batch
+                self.mapping_batch = []
+
+            rules = ['*nat']
+            rules.extend(
+                '-A {} -d {} -j DNAT --to-destination {}'.format(
+                    self.tablename, request.fake_addr, request.real_addr
+                )
+                for request in batch
+            )
+            rules.extend(('COMMIT', ''))
+            command = ['iptables-restore', '--wait', '--noflush']
+            try:
+                result = self.iptables_runner(
+                    command,
+                    input='\n'.join(rules),
+                    capture_output=True,
+                    text=True,
+                )
+            except OSError as error:
+                result = None
+                print('ERROR: Failed to execute iptables-restore: {}'.format(error))
+
+            success = result is not None and result.returncode == 0
+            if result is not None and not success:
+                print('ERROR: Failed to add {} mappings: {}'.format(
+                    len(batch), result.stderr.strip()
+                ))
+
+            with self.mapping_condition:
+                for request in batch:
+                    self.pending_mappings.pop(request.real_addr, None)
+                    if success:
+                        self.ipmap[request.real_addr] = request.fake_addr
+                        print('Mapping {} to {}'.format(request.fake_addr, request.real_addr))
+                    else:
+                        self.unassigned_addresses.appendleft(request.fake_addr)
+                    request.event.set()
+                if not self.mapping_batch:
+                    self.pending_mappings.clear()
+                    self.mapping_batch_running = False
+                    self.mapping_condition.notify_all()
+                    return
 
     def resolve(self,request,handler):
         try:
@@ -377,6 +477,13 @@ class ProxyResolver(BaseResolver):
                     newrr.append(record)
                 reply.rr = newrr
 
+                real_addresses = [
+                    str(record.rdata)
+                    for record in reply.rr
+                    if record.rtype == QTYPE.A
+                ]
+                mappings = self.add_mappings(real_addresses)
+
                 for record in reply.rr:
                     if record.rtype != QTYPE.A:
                         continue
@@ -385,9 +492,7 @@ class ProxyResolver(BaseResolver):
                     # print(type(record.rdata))
 
                     real_addr = str(record.rdata)
-                    fake_addr = self.get_mapping(real_addr)
-                    if not fake_addr:
-                        fake_addr = self.add_mapping(real_addr)
+                    fake_addr = mappings.get(real_addr)
                     if not fake_addr:
                         print("No fake_addr, something went wrong!")
                         reply = request.reply()
