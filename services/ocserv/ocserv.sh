@@ -34,6 +34,18 @@ export OC_ROUTE="${RUNTIME_DIR}/config-per-group"
 RUNTIME_CONFIG="${RUNTIME_DIR}/ocserv.conf"
 CONFIG_FILES=(/opt/antizapret/result/ips*)
 
+# Restore editable templates in the bind-mounted config directory on every start.
+mkdir -p "$OCSERV_DIR"
+if [[ -r /usr/share/doc/ocserv/sample.config && ! -e "$OCSERV_DIR/sample.config" ]]; then
+    cp /usr/share/doc/ocserv/sample.config "$OCSERV_DIR/"
+fi
+if [[ ! -e "$OCSERV_TEMPLATE" ]]; then
+    cp /ocserv.tmpl "$OCSERV_TEMPLATE"
+fi
+if [[ ! -e "$ROUTE_TEMPLATE" ]]; then
+    cp /az.tmpl "$ROUTE_TEMPLATE"
+fi
+
 wait_for_certificate() {
     local elapsed=0
 
@@ -72,18 +84,6 @@ case "$CERT_TYPE" in
 esac
 
 mkdir -p "$OC_ROUTE"
-# Create old sample.config
-if [[ -r /usr/share/doc/ocserv/sample.config && ! -e "$OCSERV_DIR/sample.config" ]]; then
-    cp /usr/share/doc/ocserv/sample.config "$OCSERV_DIR/"
-fi
-
-# Create ocserv config files
-if [[ ! -e "$OCSERV_TEMPLATE" ]]; then
-    cp /ocserv.tmpl "$OCSERV_TEMPLATE"
-fi
-if [[ ! -e "$ROUTE_TEMPLATE" ]]; then
-    cp /az.tmpl "$ROUTE_TEMPLATE"
-fi
 envsubst < "$OCSERV_TEMPLATE" > "$RUNTIME_CONFIG"
 # oc routes
 envsubst < "$ROUTE_TEMPLATE" > "$OC_ROUTE/az"
