@@ -405,14 +405,70 @@ git restore config
 
 ## Алгоритм разрешения DNS
 
-![Preview](./img/chart.png)
+### Docker Swarm
 
-В односерверном Compose-режиме контейнер `az-local` также получает сетевые
-alias `az-world` и `az-world.antizapret`. CoreDNS определяет, что имена обоих
-узлов выхода имеют один адрес, и опрашивает контейнер только один раз; AdGuard
-создаёт для клиента `az-local` правила из локального и мирового списков. В
-Swarm-режиме короткие и полные alias разделяются между двумя сервисами, поэтому
-CoreDNS сначала опрашивает `az-world`, затем `az-local`.
+```mermaid
+%%{init: {"theme":"base","htmlLabels":false,"flowchart":{"htmlLabels":false},"themeVariables":{"primaryTextColor":"#f8fafc","lineColor":"#94a3b8","textColor":"#e2e8f0","edgeLabelBackground":"#0f172a"},"themeCSS":".cluster-label text { fill: #f8fafc !important; } .cluster rect { rx: 18px; ry: 18px; } .node rect { rx: 10px; ry: 10px; }"}}%%
+flowchart TB
+    subgraph canvas["SWARM  /  РАЗРЕШЕНИЕ DNS"]
+        direction TB
+        client([VPN-клиент]) -->|DNS-запрос| adguard[AdGuard Home]
+        adguard -->|Блокировка| deny[0.0.0.0]
+        adguard -->|Далее| core[CoreDNS]
+        core --> world[az-world<br/>dnsmap.py]
+        world -->|Совпадение| mapped[Виртуальный IP<br/>правило DNAT]
+        world -->|SERVFAIL| local[az-local<br/>dnsmap.py]
+        local -->|Совпадение| mapped
+        local -->|SERVFAIL| retry[AdGuard Home<br/>прямой запрос]
+        retry --> normal[Обычный DNS-ответ]
+    end
+    style canvas fill:#0b1220,stroke:#334155,stroke-width:2px,color:#f8fafc
+    classDef client fill:#2563eb,stroke:#93c5fd,stroke-width:2px,color:#ffffff
+    classDef service fill:#1e293b,stroke:#64748b,stroke-width:1.5px,color:#f8fafc
+    classDef exit fill:#312e81,stroke:#a5b4fc,stroke-width:1.5px,color:#ffffff
+    classDef mapped fill:#115e59,stroke:#5eead4,stroke-width:2px,color:#ffffff
+    classDef blocked fill:#7f1d1d,stroke:#fca5a5,stroke-width:2px,color:#ffffff
+    class client client
+    class adguard,core,retry,normal service
+    class world,local exit
+    class mapped mapped
+    class deny blocked
+```
+
+### Один сервер (Docker Compose)
+
+```mermaid
+%%{init: {"theme":"base","htmlLabels":false,"flowchart":{"htmlLabels":false},"themeVariables":{"primaryTextColor":"#f8fafc","lineColor":"#94a3b8","textColor":"#e2e8f0","edgeLabelBackground":"#0f172a"},"themeCSS":".cluster-label text { fill: #f8fafc !important; } .cluster rect { rx: 18px; ry: 18px; } .node rect { rx: 10px; ry: 10px; }"}}%%
+flowchart TB
+    subgraph canvas["SINGLE NODE  /  РАЗРЕШЕНИЕ DNS"]
+        direction TB
+        client([VPN-клиент]) -->|DNS-запрос| adguard[AdGuard Home]
+        adguard -->|Блокировка| deny[0.0.0.0]
+        adguard -->|Далее| core[CoreDNS]
+        core --> local[az-local<br/>dnsmap.py]
+        local -->|Совпадение| mapped[Виртуальный IP<br/>правило DNAT]
+        local -->|SERVFAIL| retry[AdGuard Home<br/>прямой запрос]
+        retry --> normal[Обычный DNS-ответ]
+    end
+    style canvas fill:#0b1220,stroke:#334155,stroke-width:2px,color:#f8fafc
+    classDef client fill:#2563eb,stroke:#93c5fd,stroke-width:2px,color:#ffffff
+    classDef service fill:#1e293b,stroke:#64748b,stroke-width:1.5px,color:#f8fafc
+    classDef exit fill:#312e81,stroke:#a5b4fc,stroke-width:1.5px,color:#ffffff
+    classDef mapped fill:#115e59,stroke:#5eead4,stroke-width:2px,color:#ffffff
+    classDef blocked fill:#7f1d1d,stroke:#fca5a5,stroke-width:2px,color:#ffffff
+    class client client
+    class adguard,core,retry,normal service
+    class local exit
+    class mapped mapped
+    class deny blocked
+```
+
+В Swarm-режиме короткие и полные alias разделяются между двумя сервисами,
+поэтому CoreDNS сначала опрашивает `az-world`, затем `az-local`. В односерверном
+Compose-режиме контейнер `az-local` также получает сетевые alias `az-world` и
+`az-world.antizapret`. CoreDNS определяет, что имена обоих узлов выхода имеют
+один адрес, и опрашивает контейнер только один раз; AdGuard создаёт для клиента
+`az-local` правила из локального и мирового списков.
 
 1. DNS-запрос поступает в AdGuardHome
 2. Adguard проверяет его правилами черного списка. Если домен в черном списке - возвращается 0.0.0.0, и клиент не может получить доступ к домену.

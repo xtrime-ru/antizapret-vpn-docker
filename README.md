@@ -413,14 +413,70 @@ git restore config
 
 ## DNS resolving algorithm
 
-![Preview](./img/chart.png)
+### Docker Swarm
 
-In single-server Compose mode `az-local` also has the `az-world` and
-`az-world.antizapret` network aliases. CoreDNS detects that both exit names
-have the same address and queries the container only once; AdGuard generates
-both local and world list rules for the `az-local` client. In Swarm mode the
-short and fully qualified aliases are split between two services, so CoreDNS
-queries `az-world` and then `az-local`.
+```mermaid
+%%{init: {"theme":"base","htmlLabels":false,"flowchart":{"htmlLabels":false},"themeVariables":{"primaryTextColor":"#f8fafc","lineColor":"#94a3b8","textColor":"#e2e8f0","edgeLabelBackground":"#0f172a"},"themeCSS":".cluster-label text { fill: #f8fafc !important; } .cluster rect { rx: 18px; ry: 18px; } .node rect { rx: 10px; ry: 10px; }"}}%%
+flowchart TB
+    subgraph canvas["SWARM  /  DNS RESOLUTION"]
+        direction TB
+        client([VPN client]) -->|DNS query| adguard[AdGuard Home]
+        adguard -->|Blocked| deny[0.0.0.0]
+        adguard -->|Continue| core[CoreDNS]
+        core --> world[az-world<br/>dnsmap.py]
+        world -->|Match| mapped[Virtual IP<br/>DNAT rule]
+        world -->|SERVFAIL| local[az-local<br/>dnsmap.py]
+        local -->|Match| mapped
+        local -->|SERVFAIL| retry[AdGuard Home<br/>direct retry]
+        retry --> normal[Regular DNS answer]
+    end
+    style canvas fill:#0b1220,stroke:#334155,stroke-width:2px,color:#f8fafc
+    classDef client fill:#2563eb,stroke:#93c5fd,stroke-width:2px,color:#ffffff
+    classDef service fill:#1e293b,stroke:#64748b,stroke-width:1.5px,color:#f8fafc
+    classDef exit fill:#312e81,stroke:#a5b4fc,stroke-width:1.5px,color:#ffffff
+    classDef mapped fill:#115e59,stroke:#5eead4,stroke-width:2px,color:#ffffff
+    classDef blocked fill:#7f1d1d,stroke:#fca5a5,stroke-width:2px,color:#ffffff
+    class client client
+    class adguard,core,retry,normal service
+    class world,local exit
+    class mapped mapped
+    class deny blocked
+```
+
+### Single node (Docker Compose)
+
+```mermaid
+%%{init: {"theme":"base","htmlLabels":false,"flowchart":{"htmlLabels":false},"themeVariables":{"primaryTextColor":"#f8fafc","lineColor":"#94a3b8","textColor":"#e2e8f0","edgeLabelBackground":"#0f172a"},"themeCSS":".cluster-label text { fill: #f8fafc !important; } .cluster rect { rx: 18px; ry: 18px; } .node rect { rx: 10px; ry: 10px; }"}}%%
+flowchart TB
+    subgraph canvas["SINGLE NODE  /  DNS RESOLUTION"]
+        direction TB
+        client([VPN client]) -->|DNS query| adguard[AdGuard Home]
+        adguard -->|Blocked| deny[0.0.0.0]
+        adguard -->|Continue| core[CoreDNS]
+        core --> local[az-local<br/>dnsmap.py]
+        local -->|Match| mapped[Virtual IP<br/>DNAT rule]
+        local -->|SERVFAIL| retry[AdGuard Home<br/>direct retry]
+        retry --> normal[Regular DNS answer]
+    end
+    style canvas fill:#0b1220,stroke:#334155,stroke-width:2px,color:#f8fafc
+    classDef client fill:#2563eb,stroke:#93c5fd,stroke-width:2px,color:#ffffff
+    classDef service fill:#1e293b,stroke:#64748b,stroke-width:1.5px,color:#f8fafc
+    classDef exit fill:#312e81,stroke:#a5b4fc,stroke-width:1.5px,color:#ffffff
+    classDef mapped fill:#115e59,stroke:#5eead4,stroke-width:2px,color:#ffffff
+    classDef blocked fill:#7f1d1d,stroke:#fca5a5,stroke-width:2px,color:#ffffff
+    class client client
+    class adguard,core,retry,normal service
+    class local exit
+    class mapped mapped
+    class deny blocked
+```
+
+In Swarm mode the short and fully qualified aliases are split between two
+services, so CoreDNS queries `az-world` and then `az-local`. In single-server
+Compose mode `az-local` also has the `az-world` and `az-world.antizapret`
+network aliases. CoreDNS detects that both exit names have the same address
+and queries the container only once; AdGuard generates both local and world
+list rules for the `az-local` client.
 
 1. DNS Request arrives into AdGuardHome
 1. Adguard check it with blacklist rules. If domain in blacklist - return 0.0.0.0 and client not able to access domain.
