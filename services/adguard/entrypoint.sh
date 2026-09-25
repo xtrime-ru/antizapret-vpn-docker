@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
-INIT_FILE="/.inited"
-rm -f "$INIT_FILE"
+INIT_FILE="/dev/shm/.inited"
 
 cp -n /root/AdGuardHome.yaml /opt/adguardhome/conf/AdGuardHome.yaml
 
@@ -57,7 +56,7 @@ if [ "$AZ_WORLD_ENABLED" = "1" ]; then
     CONFIG_MD5="$CONFIG_LOCAL $CONFIG_WORLD"
     AZ_WORLD_CLIENT_IDS='["az-world", "'$AZ_WORLD_HOST'"]'
 fi
-echo "$CONFIG_MD5" > /.config_md5
+echo "$CONFIG_MD5" > /dev/shm/.config_md5
 
 function ensure_filter () {
     local filter_url="$1"

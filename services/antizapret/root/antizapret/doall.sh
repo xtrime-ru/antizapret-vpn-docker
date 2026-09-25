@@ -20,7 +20,7 @@ function cached_downloads_available () {
     [ -z "${ASN_WORLD_URL:-}" ] || [ -s config/include-asn-world-dist.txt ] || return 1
 }
 
-LOCAL_OWNER_FILE="/tmp/.doall_owner"
+LOCAL_OWNER_FILE="/dev/shm/.doall_owner"
 RESULT_OWNER_FILE="/root/antizapret/result/.doall_owner"
 LOCAL_OWNER="$(cat "$LOCAL_OWNER_FILE" 2>/dev/null || true)"
 RESULT_OWNER="$(cat "$RESULT_OWNER_FILE" 2>/dev/null || true)"
@@ -31,7 +31,7 @@ if [ -n "$DOALL_DISABLED" ] || { [ -n "$RESULT_OWNER" ] && [ "$LOCAL_OWNER" != "
     exit 0
 fi
 
-lock_file="/tmp/.doall_lock"
+lock_file="/dev/shm/.doall_lock"
 while [ -f "$lock_file" ]; do
   echo "DoAll already running. Waiting..."
   sleep 5

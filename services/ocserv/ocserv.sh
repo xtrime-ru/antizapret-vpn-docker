@@ -3,8 +3,7 @@
 set -Eeuo pipefail
 shopt -s nullglob
 
-FLAG_FILE="/tmp/.ocserv_started"
-rm -f "$FLAG_FILE"
+FLAG_FILE="/dev/shm/.ocserv_started"
 
 # Define default server vars if they are not set
 export OCSERV_DIR="/etc/ocserv"
@@ -107,8 +106,8 @@ fi
 
 routes --vpn &
 
-config_checksum > /.config_md5
-certificate_checksum > /.certificate_state_md5
+config_checksum > /dev/shm/.config_md5
+certificate_checksum > /dev/shm/.certificate_state_md5
 
 # Configure network
 mkdir -p /dev/net
