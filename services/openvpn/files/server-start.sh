@@ -6,10 +6,9 @@ EASY_RSA=/usr/share/easy-rsa
 OPENVPN_DIR=/etc/openvpn
 echo "EasyRSA path: $EASY_RSA OVPN path: $OPENVPN_DIR"
 
-INIT_FILE="/.inited"
-rm -f "$INIT_FILE"
+INIT_FILE="/dev/shm/.inited"
 CONFIG_FILE="/opt/antizapret/result/openvpn-blocked-ranges.txt"
-cat $CONFIG_FILE 2>/dev/null | md5sum | cut -d' ' -f1 > /.config_md5
+cat $CONFIG_FILE 2>/dev/null | md5sum | cut -d' ' -f1 > /dev/shm/.config_md5
 touch $OPENVPN_DIR/openvpn-blocked-ranges.txt
 if [ -f $CONFIG_FILE ]; then
     cp -f $CONFIG_FILE $OPENVPN_DIR/openvpn-blocked-ranges.txt
