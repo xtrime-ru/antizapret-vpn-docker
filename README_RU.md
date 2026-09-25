@@ -901,6 +901,12 @@ docker compose --env-file compose.swarm.env config | docker run --pull always --
 - `OPENVPN_DNS=14.16.0.1` - DNS-адрес для клиентов. Должен быть в `ANTIZAPRET_SUBNET`
 - `OPENVPN_LOCAL_IP_RANGE=10.1.165.0` - подсеть для ovpn-клиентов. Подсеть можно увидеть в журнале adguard или в панели ovpn-ui
 
+### Образы-источники сборки Openvpn
+- По умолчанию используются готовые образы `xtrime/antizapret-vpn-openvpn:latest` и `xtrime/antizapret-vpn-openvpn-ui:latest`.
+- Готовые варианты на базе форков OZON08: `xtrime/antizapret-vpn-openvpn-ozon08:latest` и `xtrime/antizapret-vpn-openvpn-ui-ozon08:latest`.
+- Чтобы использовать OZON08 без локальной сборки, переопределите `image` для обоих сервисов в `docker-compose.override.yml`.
+- Если вы собираете локально, можно переключить базовые исходные образы через build args:
+
 ### Wireguard/Wireguard Amnezia
 - `ROUTES`
 - `WIREGUARD_PASSWORD=` - пароль для админ-панели (используется только во время первичной настройки, пароль можно изменить через веб-интерфейс позже)

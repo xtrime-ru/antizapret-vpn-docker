@@ -1,4 +1,5 @@
-FROM d3vilh/openvpn-server:0.5.5
+ARG OPENVPN_SERVER_IMAGE=d3vilh/openvpn-server:0.5.5
+FROM ${OPENVPN_SERVER_IMAGE}
 
 RUN apk add -U --no-cache ipcalc grep moreutils && apk del openvpn
 

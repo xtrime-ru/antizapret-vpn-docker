@@ -95,6 +95,7 @@ jobs:
           targets: ${{ matrix.target }}
           set: |
             ${{ matrix.set_tags }}
+            ${{ matrix.set_build_args }}
             ${{ matrix.target }}.cache-from=type=gha,scope=${{ matrix.name }}
             ${{ matrix.target }}.cache-to=type=gha,mode=max,scope=${{ matrix.name }}
           push: ${{ env.PUBLISH_IMAGES == 'true' }}
