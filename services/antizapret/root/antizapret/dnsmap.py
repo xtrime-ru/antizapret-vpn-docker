@@ -572,8 +572,7 @@ if __name__ == '__main__':
     import argparse, time, os, sys
     from pathlib import Path
 
-    flag_file_path = '/tmp/.dns_started'
-    Path(flag_file_path).unlink(missing_ok=True)
+    flag_file_path = '/dev/shm/.dns_started'
 
     dns = os.getenv('DNS', '127.0.0.1') + ':53'
 

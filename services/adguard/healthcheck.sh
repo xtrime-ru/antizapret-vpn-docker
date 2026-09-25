@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-INIT_FILE="/.inited"
+INIT_FILE="/dev/shm/.inited"
 [ ! -f "$INIT_FILE" ] && exit 0;
 
 ADGUARDHOME_USERNAME=${ADGUARDHOME_USERNAME:-"admin"}
@@ -28,7 +28,7 @@ if [ "$AZ_WORLD_ENABLED" = "1" ]; then
     NEW_MD5="$CONFIG_LOCAL $CONFIG_WORLD"
     NEW_WORLD=$(resolve 'az-world' '')
 fi
-OLD_MD5=$(cat /.config_md5 2>/dev/null || echo "")
+OLD_MD5=$(cat /dev/shm/.config_md5 2>/dev/null || echo "")
 
 CLIENTS=$(curl -s -X GET "http://127.0.0.1:$ADGUARDHOME_PORT/control/clients" -H "Authorization: Basic $AUTH")
 [[ "$CLIENTS" == 404* ]] && echo 'Adguard not ready' && exit 0;
@@ -50,7 +50,7 @@ if [ "$NEW_MD5" != "$OLD_MD5" ]; then
     fi
 
     curl -fsS "http://127.0.0.1:$ADGUARDHOME_PORT/control/cache_clear" -X 'POST' -H "Authorization: Basic $AUTH"
-    printf '%s\n' "$NEW_MD5" > /.config_md5
+    printf '%s\n' "$NEW_MD5" > /dev/shm/.config_md5
 fi
 
 update_client() {

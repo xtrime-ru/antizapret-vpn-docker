@@ -3,10 +3,6 @@
 set -e
 set -x
 
-# Docker restarts preserve the container filesystem. Remove all previous runtime
-# state, including hidden healthcheck and doall files, while keeping /tmp itself.
-find /tmp -mindepth 1 -delete
-
 # run commands after start
 function postrun () {
     nohup bash -c "$@" &
@@ -52,7 +48,7 @@ for file in ips ips-world asn asn-world; do
 done
 
 DOALL_OWNER_FILE="/root/antizapret/result/.doall_owner"
-DOALL_LOCAL_OWNER_FILE="/tmp/.doall_owner"
+DOALL_LOCAL_OWNER_FILE="/dev/shm/.doall_owner"
 DOALL_OWNER_ID="$(date +%s%N)-$(head -c 8 /dev/urandom | od -An -tx1 | tr -d ' \n')"
 
 function configure_doall_owner () {
@@ -73,7 +69,7 @@ function cleanup_doall_owner () {
     if [ -f "$DOALL_LOCAL_OWNER_FILE" ] && [ "$(cat "$DOALL_OWNER_FILE" 2>/dev/null || true)" = "$(cat "$DOALL_LOCAL_OWNER_FILE" 2>/dev/null || true)" ]; then
         rm -f "$DOALL_OWNER_FILE"
     fi
-    rm -f "$DOALL_LOCAL_OWNER_FILE" /tmp/.doall_lock
+    rm -f "$DOALL_LOCAL_OWNER_FILE" /dev/shm/.doall_lock
 }
 
 function generated_lists_available () {
@@ -86,7 +82,7 @@ function generated_lists_available () {
 configure_doall_owner
 trap cleanup_doall_owner EXIT HUP INT QUIT PIPE TERM
 
-( cat /root/antizapret/result/* /root/antizapret/config/custom/* 2>/dev/null | md5sum ) > /.config_md5
+( cat /root/antizapret/result/* /root/antizapret/config/custom/* 2>/dev/null | md5sum ) > /dev/shm/.config_md5
 
 # Prepare iptables for dnsmap.py
 CHAIN=dnsmap
