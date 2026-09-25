@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 CONFIG_FILES="/opt/antizapret/result/ips*"
-cat $CONFIG_FILES 2>/dev/null | md5sum | cut -d' ' -f1 > /.config_md5
+cat $CONFIG_FILES 2>/dev/null | md5sum | cut -d' ' -f1 > /dev/shm/.config_md5
 
 if [ -z "$WG_HOST" ]; then
     ip="$(timeout 1s curl -4 icanhazip.com || echo '')"
