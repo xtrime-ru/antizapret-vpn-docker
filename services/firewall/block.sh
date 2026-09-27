@@ -10,6 +10,51 @@ HOOK=(-m comment --comment antizapret-firewall -j "$CHAIN")
 SET_V4="az_firewall_v4"
 SET_V6="az_firewall_v6"
 
+# Serialize runs: a manual `block.sh apply` must not interleave with the periodic update.
+exec 9>/run/antizapret-firewall.lock
+flock 9
+
+# Optional exceptions: "interface destination-IP tcp|udp port[,port...]" per line.
+# Matched against the original destination before Docker DNAT (conntrack), so the
+# published address/port is used, not the container's. A match skips the blocklist
+# (RETURN), it does not ACCEPT: later Docker/UFW rules still apply.
+# Prints iptables-restore lines prefixed with 4 or 6; fails on any invalid line.
+exception_rules() {
+    local file="${EXCEPTIONS_FILE:-}"
+    [ -n "$file" ] || return 0
+    awk -v chain="$CHAIN" '
+        function valid_v4(value,    octets, i) {
+            if (value !~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/) return 0
+            split(value, octets, ".")
+            for (i = 1; i <= 4; i++) if ((octets[i] + 0) > 255) return 0
+            return 1
+        }
+        {
+            sub(/#.*/, "")
+            if (NF == 0) next
+            error = ""
+            family = valid_v4($2) ? 4 : ($2 ~ /^[0-9A-Fa-f:.]+$/ && $2 ~ /:/) ? 6 : 0
+            count = split($4, ports, ",")
+            if (NF != 4) error = "expected: interface address tcp|udp ports"
+            else if ($1 !~ /^[A-Za-z0-9_.:-]+$/ || length($1) > 15) error = "invalid interface " $1
+            else if (!family) error = "invalid address " $2 " (single IPv4/IPv6, no CIDR)"
+            else if ($3 != "tcp" && $3 != "udp") error = "invalid protocol " $3
+            else
+                for (i = 1; i <= count; i++)
+                    if (ports[i] !~ /^[0-9]+$/ || ports[i] + 0 < 1 || ports[i] + 0 > 65535) error = "invalid port " ports[i]
+            if (error != "") {
+                printf "%s:%d: %s\n", FILENAME, FNR, error > "/dev/stderr"
+                failed = 1
+                next
+            }
+            for (i = 1; i <= count; i++)
+                printf "%d -A %s -i %s -p %s -m conntrack --ctdir ORIGINAL --ctorigdst %s --ctorigdstport %d -j RETURN\n",
+                    family, chain, $1, $3, $2, ports[i]
+        }
+        END { exit failed }
+    ' "$file"
+}
+
 # Rules created by the previous version directly in DOCKER-USER. It inserted one
 # ESTABLISHED,RELATED ACCEPT per run and removed one per run, so remove one.
 remove_legacy_rules() {
@@ -84,11 +129,12 @@ refresh_set() {
 
 # Replace our chain in one iptables-restore transaction and hook it once.
 install_chain() {
-    local cmd="$1" setname="$2"
+    local cmd="$1" setname="$2" exceptions="$3"
     "${cmd}-restore" --wait 10 --noflush <<EOF
 *filter
 :$CHAIN - [0:0]
 -A $CHAIN -m conntrack --ctstate ESTABLISHED,RELATED -j RETURN
+${exceptions}
 -A $CHAIN -m set --match-set $setname src -j DROP
 COMMIT
 EOF
@@ -101,11 +147,19 @@ if [ "${1:-apply}" = "clear" ]; then
     exit 0
 fi
 
+# An invalid exceptions file stops the update before anything changes.
+if ! exceptions=$(exception_rules); then
+    echo "Invalid EXCEPTIONS_FILE; keeping the current rules" >&2
+    exit 1
+fi
+exceptions_v4=$(sed -n 's/^4 //p' <<< "$exceptions")
+exceptions_v6=$(sed -n 's/^6 //p' <<< "$exceptions")
+
 # Each family is updated independently: a bad list keeps its previous set and
 # makes the run fail (the caller retries), while the other family still updates.
 status=0
 refresh_set "$SET_V4" inet "$V4_FILE" || status=1
 refresh_set "$SET_V6" inet6 "$V6_FILE" || status=1
-if ipset list -n "$SET_V4" >/dev/null 2>&1; then install_chain iptables "$SET_V4"; fi
-if ipset list -n "$SET_V6" >/dev/null 2>&1; then install_chain ip6tables "$SET_V6"; fi
+if ipset list -n "$SET_V4" >/dev/null 2>&1; then install_chain iptables "$SET_V4" "$exceptions_v4"; fi
+if ipset list -n "$SET_V6" >/dev/null 2>&1; then install_chain ip6tables "$SET_V6" "$exceptions_v6"; fi
 exit "$status"

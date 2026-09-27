@@ -929,6 +929,11 @@ docker compose --env-file compose.swarm.env config | docker run --pull always --
 - `EXTRA_ACCOUNTS` - Дополнительные пары логин:пароль. Пример: `login:password;login2:password2`
 - `EXTRA_CONFIG` - Сырые строки конфигурации 3proxy, внедряемые перед директивами proxy/socks (по умолчанию пусто)
 
+### Firewall
+- `INTERVAL=3h` - интервал обновления блоклистов.
+- `V4_URL`, `V6_URL` - блоклисты IPv4/IPv6; источники из этих сетей не могут обращаться к опубликованным портам контейнеров.
+- `EXCEPTIONS_FILE=` - необязательный файл исключений, по одному на строку: `интерфейс IP-назначения tcp|udp порт[,порт...]` (см. `services/firewall/exceptions.example`). Источники из блоклиста смогут обращаться к этим опубликованным адресам/портам, например к SMTP почтового сервера. Адреса и порты — публичные, как до Docker DNAT. Неверный файл останавливает обновление и сохраняет текущие правила. Применить изменения сразу: `docker exec <firewall-container> /root/block.sh`.
+
 ## DNS
 ### Upstream DNS для Adguard
 Обычные клиентские запросы AdGuard отправляет через CoreDNS. Для прямого разрешения, используемого при проверке ASN, entrypoint настраивает клиент `az-resolver` с upstream-серверами Cloudflare, Google и Quad9. Сгенерированная конфигурация хранится в `./config/adguard/conf/AdGuardHome.yaml`; её можно изменить через интерфейс AdGuard Home.
