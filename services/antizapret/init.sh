@@ -69,7 +69,7 @@ function cleanup_doall_owner () {
     if [ -f "$DOALL_LOCAL_OWNER_FILE" ] && [ "$(cat "$DOALL_OWNER_FILE" 2>/dev/null || true)" = "$(cat "$DOALL_LOCAL_OWNER_FILE" 2>/dev/null || true)" ]; then
         rm -f "$DOALL_OWNER_FILE"
     fi
-    rm -f "$DOALL_LOCAL_OWNER_FILE" /dev/shm/.doall_lock
+    rm -f "$DOALL_LOCAL_OWNER_FILE"
 }
 
 function generated_lists_available () {
