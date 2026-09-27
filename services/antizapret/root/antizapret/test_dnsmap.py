@@ -2,6 +2,7 @@
 # docker run --rm -v "$PWD/services/antizapret/root/antizapret:/tests:ro" -w /tests xtrime/antizapret-vpn:6.7.0 python3 -B -m unittest -v test_dnsmap.py
 
 import queue
+import subprocess
 import tempfile
 import threading
 import unittest
@@ -557,6 +558,62 @@ class MappingTests(ResolverTestCase):
 
         self.assertFalse(resolver.add_mapping('192.0.2.1'))
         self.iptables_runner.assert_not_called()
+
+    def test_first_request_returns_while_next_batch_is_blocked(self):
+        resolver = self.make_resolver(mapping_batch_delay=0)
+        entered = [threading.Event(), threading.Event()]
+        release = [threading.Event(), threading.Event()]
+        calls = []
+
+        def run_iptables(*args, **kwargs):
+            index = len(calls)
+            calls.append(args)
+            entered[index].set()
+            if not release[index].wait(3):
+                raise TimeoutError('test did not release batch')
+            return Mock(returncode=0, stderr='')
+
+        resolver.iptables_runner = run_iptables
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            try:
+                first = executor.submit(resolver.add_mapping, '192.0.2.1')
+                self.assertTrue(entered[0].wait(1))
+                second = executor.submit(resolver.add_mapping, '192.0.2.2')
+                with resolver.mapping_condition:
+                    self.assertTrue(resolver.mapping_condition.wait_for(
+                        lambda: '192.0.2.2' in resolver.pending_mappings, 1))
+                release[0].set()
+                self.assertTrue(entered[1].wait(1))
+                self.assertEqual(first.result(timeout=1), '14.16.0.2')
+                self.assertFalse(second.done())
+            finally:
+                for event in release:
+                    event.set()
+            self.assertEqual(second.result(timeout=1), '14.16.0.3')
+
+    def test_worker_errors_release_waiters_and_allow_retry(self):
+        for error in (OSError('failed'),
+                      subprocess.TimeoutExpired('iptables-restore', 10),
+                      RuntimeError('unexpected worker failure')):
+            with self.subTest(error=type(error).__name__):
+                resolver = self.make_resolver()
+                resolver.iptables_runner = Mock(side_effect=error)
+                with ThreadPoolExecutor(max_workers=1) as executor:
+                    future = executor.submit(resolver.add_mapping, '192.0.2.1')
+                    self.assertFalse(future.result(timeout=1))
+                resolver.iptables_runner = Mock(return_value=Mock(returncode=0, stderr=''))
+                self.assertEqual(resolver.add_mapping('192.0.2.1'), '14.16.0.2')
+
+    def test_close_drains_pending_batch_without_batch_delay(self):
+        resolver = self.make_resolver(mapping_batch_delay=60)
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            pending = executor.submit(resolver.add_mapping, '192.0.2.1')
+            with resolver.mapping_condition:
+                self.assertTrue(resolver.mapping_condition.wait_for(
+                    lambda: bool(resolver.pending_mappings), 1))
+            executor.submit(resolver.close).result(timeout=1)
+            self.assertEqual(pending.result(timeout=1), '14.16.0.2')
+        self.assertFalse(resolver.add_mapping('192.0.2.2'))
 
     def test_failed_flush_preserves_old_mappings(self):
         def run_iptables(command, **kwargs):
