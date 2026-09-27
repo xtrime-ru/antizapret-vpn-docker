@@ -117,105 +117,122 @@ type ListRequest struct {
 }
 
 type RegexFilter struct {
-	cmd     *exec.Cmd
-	stdin   io.WriteCloser
-	scanner *bufio.Scanner
-	lock    sync.Mutex
+	cmd         *exec.Cmd
+	stdin       io.WriteCloser
+	reader      *bufio.Reader
+	lock        sync.Mutex
+	patternFile string
 }
 
 var excludeMatcherDist *RegexFilter
 var excludeMatcherCustom *RegexFilter
 var excludeMatchersLock sync.RWMutex
 
-const delim = "__DELIM__"
+const delim = "\x1e" // Reserved record separator; cannot be a list item.
 
-func (rf *RegexFilter) Filter(lines []string) ([]string, error) {
+func (rf *RegexFilter) start() error {
+	// Positive matches report exclusions; the extra pattern always returns
+	// the batch terminator, regardless of the user patterns.
+	rf.cmd = exec.Command("grep", "--line-buffered", "-a", "-E", "-f", rf.patternFile, "-e", "^"+delim+"$")
+	var err error
+	if rf.stdin, err = rf.cmd.StdinPipe(); err != nil {
+		return err
+	}
+	stdout, err := rf.cmd.StdoutPipe()
+	if err != nil {
+		return err
+	}
+	rf.cmd.Stderr = os.Stderr
+	if err := rf.cmd.Start(); err != nil {
+		_ = rf.stdin.Close()
+		_ = stdout.Close()
+		return err
+	}
+	rf.reader = bufio.NewReader(stdout)
+	return nil
+}
+
+func (rf *RegexFilter) Filter(lines []string) (result []string, err error) {
 	rf.lock.Lock()
 	defer rf.lock.Unlock()
-	var result []string
 	for _, line := range lines {
-		if _, err := fmt.Fprintln(rf.stdin, line); err != nil {
-			return result, err
+		if strings.ContainsRune(line, '\n') || line == delim {
+			return nil, errors.New("list item contains a reserved separator")
 		}
 	}
-
-	if _, err := fmt.Fprintln(rf.stdin, delim); err != nil {
-		return result, err
+	if rf.cmd == nil {
+		if err = rf.start(); err != nil {
+			_ = rf.Close()
+			return nil, err
+		}
 	}
-
+	// Drain stdout while writing the batch, so neither pipe can fill and stall.
+	written := make(chan error, 1)
+	go func() {
+		_, err := io.WriteString(rf.stdin, strings.Join(lines, "\n")+"\n"+delim+"\n")
+		written <- err
+	}()
+	defer func() {
+		if err != nil {
+			_ = rf.cmd.Process.Kill()
+		}
+		if writeErr := <-written; err == nil {
+			err = writeErr
+		}
+		if err != nil {
+			_ = rf.Close()
+		}
+	}()
+	excluded := make(map[string]bool)
 	for {
-		if !rf.scanner.Scan() {
-			return result, rf.scanner.Err()
+		line, readErr := rf.reader.ReadString('\n')
+		if readErr != nil {
+			return nil, readErr
 		}
-		text := rf.scanner.Text()
-		if text == delim {
+		line = strings.TrimSuffix(line, "\n")
+		if line == delim {
 			break
 		}
-		result = append(result, text)
+		excluded[line] = true
 	}
-
+	for _, line := range lines {
+		if !excluded[line] {
+			result = append(result, line)
+		}
+	}
 	return result, nil
 }
 
-// Close terminates the subprocess cleanly
+// Close is called under excludeMatchersLock, or after a failed batch.
 func (rf *RegexFilter) Close() error {
+	if rf.cmd != nil && rf.cmd.Process != nil {
+		_ = rf.cmd.Process.Kill()
+		_ = rf.cmd.Wait()
+	}
 	if rf.stdin != nil {
-		//Ensure at least one line is processed by grep to avoid exit code 1
-		rf.Filter([]string{"example.com"})
 		_ = rf.stdin.Close()
-		rf.stdin = nil
 	}
-	if rf.cmd != nil {
-		err := rf.cmd.Wait()
-		rf.cmd = nil
-		return err
-	}
+	rf.cmd = nil
 	return nil
 }
 
 func NewRegexFilter(file string) (*RegexFilter, error) {
-	if out, err := exec.Command("sed", "-i", "s/\\s*$//", file).Output(); err != nil {
-		return nil, fmt.Errorf("Failed to normalize line endings: %v, output: %s", err, string(out))
+	if out, err := exec.Command("sed", "-i", `s/\s*$//; /^$/d`, file).CombinedOutput(); err != nil {
+		return nil, fmt.Errorf("failed to normalize exclude filter: %w: %s", err, out)
 	}
-
-	if out, err := exec.Command("gawk", "-i", "inplace", "NF", file).Output(); err != nil {
-		return nil, fmt.Errorf("Failed to remove empty lines: %v, output: %s", err, string(out))
+	// Validate on reload so an invalid pattern keeps the old filter active.
+	cmd := exec.Command("grep", "-a", "-E", "-f", file, "/dev/null")
+	output, err := cmd.CombinedOutput()
+	var exitErr *exec.ExitError
+	if err != nil && !(errors.As(err, &exitErr) && exitErr.ExitCode() == 1) {
+		return nil, fmt.Errorf("invalid exclude filter %s: %w: %s", file, err, output)
 	}
-
-	cmd := exec.Command(
-		"grep",
-		"--line-buffered",
-		"-v",
-		"-E",
-		"-f",
-		file,
-	)
-
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
+	rf := &RegexFilter{patternFile: file}
+	if err := rf.start(); err != nil {
+		_ = rf.Close()
 		return nil, err
 	}
-
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return nil, err
-	}
-
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Start(); err != nil {
-		return nil, err
-	}
-
-	scanner := bufio.NewScanner(stdout)
-	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024) // allow long lines
-
-	return &RegexFilter{
-		cmd:     cmd,
-		stdin:   stdin,
-		scanner: scanner,
-		lock:    sync.Mutex{},
-	}, nil
+	return rf, nil
 }
 
 var DefaultClient string
@@ -296,11 +313,21 @@ func adaptList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if req.Format != "" && !strings.EqualFold(req.Format, "list") && !strings.EqualFold(req.Format, "json") {
+		http.Error(w, "Unsupported format (use 'json' or 'list')", http.StatusBadRequest)
+		return
+	}
+
 	// Create a flusher to stream output
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		http.Error(w, "Streaming not supported", http.StatusInternalServerError)
 		return
+	}
+
+	abort := func(err error) {
+		log.Printf("[ERROR] list response aborted: %v", err)
+		panic(http.ErrAbortHandler)
 	}
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
@@ -309,40 +336,21 @@ func adaptList(w http.ResponseWriter, r *http.Request) {
 	var buffer []string
 	// Helper to process and write each line
 	processBuffer := func() {
-		filtered := buffer
-		buffer = nil
 		excludeMatchersLock.RLock()
 		defer excludeMatchersLock.RUnlock()
+		filtered := buffer
+		buffer = nil
+		var err error
 		if req.FilterDist {
-			excludeMatchersLock.RLock()
-			if excludeMatcherDist == nil {
-				excludeMatchersLock.RUnlock()
-				log.Println("[ERROR] Exclude filter not initialized: dist")
-				http.Error(w, "Exclude filter not initialized: dist", http.StatusInternalServerError)
-				return
-			}
-			var err error
 			filtered, err = excludeMatcherDist.Filter(filtered)
-			excludeMatchersLock.RUnlock()
 			if err != nil {
-				log.Printf("[ERROR] Dist exclude filter failed: %v", err)
-				return
+				abort(err)
 			}
 		}
 		if req.FilterCustom {
-			excludeMatchersLock.RLock()
-			if excludeMatcherCustom == nil {
-				excludeMatchersLock.RUnlock()
-				log.Println("[ERROR] Exclude filter not initialized: custom")
-				http.Error(w, "Exclude filter not initialized: custom", http.StatusInternalServerError)
-				return
-			}
-			var err error
 			filtered, err = excludeMatcherCustom.Filter(filtered)
-			excludeMatchersLock.RUnlock()
 			if err != nil {
-				log.Printf("[ERROR] Custom exclude filter failed: %v", err)
-				return
+				abort(err)
 			}
 		}
 
@@ -380,7 +388,9 @@ func adaptList(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 
-			fmt.Fprintln(w, out)
+			if _, err := fmt.Fprintln(w, out); err != nil {
+				abort(err)
+			}
 		}
 
 	}
@@ -404,7 +414,7 @@ func adaptList(w http.ResponseWriter, r *http.Request) {
 			processLine(scanner.Text())
 		}
 		if err := scanner.Err(); err != nil {
-			fmt.Fprintf(w, "# Error reading list: %v\n", err)
+			abort(err)
 		}
 	case "json":
 		// Stream JSON array one element at a time
@@ -413,29 +423,27 @@ func adaptList(w http.ResponseWriter, r *http.Request) {
 		// Expect start of array
 		t, err := dec.Token()
 		if err != nil {
-			http.Error(w, fmt.Sprintf("Invalid JSON: %v", err), http.StatusBadRequest)
-			return
+			abort(err)
 		}
 		if delim, ok := t.(json.Delim); !ok || delim != '[' {
-			http.Error(w, "Expected JSON array", http.StatusBadRequest)
-			return
+			abort(errors.New("expected JSON array"))
 		}
 
 		// Decode each element until end of array
 		for dec.More() {
 			var item string
 			if err := dec.Decode(&item); err != nil {
-				http.Error(w, fmt.Sprintf("# Error decoding JSON item: %v\n", err), http.StatusBadRequest)
-				break
+				abort(err)
 			}
 			processLine(item)
 		}
 
 		// Consume closing bracket
-		_, _ = dec.Token()
+		if _, err := dec.Token(); err != nil {
+			abort(err)
+		}
 	default:
-		http.Error(w, "Unsupported format (use 'json' or 'list')", http.StatusBadRequest)
-		return
+		abort(errors.New("unsupported format (use 'json' or 'list')"))
 	}
 	processBuffer()
 	flusher.Flush()
