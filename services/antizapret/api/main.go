@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"compress/gzip"
 	"context"
 	"crypto/md5"
@@ -20,6 +21,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -116,109 +118,172 @@ type ListRequest struct {
 	Regex        bool   `schema:"regex"`         //convert each line from an ERE to an AdGuard regex rule
 }
 
+// RegexFilter holds sanitized exclude patterns (GNU grep ERE, one per line).
+// It is immutable after creation, so concurrent requests need no locking.
+// GNU grep matches hundreds of patterns far faster than Go's regexp: on
+// ~420 patterns and 300k domains, 0.2s against 46s.
 type RegexFilter struct {
-	cmd     *exec.Cmd
-	stdin   io.WriteCloser
-	scanner *bufio.Scanner
-	lock    sync.Mutex
+	patterns []byte // newline-terminated patterns, empty when nothing to filter
+	count    int
 }
 
-var excludeMatcherDist *RegexFilter
-var excludeMatcherCustom *RegexFilter
-var excludeMatchersLock sync.RWMutex
+var excludeMatcherDist atomic.Pointer[RegexFilter]
+var excludeMatcherCustom atomic.Pointer[RegexFilter]
 
-const delim = "__DELIM__"
-
-func (rf *RegexFilter) Filter(lines []string) ([]string, error) {
-	rf.lock.Lock()
-	defer rf.lock.Unlock()
-	var result []string
-	for _, line := range lines {
-		if _, err := fmt.Fprintln(rf.stdin, line); err != nil {
-			return result, err
-		}
-	}
-
-	if _, err := fmt.Fprintln(rf.stdin, delim); err != nil {
-		return result, err
-	}
-
-	for {
-		if !rf.scanner.Scan() {
-			return result, rf.scanner.Err()
-		}
-		text := rf.scanner.Text()
-		if text == delim {
-			break
-		}
-		result = append(result, text)
-	}
-
-	return result, nil
-}
-
-// Close terminates the subprocess cleanly
-func (rf *RegexFilter) Close() error {
-	if rf.stdin != nil {
-		//Ensure at least one line is processed by grep to avoid exit code 1
-		rf.Filter([]string{"example.com"})
-		_ = rf.stdin.Close()
-		rf.stdin = nil
-	}
-	if rf.cmd != nil {
-		err := rf.cmd.Wait()
-		rf.cmd = nil
+// startGrep starts cmd with patterns readable at /dev/fd/3. A pipe keeps the
+// filter in memory: no temporary file can be removed under a running request,
+// and the pattern list has no command-line length limit.
+func startGrep(cmd *exec.Cmd, patterns []byte) error {
+	patternsReader, patternsWriter, err := os.Pipe()
+	if err != nil {
 		return err
 	}
+	cmd.ExtraFiles = []*os.File{patternsReader}
+	err = cmd.Start()
+	_ = patternsReader.Close()
+	if err != nil {
+		_ = patternsWriter.Close()
+		return err
+	}
+	go func() {
+		// grep reads all patterns before its input; an early exit ends the write.
+		_, _ = patternsWriter.Write(patterns)
+		_ = patternsWriter.Close()
+	}()
 	return nil
 }
 
+// grepAccepts reports whether GNU grep -E compiles every pattern.
+func grepAccepts(patterns []byte) (bool, string, error) {
+	cmd := exec.Command("grep", "-E", "-f", "/dev/fd/3", "/dev/null")
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	if err := startGrep(cmd, patterns); err != nil {
+		return false, "", err
+	}
+	err := cmd.Wait()
+	var exitError *exec.ExitError
+	switch {
+	case err == nil:
+		return true, "", nil
+	case errors.As(err, &exitError) && exitError.ExitCode() == 1:
+		return true, "", nil // valid patterns, no match in /dev/null
+	case errors.As(err, &exitError):
+		return false, strings.TrimSpace(stderr.String()), nil
+	default:
+		return false, "", err
+	}
+}
+
+// NewRegexFilter reads one ERE per line. Empty lines and full-line comments
+// are ignored (an empty pattern would match every line). Patterns wrapped in
+// /.../ are unwrapped, as they are for AdGuard. A pattern grep cannot compile
+// is skipped with a warning instead of disabling the whole filter. The source
+// file is never modified.
 func NewRegexFilter(file string) (*RegexFilter, error) {
-	if out, err := exec.Command("sed", "-i", "s/\\s*$//", file).Output(); err != nil {
-		return nil, fmt.Errorf("Failed to normalize line endings: %v, output: %s", err, string(out))
-	}
-
-	if out, err := exec.Command("gawk", "-i", "inplace", "NF", file).Output(); err != nil {
-		return nil, fmt.Errorf("Failed to remove empty lines: %v, output: %s", err, string(out))
-	}
-
-	cmd := exec.Command(
-		"grep",
-		"--line-buffered",
-		"-v",
-		"-E",
-		"-f",
-		file,
-	)
-
-	stdin, err := cmd.StdinPipe()
+	data, err := os.ReadFile(file)
 	if err != nil {
 		return nil, err
 	}
 
-	stdout, err := cmd.StdoutPipe()
+	type pattern struct {
+		line  int
+		value string
+	}
+	var patterns []pattern
+	for number, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		if len(line) > 2 && strings.HasPrefix(line, "/") && strings.HasSuffix(line, "/") {
+			line = line[1 : len(line)-1]
+		}
+		patterns = append(patterns, pattern{number + 1, line})
+	}
+
+	join := func(items []pattern) []byte {
+		var buffer bytes.Buffer
+		for _, item := range items {
+			buffer.WriteString(item.value)
+			buffer.WriteByte('\n')
+		}
+		return buffer.Bytes()
+	}
+
+	all := join(patterns)
+	if len(patterns) == 0 {
+		return &RegexFilter{}, nil
+	}
+	ok, _, err := grepAccepts(all)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("validate %s: %w", file, err)
+	}
+	if ok {
+		return &RegexFilter{patterns: all, count: len(patterns)}, nil
 	}
 
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Start(); err != nil {
-		return nil, err
+	// Rare path: find the offending lines one by one.
+	valid := patterns[:0:0]
+	for _, item := range patterns {
+		ok, message, err := grepAccepts([]byte(item.value + "\n"))
+		if err != nil {
+			return nil, fmt.Errorf("validate %s: %w", file, err)
+		}
+		if !ok {
+			log.Printf("[WARN] %s:%d: skipping invalid pattern %q: %s", file, item.line, item.value, message)
+			continue
+		}
+		valid = append(valid, item)
 	}
-
-	scanner := bufio.NewScanner(stdout)
-	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024) // allow long lines
-
-	return &RegexFilter{
-		cmd:     cmd,
-		stdin:   stdin,
-		scanner: scanner,
-		lock:    sync.Mutex{},
-	}, nil
+	return &RegexFilter{patterns: join(valid), count: len(valid)}, nil
 }
 
 var DefaultClient string
+
+// formatRule converts one list line into an AdGuard rule for the request.
+func formatRule(req *ListRequest, line string) string {
+	out := strings.TrimSpace(line)
+	if req.Raw || out == "" || strings.HasPrefix(out, "!") || strings.HasPrefix(out, "#") {
+		return out
+	}
+	if req.Regex && !(strings.HasPrefix(out, "/") && strings.HasSuffix(out, "/")) {
+		out = "/" + strings.ReplaceAll(out, "/", `\/`) + "/"
+	} else if !req.Regex && !strings.HasPrefix(out, "/") {
+		out = "||" + out + "^"
+	}
+	if req.Allow {
+		out = "@@" + out
+	}
+	if req.Suffix {
+		suffix := ""
+
+		if len(req.DnsRewrite) > 0 {
+			if strings.HasPrefix(out, "@@") {
+				suffix = "$dnsrewrite"
+			} else {
+				suffix = fmt.Sprintf("$dnsrewrite=%s", req.DnsRewrite)
+			}
+		}
+
+		if len(req.Client) > 0 {
+			if len(suffix) > 0 {
+				suffix += ","
+			}
+			suffix += fmt.Sprintf("client=%s", req.Client)
+		}
+		out += suffix
+	}
+	return out
+}
+
+// abortResponse drops the connection after the 200 status was sent. The
+// client sees an incomplete download (AdGuard keeps its cached filter)
+// instead of a truncated list that looks complete.
+func abortResponse(format string, args ...any) {
+	log.Printf("[ERROR] "+format+"; aborting response", args...)
+	panic(http.ErrAbortHandler)
+}
 
 func adaptList(w http.ResponseWriter, r *http.Request) {
 	req := ListRequest{
@@ -303,114 +368,26 @@ func adaptList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
-
-	var buffer []string
-	// Helper to process and write each line
-	processBuffer := func() {
-		filtered := buffer
-		buffer = nil
-		excludeMatchersLock.RLock()
-		defer excludeMatchersLock.RUnlock()
-		if req.FilterDist {
-			excludeMatchersLock.RLock()
-			if excludeMatcherDist == nil {
-				excludeMatchersLock.RUnlock()
-				log.Println("[ERROR] Exclude filter not initialized: dist")
-				http.Error(w, "Exclude filter not initialized: dist", http.StatusInternalServerError)
-				return
-			}
-			var err error
-			filtered, err = excludeMatcherDist.Filter(filtered)
-			excludeMatchersLock.RUnlock()
-			if err != nil {
-				log.Printf("[ERROR] Dist exclude filter failed: %v", err)
-				return
-			}
-		}
-		if req.FilterCustom {
-			excludeMatchersLock.RLock()
-			if excludeMatcherCustom == nil {
-				excludeMatchersLock.RUnlock()
-				log.Println("[ERROR] Exclude filter not initialized: custom")
-				http.Error(w, "Exclude filter not initialized: custom", http.StatusInternalServerError)
-				return
-			}
-			var err error
-			filtered, err = excludeMatcherCustom.Filter(filtered)
-			excludeMatchersLock.RUnlock()
-			if err != nil {
-				log.Printf("[ERROR] Custom exclude filter failed: %v", err)
-				return
-			}
-		}
-
-		for _, line := range filtered {
-			out := strings.TrimSpace(line)
-			if req.Raw || out == "" || strings.HasPrefix(out, "!") || strings.HasPrefix(out, "#") {
-				//
-			} else {
-				if req.Regex && !(strings.HasPrefix(out, "/") && strings.HasSuffix(out, "/")) {
-					out = "/" + strings.ReplaceAll(out, "/", `\/`) + "/"
-				} else if !req.Regex && !strings.HasPrefix(out, "/") {
-					out = "||" + out + "^"
-				}
-				if req.Allow {
-					out = "@@" + out
-				}
-				if req.Suffix {
-					suffix := ""
-
-					if len(req.DnsRewrite) > 0 {
-						if strings.HasPrefix(out, "@@") {
-							suffix = "$dnsrewrite"
-						} else {
-							suffix = fmt.Sprintf("$dnsrewrite=%s", req.DnsRewrite)
-						}
-					}
-
-					if len(req.Client) > 0 {
-						if len(suffix) > 0 {
-							suffix += ","
-						}
-						suffix += fmt.Sprintf("client=%s", req.Client)
-					}
-					out += suffix
-				}
-			}
-
-			fmt.Fprintln(w, out)
-		}
-
-	}
-
-	processLine := func(line string) {
-		buffer = append(buffer, line)
-		if len(buffer) > 1000 {
-			processBuffer()
-		}
-	}
-
+	// produce streams the source lines; errors after the status was sent abort the response.
+	var produce func(yield func(string) error) error
 	if req.Format == "" {
 		req.Format = "list"
 	}
-	// Handle format types
 	switch strings.ToLower(req.Format) {
 	case "list":
-		// Stream line-by-line
-		scanner := bufio.NewScanner(reader)
-		for scanner.Scan() {
-			processLine(scanner.Text())
-		}
-		if err := scanner.Err(); err != nil {
-			fmt.Fprintf(w, "# Error reading list: %v\n", err)
+		produce = func(yield func(string) error) error {
+			scanner := bufio.NewScanner(reader)
+			for scanner.Scan() {
+				if err := yield(scanner.Text()); err != nil {
+					return err
+				}
+			}
+			return scanner.Err()
 		}
 	case "json":
-		// Stream JSON array one element at a time
+		// Stream JSON array one element at a time; the opening bracket is
+		// checked before the status is sent.
 		dec := json.NewDecoder(reader)
-
-		// Expect start of array
 		t, err := dec.Token()
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Invalid JSON: %v", err), http.StatusBadRequest)
@@ -420,57 +397,150 @@ func adaptList(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Expected JSON array", http.StatusBadRequest)
 			return
 		}
-
-		// Decode each element until end of array
-		for dec.More() {
-			var item string
-			if err := dec.Decode(&item); err != nil {
-				http.Error(w, fmt.Sprintf("# Error decoding JSON item: %v\n", err), http.StatusBadRequest)
-				break
+		produce = func(yield func(string) error) error {
+			for dec.More() {
+				var item string
+				if err := dec.Decode(&item); err != nil {
+					return fmt.Errorf("decoding JSON item: %w", err)
+				}
+				if err := yield(item); err != nil {
+					return err
+				}
 			}
-			processLine(item)
+			_, err := dec.Token() // closing bracket
+			return err
 		}
-
-		// Consume closing bracket
-		_, _ = dec.Token()
 	default:
 		http.Error(w, "Unsupported format (use 'json' or 'list')", http.StatusBadRequest)
 		return
 	}
-	processBuffer()
+
+	// Take one snapshot of the filters before the status is sent, so a
+	// missing filter is reported as an error and never as a partial list.
+	var patterns []byte
+	if req.FilterDist {
+		distFilter := excludeMatcherDist.Load()
+		if distFilter == nil {
+			log.Println("[ERROR] Exclude filter not initialized: dist")
+			http.Error(w, "Exclude filter not initialized: dist", http.StatusServiceUnavailable)
+			return
+		}
+		patterns = append(patterns, distFilter.patterns...)
+	}
+	if req.FilterCustom {
+		customFilter := excludeMatcherCustom.Load()
+		if customFilter == nil {
+			log.Println("[ERROR] Exclude filter not initialized: custom")
+			http.Error(w, "Exclude filter not initialized: custom", http.StatusServiceUnavailable)
+			return
+		}
+		patterns = append(patterns, customFilter.patterns...)
+	}
+
+	writeRule := func(line string) error {
+		_, err := fmt.Fprintln(w, formatRule(&req, line))
+		return err
+	}
+
+	if len(patterns) == 0 {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		if err := produce(writeRule); err != nil {
+			abortResponse("list %s: %v", r.URL.RawQuery, err)
+		}
+		flusher.Flush()
+		return
+	}
+
+	// One grep per request for both filters: the process ends with the
+	// request, so there is no delimiter protocol and no shared state.
+	// -a keeps lines with invalid UTF-8 as text instead of "binary file matches".
+	cmd := exec.CommandContext(r.Context(), "grep", "-a", "-v", "-E", "-f", "/dev/fd/3")
+	cmd.Stderr = os.Stderr
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to start exclude filter: %v", err), http.StatusInternalServerError)
+		return
+	}
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to start exclude filter: %v", err), http.StatusInternalServerError)
+		return
+	}
+	if err := startGrep(cmd, patterns); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to start exclude filter: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	produced := make(chan error, 1)
+	go func() {
+		input := bufio.NewWriter(stdin)
+		err := produce(func(line string) error {
+			if _, err := input.WriteString(line); err != nil {
+				return err
+			}
+			return input.WriteByte('\n')
+		})
+		if flushErr := input.Flush(); err == nil {
+			err = flushErr
+		}
+		_ = stdin.Close()
+		produced <- err
+	}()
+
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+
+	scanner := bufio.NewScanner(stdout)
+	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024) // allow long lines
+	var writeErr error
+	for scanner.Scan() {
+		if writeErr = writeRule(scanner.Text()); writeErr != nil {
+			break
+		}
+	}
+	scanErr := scanner.Err()
+	if writeErr != nil || scanErr != nil {
+		// Unblock the producer and grep before waiting for them.
+		_ = cmd.Process.Kill()
+	}
+	produceErr := <-produced
+	waitErr := cmd.Wait()
+	var exitError *exec.ExitError
+	if errors.As(waitErr, &exitError) && exitError.ExitCode() == 1 {
+		waitErr = nil // grep -v selected no lines: everything was excluded
+	}
+
+	switch {
+	case writeErr != nil:
+		abortResponse("writing list %s: %v", r.URL.RawQuery, writeErr)
+	case produceErr != nil:
+		abortResponse("reading list %s: %v", r.URL.RawQuery, produceErr)
+	case scanErr != nil:
+		abortResponse("reading exclude filter output for %s: %v", r.URL.RawQuery, scanErr)
+	case waitErr != nil:
+		abortResponse("exclude filter for %s: %v", r.URL.RawQuery, waitErr)
+	}
 	flusher.Flush()
 }
 
+var excludeDistPath = "/root/antizapret/config/exclude-hosts-dist.txt"
+var excludeCustomPath = "/root/antizapret/config/custom/exclude-hosts-custom.txt"
+
+// updateRegexFilter swaps both filters only after both compiled successfully;
+// on error the previous filters stay active.
 func updateRegexFilter() error {
-	excludeMatchersLock.Lock()
-	defer excludeMatchersLock.Unlock()
-
-	newDist, err := NewRegexFilter(
-		"/root/antizapret/config/exclude-hosts-dist.txt",
-	)
+	newDist, err := NewRegexFilter(excludeDistPath)
 	if err != nil {
 		return err
 	}
-
-	newCustom, err := NewRegexFilter(
-		"/root/antizapret/config/custom/exclude-hosts-custom.txt",
-	)
+	newCustom, err := NewRegexFilter(excludeCustomPath)
 	if err != nil {
-		_ = newDist.Close()
 		return err
 	}
-
-	oldDist := excludeMatcherDist
-	oldCustom := excludeMatcherCustom
-	excludeMatcherDist = newDist
-	excludeMatcherCustom = newCustom
-
-	if oldDist != nil {
-		_ = oldDist.Close()
-	}
-	if oldCustom != nil {
-		_ = oldCustom.Close()
-	}
+	excludeMatcherDist.Store(newDist)
+	excludeMatcherCustom.Store(newCustom)
+	log.Printf("Exclude filters loaded: dist=%d custom=%d patterns", newDist.count, newCustom.count)
 	return nil
 }
 
@@ -595,16 +665,7 @@ func main() {
 	err := updateRegexFilter()
 	if err != nil {
 		log.Fatalf("Failed to initialize regex filters: %v", err)
-		panic(err)
 	}
-	defer func() {
-		if excludeMatcherDist != nil {
-			excludeMatcherDist.Close()
-		}
-		if excludeMatcherCustom != nil {
-			excludeMatcherCustom.Close()
-		}
-	}()
 	// Create a mux so we can wrap all handlers with logging
 	r := http.NewServeMux()
 
