@@ -31,16 +31,16 @@ if [ -n "$DOALL_DISABLED" ] || { [ -n "$RESULT_OWNER" ] && [ "$LOCAL_OWNER" != "
     exit 0
 fi
 
-lock_file="/dev/shm/.doall_lock"
-while [ -f "$lock_file" ]; do
-  echo "DoAll already running. Waiting..."
-  sleep 5
-done
-
-touch "$lock_file"
-
-trap 'trap - EXIT; rm -f $lock_file' \
-    EXIT HUP INT QUIT PIPE TERM
+# Lock the open file, not its existence: the kernel releases the lock when the
+# holder dies, even by SIGKILL (timeout --kill-after), and there is no race
+# between checking and creating the file. Never unlink it: waiters must all
+# refer to the same inode. Children inherit fd 9, so a killed doall cannot let
+# another refresh start while its download/parse child is still running.
+exec 9>/dev/shm/.doall_lock
+if ! flock -n 9; then
+    echo "DoAll already running. Waiting..."
+    flock 9
+fi
 
 download_failed=false
 echo "run download.sh" && ./download.sh || download_failed=true
