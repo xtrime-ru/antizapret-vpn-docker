@@ -167,3 +167,7 @@ cdn.confiant-integrations.net
 #dev
 externals.io
 proxy.market
+
+#Finance
+bakai.kg
+bakai.app
