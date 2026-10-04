@@ -10,7 +10,7 @@ OPENVPN_LOCAL_IP_RANGE='${OPENVPN_LOCAL_IP_RANGE:-"10.1.165.0"}'
 OPENVPN_DNS='${OPENVPN_DNS:-"14.16.0.1"}'
 AZ_SUBNET=${AZ_SUBNET:-"14.16.0.0/14"}
 DOCKER_SUBNET=${DOCKER_SUBNET}
-NIC='$(ip -4 route ls | grep default | grep -Po '(?<=dev )(\S+)' | head -1)'
+NIC='$(ip -4 route | grep default | grep -Po '(?<=dev )(\S+)' | head -1)'
 OVDIR='${OVDIR:-"/etc/openvpn"}'
 EOF
 source /etc/environment
