@@ -20,7 +20,12 @@ while [ "$running" = true ]; do
 
 
     if [ "$FAILED" = false ] || [ "$first_run" = true ]; then
-      ./block.sh
+      # A failed update keeps the rules already in place; retry soon instead of
+      # exiting, which would run the EXIT trap and remove the protection.
+      if ! ./block.sh; then
+        echo 'Firewall update failed; keeping current rules'
+        FAILED=true
+      fi
     fi
 
     first_run=false
