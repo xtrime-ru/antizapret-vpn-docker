@@ -76,7 +76,7 @@
     {
       "name": "ocserv",
       "repository": "antizapret-vpn-ocserv",
-      "version": "6.7.0",
+      "version": "6.9.1",
       "source": "services/ocserv",
       "compose": "compose.yml",
       "target": "ocserv",
@@ -85,7 +85,7 @@
     {
       "name": "openvpn",
       "repository": "antizapret-vpn-openvpn",
-      "version": "6.7.2",
+      "version": "6.9.1",
       "source": "services/openvpn",
       "compose": "docker-compose.yml",
       "target": "openvpn",
@@ -112,7 +112,7 @@
     {
       "name": "wireguard",
       "repository": "antizapret-vpn-wireguard",
-      "version": "6.7.2",
+      "version": "6.9.1",
       "source": "services/wireguard",
       "compose": "docker-compose.base.yml",
       "target": "base",

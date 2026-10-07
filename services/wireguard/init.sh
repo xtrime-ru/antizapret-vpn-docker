@@ -87,7 +87,11 @@ fi
 unset PASSWORD
 unset PASSWORD_HASH
 
+# Clamp forwarded TCP MSS while the WireGuard/AmneziaWG interface is up.
 CUSTOM_POST_UP=$(tr '\n' ' ' << EOF
+if ! iptables -t mangle -C FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu; then
+    iptables -t mangle -I FORWARD 1 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu;
+fi;
 iptables -t nat -N masq_not_local;
 iptables -t nat -A POSTROUTING -s ${WG_IPV4_CIDR} -j masq_not_local;
 iptables -t nat -A masq_not_local -d ${DOCKER_SUBNET} -p tcp --dport 53 -j RETURN;
@@ -101,6 +105,9 @@ EOF
 )
 
 CUSTOM_POST_DOWN=$(tr '\n' ' ' << EOF
+if iptables -t mangle -C FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu; then
+    iptables -t mangle -D FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu;
+fi;
 iptables -t nat -D POSTROUTING -s ${WG_IPV4_CIDR} -j masq_not_local;
 iptables -t nat -F masq_not_local;
 iptables -t nat -X masq_not_local;
