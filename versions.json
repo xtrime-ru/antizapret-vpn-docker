@@ -3,7 +3,7 @@
     {
       "name": "adguard",
       "repository": "antizapret-vpn-adguard",
-      "version": "6.7.5",
+      "version": "6.9.0",
       "source": "services/adguard",
       "compose": "docker-compose.yml",
       "target": "adguard",
@@ -13,7 +13,7 @@
       "name": "antizapret",
       "repository": "antizapret-vpn",
       "ghcr_repository": "antizapret-vpn-docker",
-      "version": "6.7.8",
+      "version": "6.9.4",
       "source": "services/antizapret",
       "compose": "docker-compose.yml",
       "target": "antizapret",
@@ -22,7 +22,7 @@
     {
       "name": "cloak",
       "repository": "antizapret-vpn-cloak",
-      "version": "5.0.1",
+      "version": "5.0.0",
       "source": "services/cloak",
       "compose": "docker-compose.yml",
       "target": "cloak",
@@ -31,7 +31,7 @@
     {
       "name": "coredns",
       "repository": "antizapret-vpn-coredns",
-      "version": "6.6.5",
+      "version": "6.6.4",
       "source": "services/coredns",
       "compose": "docker-compose.yml",
       "target": "coredns",
@@ -40,7 +40,7 @@
     {
       "name": "dashboard",
       "repository": "antizapret-vpn-dashboard",
-      "version": "5.0.1",
+      "version": "5.0.0",
       "source": "services/dashboard",
       "compose": "docker-compose.yml",
       "target": "dashboard",
@@ -49,7 +49,7 @@
     {
       "name": "filebrowser",
       "repository": "antizapret-vpn-filebrowser",
-      "version": "5.3.2",
+      "version": "5.3.1",
       "source": "services/filebrowser",
       "compose": "docker-compose.yml",
       "target": "filebrowser",
@@ -58,7 +58,7 @@
     {
       "name": "firewall",
       "repository": "antizapret-vpn-firewall",
-      "version": "6.4.1",
+      "version": "6.9.0",
       "source": "services/firewall",
       "compose": "docker-compose.yml",
       "target": "firewall",
@@ -67,7 +67,7 @@
     {
       "name": "https",
       "repository": "antizapret-vpn-https",
-      "version": "6.6.5",
+      "version": "6.7.9",
       "source": "services/https",
       "compose": "docker-compose.yml",
       "target": "https",
@@ -94,7 +94,7 @@
     {
       "name": "openvpn-ui",
       "repository": "antizapret-vpn-openvpn-ui",
-      "version": "6.5.3",
+      "version": "6.5.2",
       "source": "services/openvpn",
       "compose": "docker-compose.yml",
       "target": "openvpn-ui",
@@ -103,7 +103,7 @@
     {
       "name": "proxy",
       "repository": "antizapret-vpn-proxy",
-      "version": "6.7.2",
+      "version": "6.7.5",
       "source": "services/proxy",
       "compose": "compose.yml",
       "target": "proxy",
