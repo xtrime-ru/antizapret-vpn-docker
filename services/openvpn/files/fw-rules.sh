@@ -16,6 +16,11 @@ EOF
 source /etc/environment
 ln -sf /etc/environment /etc/profile.d/environment.sh
 
+# Keep forwarded TCP segments within the route MTU, including the VPN tunnel.
+if ! iptables -t mangle -C FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu; then
+    iptables -t mangle -I FORWARD 1 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
+fi
+
 iptables -t nat -N masq_not_local;
 iptables -t nat -A POSTROUTING -s ${OPENVPN_LOCAL_IP_RANGE}/24 -j masq_not_local;
 iptables -t nat -A masq_not_local -d ${DOCKER_SUBNET} -p tcp --dport 53 -j RETURN;

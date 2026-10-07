@@ -110,6 +110,11 @@ config_checksum > /dev/shm/.config_md5
 certificate_checksum > /dev/shm/.certificate_state_md5
 
 # Configure network
+# Keep forwarded TCP segments within the route MTU, including the VPN tunnel.
+if ! iptables -t mangle -C FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu; then
+    iptables -t mangle -I FORWARD 1 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
+fi
+
 mkdir -p /dev/net
 if [ ! -c /dev/net/tun ]; then
     mknod /dev/net/tun c 10 200

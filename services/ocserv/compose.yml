@@ -2,7 +2,7 @@ services:
   ocserv:
     init: true
     restart: unless-stopped
-    image: xtrime/antizapret-vpn-ocserv:6.9.0
+    image: xtrime/antizapret-vpn-ocserv:6.9.1
     hostname: ocserv.antizapret
     build:
       context: .
