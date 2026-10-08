@@ -24,37 +24,68 @@ This repo is based on idea from original [AntiZapret LXD image](https://bitbucke
     - [Upgrade from v5](#upgrade-from-v5)
   - [Reset](#reset)
 - [Documentation](#documentation)
-  - [FAQ (Frequently Asked Questions)](#faq-frequently-asked-questions)-
+  - [FAQ (Frequently Asked Questions)](#faq-frequently-asked-questions)
   - [DNS resolving algorithm](#dns-resolving-algorithm)
+    - [Docker Swarm](#docker-swarm)
+    - [Single node (Docker Compose)](#single-node-docker-compose)
+    - [Inside an exit node: domains and ASN](#inside-an-exit-node-domains-and-asn)
+    - [CNAME resolution and direct exceptions](#cname-resolution-and-direct-exceptions)
+    - [Reading the query log](#reading-the-query-log)
+  - [Routing rules: include, exclude and ASN](#routing-rules-include-exclude-and-asn)
+    - [Custom rule files](#custom-rule-files)
+    - [Including domains](#including-domains)
+    - [Excluding domains](#excluding-domains)
+    - [Adding ASNs](#adding-asns)
+    - [Adding IPs/Subnets](#adding-ipssubnets)
+    - [Direct DNS resolution for domains on VPN-listed CDN networks](#direct-dns-resolution-for-domains-on-vpn-listed-cdn-networks)
+    - [Updating and checking rules](#updating-and-checking-rules)
   - [Adding Domains](#adding-domains)
     - [Adding Domains via rules](#adding-domains-via-rules)
     - [Adding Domains via lists](#adding-domains-via-lists)
+    - [List adapter options](#list-adapter-options)
     - [Routing a website through VPN for a specific client](#routing-a-website-through-vpn-for-a-specific-client)
-  - [Adding IPs/Subnets](#adding-ipssubnets)
   - [SOCKS5 and HTTP(S) Proxy (per-application routing)](#socks5-and-https-proxy-per-application-routing)
     - [How it works](#how-it-works-1)
     - [How to disable HTTPS access from the internet](#how-to-disable-https-access-from-the-internet)
     - [When to use proxy instead of DNS-based routing](#when-to-use-proxy-instead-of-dns-based-routing)
     - [Configuration](#configuration)
     - [Client setup](#client-setup)
-    - [Example use cases](#example-use-cases)
-  - [HTTP(S) Proxy](#https-proxy)
-  - [Using zapret2](#zapret2)
+  - [zapret2](#zapret2)
     - [Changing configuration](#changing-configuration)
     - [Strategy selection](#strategy-selection)
   - [Cloudflare WARP](#cloudflare-warp)
+    - [Docker Swarm](#docker-swarm-1)
   - [Environment Variables](#environment-variables)
+    - [Antizapret](#antizapret)
+    - [Adguard](#adguard)
+    - [CoreDNS](#coredns)
+    - [Filebrowser](#filebrowser)
+    - [Https](#https-1)
+    - [OpenConnect (ocserv)](#openconnect-ocserv)
+    - [Openvpn](#openvpn)
+    - [Openvpn-ui](#openvpn-ui)
+    - [Wireguard/Wireguard Amnezia](#wireguardwireguard-amnezia)
+    - [SOCKS5 Proxy (deprecated, use proxy below)](#socks5-proxy-deprecated-use-proxy-below)
+    - [Proxy (http + socks5)](#proxy-http--socks5)
   - [DNS](#dns)
     - [Adguard Upstream DNS](#adguard-upstream-dns)
     - [CDN + ECS](#cdn--ecs)
-  - [OpenConnect (ocserv)](#openconnect-ocserv)
-  - [OpenVPN](#openvpn)
+  - [OpenConnect (ocserv)](#openconnect-ocserv-1)
+    - [User management](#user-management)
+    - [Client setup](#client-setup-1)
+  - [OpenVPN](#openvpn-1)
     - [Create client certificates](#create-client-certificates)
     - [Enable OpenVPN Data Channel Offload (DCO)](#enable-openvpn-data-channel-offload-dco)
+      - [Ubuntu 26.04/24.04/22.04/20.04](#ubuntu-2604240422042004)
     - [Legacy clients support](#legacy-clients-support)
   - [Amnezia Wireguard](#amnezia-wireguard)
     - [Enable Amnezia Wireguard Kernel Extension](#enable-amnezia-wireguard-kernel-extension)
+      - [Ubuntu 26.04](#ubuntu-2604)
+      - [Ubuntu 24.04](#ubuntu-2404)
+      - [Ubuntu 20.04, 22.04](#ubuntu-2004-2204)
     - [AmneziaWG Parameters](#amneziawg-parameters)
+      - [Parameter Compatibility Table](#parameter-compatibility-table)
+      - [Notes](#notes)
     - [Amnezia Wireguard Block Size](#amnezia-wireguard-block-size)
   - [Extra information](#extra-information)
   - [Test speed with iperf3](#test-speed-with-iperf3)
@@ -77,15 +108,12 @@ https://t.me/antizapret_support
 
 # How it works?
 
-1) List of blocked domains downloaded from open registry.
-2) List parsed and rules for dns resolver (adguardhome) created.
-3) Adguardhome resend requests for blocked domains to python script dnsmap.py.
-4) Python script:
-   a) resolve real address for domain
-   b) create fake address from 14.16.0.0/14 subnet
-   c) create iptables rule to forward all packets from fake ip to real ip.
-5) Fake IP is sent in DNS response to client
-6) VPN tunnels configured with split tunneling. Only traffic to 14.16.0.0/14 subnet is routed through VPN.
+1. AdGuard Home applies its DNS filters and forwards ordinary queries to CoreDNS. Domain-specific upstreams can resolve selected domains directly.
+2. CoreDNS tries the VPN exit nodes in order: `az-world` → `az-local` in Swarm, or only `az-local` in single-server Compose.
+3. Each exit node asks AdGuard using its ClientID. A matching domain rule enables VPN routing; otherwise, `dnsmap` resolves through `az-resolver` and checks the returned IPv4 addresses against ASN and organization rules.
+4. For a match, `dnsmap` allocates virtual IPv4 addresses and creates iptables DNAT mappings to the real addresses. The default pools are `14.16.0.0/15` for the local exit and `14.18.0.0/15` for the world exit.
+5. CoreDNS returns virtual addresses for VPN-routed domains or falls back to an ordinary DNS answer when no exit node matches. `finalize force_resolve` also checks CNAME targets through the same routing chain.
+6. VPN clients route virtual addresses through the tunnel. Explicit IP/CIDR lists can also add routes for real addresses. See [Routing rules: include, exclude and ASN](#routing-rules-include-exclude-and-asn).
 
 
 # Installation
@@ -376,7 +404,7 @@ git restore config
       
       First, check if your VPN connection has issues with default MTU.  
       - MacOs: `ping -D -s 1100 youtube.com`
-      - Linux: `ping -M -s 1100 youtube.com`
+      - Linux: `ping -M do -s 1100 youtube.com`
       - Windows: `ping youtube.com -f -l 1100`
 
       For old setups you need manually reduce MTU in settings:
@@ -408,150 +436,257 @@ git restore config
    2. Check if browser dont use DoH/Secure DNS.
    3. Check DIST filters have loaded and have non 0 rule counters: http://adguard.antizapret:3000/#filters
    4. Check DNS resolution steps: http://adguard.antizapret:3000/#logs?response_status=all&search=youtube.com
-      Each domain resolved via 2–4 DNS requests.
+      The number of requests depends on domain rules, ASN fallback, CNAME chains and caching.
       See: [DNS resolving algorithm](#dns-resolving-algorithm)
 
 ## DNS resolving algorithm
 
+The diagrams show IPv4 (`A`) queries. AdGuard's default configuration disables AAAA responses; `dnsmap` also returns empty responses for `AAAA` and `HTTPS` queries. AdGuard uses the ClientIDs `az-local`, `az-world` and `az-resolver` to apply different rules and upstreams to internal requests.
+
 ### Docker Swarm
 
 ```mermaid
-%%{init: {"theme":"base","htmlLabels":false,"flowchart":{"htmlLabels":false},"themeVariables":{"primaryTextColor":"#f8fafc","lineColor":"#94a3b8","textColor":"#e2e8f0","edgeLabelBackground":"#0f172a"},"themeCSS":".cluster-label text { fill: #f8fafc !important; } .cluster rect { rx: 18px; ry: 18px; } .node rect { rx: 10px; ry: 10px; }"}}%%
 flowchart TB
-    subgraph canvas["SWARM  /  DNS RESOLUTION"]
-        direction TB
-        client([VPN client]) -->|DNS query| adguard[AdGuard Home]
-        adguard -->|Blocked| deny[0.0.0.0]
-        adguard -->|Continue| core[CoreDNS]
-        core --> world[az-world<br/>dnsmap.py]
-        world -->|Match| mapped[Virtual IP<br/>DNAT rule]
-        world -->|SERVFAIL| local[az-local<br/>dnsmap.py]
-        local -->|Match| mapped
-        local -->|SERVFAIL| retry[AdGuard Home<br/>direct retry]
-        retry --> normal[Regular DNS answer]
-    end
-    style canvas fill:#0b1220,stroke:#334155,stroke-width:2px,color:#f8fafc
-    classDef client fill:#2563eb,stroke:#93c5fd,stroke-width:2px,color:#ffffff
-    classDef service fill:#1e293b,stroke:#64748b,stroke-width:1.5px,color:#f8fafc
-    classDef exit fill:#312e81,stroke:#a5b4fc,stroke-width:1.5px,color:#ffffff
-    classDef mapped fill:#115e59,stroke:#5eead4,stroke-width:2px,color:#ffffff
-    classDef blocked fill:#7f1d1d,stroke:#fca5a5,stroke-width:2px,color:#ffffff
-    class client client
-    class adguard,core,retry,normal service
-    class world,local exit
-    class mapped mapped
-    class deny blocked
+    client["VPN client"] -->|DNS query| adguard["AdGuard Home"]
+    adguard -->|Blocked| deny["Blocking response"]
+    adguard -->|Domain-specific upstream| external["External DNS"]
+    adguard --> core["CoreDNS"]
+    core --> world
+    world["az-world: dnsmap<br/>domains / ASN"]
+    world -->|Domain or ASN| worldip["14.18.0.0/15<br/>DNAT"]
+    world -->|SERVFAIL| local
+    local["az-local: dnsmap<br/>domains / ASN"]
+    local -->|Domain or ASN| localip["14.16.0.0/15<br/>DNAT"]
+    local -->|SERVFAIL| retry["AdGuard: client=coredns"]
+    retry -->|Ordinary upstream| external
+    classDef service fill:#1e293b,stroke:#64748b,color:#f8fafc
+    classDef exit fill:#312e81,stroke:#a5b4fc,color:#ffffff
+    classDef mapped fill:#115e59,stroke:#5eead4,color:#ffffff
+    class adguard,core,retry,external service
+    class local,world exit
+    class localip,worldip mapped
 ```
 
 ### Single node (Docker Compose)
 
 ```mermaid
-%%{init: {"theme":"base","htmlLabels":false,"flowchart":{"htmlLabels":false},"themeVariables":{"primaryTextColor":"#f8fafc","lineColor":"#94a3b8","textColor":"#e2e8f0","edgeLabelBackground":"#0f172a"},"themeCSS":".cluster-label text { fill: #f8fafc !important; } .cluster rect { rx: 18px; ry: 18px; } .node rect { rx: 10px; ry: 10px; }"}}%%
 flowchart TB
-    subgraph canvas["SINGLE NODE  /  DNS RESOLUTION"]
-        direction TB
-        client([VPN client]) -->|DNS query| adguard[AdGuard Home]
-        adguard -->|Blocked| deny[0.0.0.0]
-        adguard -->|Continue| core[CoreDNS]
-        core --> local[az-local<br/>dnsmap.py]
-        local -->|Match| mapped[Virtual IP<br/>DNAT rule]
-        local -->|SERVFAIL| retry[AdGuard Home<br/>direct retry]
-        retry --> normal[Regular DNS answer]
-    end
-    style canvas fill:#0b1220,stroke:#334155,stroke-width:2px,color:#f8fafc
-    classDef client fill:#2563eb,stroke:#93c5fd,stroke-width:2px,color:#ffffff
-    classDef service fill:#1e293b,stroke:#64748b,stroke-width:1.5px,color:#f8fafc
-    classDef exit fill:#312e81,stroke:#a5b4fc,stroke-width:1.5px,color:#ffffff
-    classDef mapped fill:#115e59,stroke:#5eead4,stroke-width:2px,color:#ffffff
-    classDef blocked fill:#7f1d1d,stroke:#fca5a5,stroke-width:2px,color:#ffffff
-    class client client
-    class adguard,core,retry,normal service
+    client["VPN client"] -->|DNS query| adguard["AdGuard Home"]
+    adguard -->|Blocked| deny["Blocking response"]
+    adguard -->|Domain-specific upstream| external["External DNS"]
+    adguard --> core["CoreDNS"]
+    core --> local
+    local["az-local: dnsmap<br/>domains / ASN"]
+    local -->|Domain or ASN| localip["14.16.0.0/15<br/>DNAT"]
+    local -->|SERVFAIL| retry["AdGuard: client=coredns"]
+    retry -->|Ordinary upstream| external
+    classDef service fill:#1e293b,stroke:#64748b,color:#f8fafc
+    classDef exit fill:#312e81,stroke:#a5b4fc,color:#ffffff
+    classDef mapped fill:#115e59,stroke:#5eead4,color:#ffffff
+    class adguard,core,retry,external service
     class local exit
-    class mapped mapped
-    class deny blocked
+    class localip mapped
 ```
 
-In Swarm mode the short and fully qualified aliases are split between two
-services, so CoreDNS queries `az-world` and then `az-local`. In single-server
-Compose mode `az-local` also has the `az-world` and `az-world.antizapret`
-network aliases. CoreDNS detects that both exit names have the same address
-and queries the container only once; AdGuard generates both local and world
-list rules for the `az-local` client.
+In Swarm, CoreDNS uses `az-world`, then `az-local`, then a direct query to AdGuard. It proceeds to the next upstream only on `SERVFAIL`. The final AdGuard request uses the `coredns` client, whose upstreams are ordinary external resolvers, so it does not loop back into CoreDNS.
 
-1. DNS Request arrives into AdGuardHome
-1. Adguard check it with blacklist rules. If domain in blacklist - return 0.0.0.0 and client not able to access domain.
-1. Adguard Send DNS request to CoreDNS service.
-1. CoreDNS Send DNS request to internal dnsmap.py server (antizapret container) and dnsmap.py sends request back to adguard
-1. Adguard receives requests one more time, but now applies rules with `$client=az-local` and real upstream server client (8.8.8.8 by default)
-1. If domain in whitelist - adguard will resolve its address and return to dnsmap.py
-1. If domain not in whitelist adguard return SERVFAIL
-1. dnsmap.py send response to adguard:
-   1. If it is valid IP, then replaces it with an "internal" IP from the exit container's subnet (`14.16.0.0/15` for `az-local`), adds masquerade to iptables and returns the internal IP to AdGuard.
-   1. If is is SERVFAIL it sends this response to client.
-1. If CoreDNS receives SERVFAIL it retries request and send it directly to Adguard. In this case rules with `$client=az-local` do not applied and request processed normally.
+In single-server Compose, `az-local` also owns the aliases `az-world` and `az-world.antizapret`. CoreDNS detects the shared address and queries the exit container once, then falls back to AdGuard. Both local and world domain lists use the `az-local` ClientID, and `ASN_FILES` includes both generated ASN lists.
 
-**Why so complicated?** 
-- Windows and some other clients do not retry to Fallback DNS, even if  SERVFAIL received. So we added CoreDNS for that. 
-- Adguard don't allow to redefine upstream in blacklist/whitelist rules. 
-  But this rules have regex support and updated automatically, so we want to use them.
-  So multiple requests from different clients are made internally.
-- Adguard allows different upstreams for different clients. So we can use different DNS for blocked and non blocked domains.
+### Inside an exit node: domains and ASN
 
-**Example:**  
-We requested `youtube.com`, which should be routed via az-local node.
-1. DNS request from client to Adguard. Routed to coredns. Response will appear after all following requests are processed.
-   ```text
-   Status: Processed
-   DNS server: coredns:53
-   Elapsed: 91 ms
-   Served from cache: False
-   Response code: NOERROR
-   Response: 
-   A: 14.16.13.209 (ttl=300)
-   A: 14.16.13.207 (ttl=300)
-   A: 14.16.13.206 (ttl=300)
-   A: 14.16.13.208 (ttl=300)
-   ```
-2. In Swarm mode, DNS request from coredns to az-world, and az-world request to Adguard (this step is skipped in single-server Compose mode):
-   ```text
-   Status: Rewritten
-   Elapsed: 0.10 ms
-   Response code: SERVFAIL
-   Rule(s):
-   ||*^$dnsrewrite=SERVFAIL,client=az-world
-   Custom filtering rules
-   ```    
-   SERFAIL response means that this domains not routed via az-world.
-3. DNS request from coredns to az-local. And az-local request to Adguard:
-   ```text
-   Status: Processed
-   DNS server: 149.112.112.11:53
-   Elapsed: 50 ms
-   Response code: NOERROR
-   Response
-   A: 173.194.221.190 (ttl=300)
-   A: 173.194.221.91 (ttl=300)
-   A: 173.194.221.136 (ttl=300)
-   A: 173.194.221.93 (ttl=300)
-   ```   
-   In this case domain must be served via az-local and excluded from blacklist for az-local client. 
-   Adguard cant find this domain in blacklist for az-local and and return real addresses to az-local client.
-4. az-local container adds masquerade to iptables and return internal ip to coredns. 
-5. coredns send response to adguard and adguard caches it and return to client.
+```mermaid
+flowchart TB
+    q["Original A query"] --> first["AdGuard: client=az-local / az-world"]
+    first --> has{"NOERROR with A records?"}
+    has -->|Yes| mapped["Virtual IPs + DNAT"]
+    has -->|SERVFAIL| direct["AdGuard: client=az-resolver"]
+    has -->|Other response| err["Original response / error"]
+    direct --> res{"NOERROR with A records?"}
+    res -->|Yes| asn{"ASN or organization match?"}
+    res -->|No| err
+    asn -->|Yes| mapped
+    asn -->|No| fail["SERVFAIL: next upstream"]
+    classDef service fill:#1e293b,stroke:#64748b,color:#f8fafc
+    classDef exit fill:#312e81,stroke:#a5b4fc,color:#ffffff
+    classDef mapped fill:#115e59,stroke:#5eead4,color:#ffffff
+    class first,direct,err,has,res,asn service
+    class mapped mapped
+```
 
+1. `dnsmap` sends the original query to AdGuard using the DoH protocol over internal HTTP at `/dns-query/<CLIENT>`, with `<CLIENT>` set to `az-local` or `az-world`. The default AdGuard DoH port is `3000`.
+2. For that client, AdGuard's default `SERVFAIL` rewrite is overridden by a matching domain include rule. If the response contains IPv4 addresses, `dnsmap` maps them immediately; it does not check ASN or query `az-resolver` in this branch.
+3. If the first response is `SERVFAIL`, `dnsmap` sends the same original query with ClientID `az-resolver`. The default upstreams for this client are Cloudflare, Google and Quad9, rather than CoreDNS.
+4. A matching domain exclusion returns `SERVFAIL` for `az-resolver` and stops the ASN check. Other resolver errors are also returned without creating mappings.
+5. If direct resolution succeeds, `dnsmap` checks the returned IPv4 addresses in the MaxMind ASN database. If any address matches an ASN number, organization substring or organization regex, all IPv4 addresses in that response are mapped through this exit node. With no matching address, the original `SERVFAIL` is returned to CoreDNS.
+6. When mapping addresses, `dnsmap` removes CNAME records, replaces A records with virtual addresses under the original query name, and sets their TTL to 300 seconds. It installs DNAT mappings from the virtual addresses to the real addresses.
+
+An empty answer does not create mappings. A failure to install mappings returns `SERVFAIL`. The default address pools and rule files are described in [Routing rules: include, exclude and ASN](#routing-rules-include-exclude-and-asn).
+
+### CNAME resolution and direct exceptions
+
+CoreDNS keeps `finalize force_resolve` enabled so that a domain whose CNAME points to a blocked CDN can still use the VPN. The finalizer repeats queries for CNAME targets even if the initial response already contains their real A records.
+
+Each CNAME target is a new query through the exit-node chain. Excluding the original domain from ASN routing does not automatically exclude its CNAME targets. For a domain that works directly, use a [domain-specific AdGuard upstream](#direct-dns-resolution-for-domains-on-vpn-listed-cdn-networks). That bypasses CoreDNS for the original query while preserving CDN routing for other domains.
+
+### Reading the query log
+
+For a domain routed by ASN, the AdGuard log can show:
+
+| Client | Response | Meaning |
+|---|---|---|
+| `az-world` or `az-local` | `SERVFAIL` | No domain rule allowed the first request; ASN fallback may still follow |
+| `az-resolver` | `NOERROR`, real IPv4 addresses | Direct resolution for the subsequent ASN check |
+| Original VPN client | `NOERROR`, `14.18.*` or `14.16.*` | An exit node mapped the addresses through the VPN |
+
+A `SERVFAIL` entry for an exit ClientID alone does not prove that the exit was skipped: inspect the following `az-resolver` request and the `ASN match` messages in the exit container's logs. If all exits return `SERVFAIL`, a query from `coredns` to an ordinary upstream provides the direct answer. Caching and CNAME chains change the number of log entries per client query.
+
+## Routing rules: include, exclude and ASN
+
+Distribution (`dist`) domain, IP and ASN lists are enabled by default. AdGuard Home automatically refreshes the bundled domain lists from GitHub through the list adapter. The antizapret container downloads and updates the IP and ASN lists from GitHub separately. No manual rules are needed for the standard setup. Custom files are optional: use them only to add your own entries or exclude entries from the supplied lists.
+
+Use custom files to route domains and IP networks through the VPN or remove rules from the distributed lists. `include` adds rules; `exclude` removes matching entries from a specific list. An exclusion is not a universal instruction to bypass every other routing rule.
+
+### Custom rule files
+
+Files are stored in `./config/antizapret/custom/` on the corresponding exit node and mounted into `/root/antizapret/config/custom/` inside the container. In Swarm mode, edit domain files on the node whose domain lists you want to change; `az-local` and `az-world` use the same filenames on their respective hosts.
+
+| Include file | Exclude file | What it controls |
+|---|---|---|
+| `include-hosts-custom.txt` | `exclude-hosts-custom.txt` | Domain lists served by this exit node; domain exclusions also feed the AdGuard `az-resolver` filter |
+| `include-ips-custom.txt` | `exclude-ips-custom.txt` | Local IPv4 addresses and CIDR prefixes |
+| `include-ips-world-custom.txt` | `exclude-ips-world-custom.txt` | World IPv4 addresses and CIDR prefixes |
+| `include-asn-custom.txt` | `exclude-asn-custom.txt` | Local ASN and organization rules |
+| `include-asn-world-custom.txt` | `exclude-asn-world-custom.txt` | World ASN and organization rules |
+
+### Including domains
+
+Add one hostname per line to `include-hosts-custom.txt`, without a URL scheme or path:
+
+```text
+example.com
+subdomain.example.net
+```
+
+A hostname becomes an AdGuard rule such as `@@||example.com^$dnsrewrite,client=az-local` (or `client=az-world` on the world node). It enables VPN address rewriting for the domain and its subdomains. Include lists also accept slash-delimited regular expressions, for example `/^service[0-9]+\.example\.net$/`.
+
+For custom AdGuard rules and external domain lists, see [Adding Domains](#adding-domains).
+
+### Excluding domains
+
+Add extended regular expressions to `exclude-hosts-custom.txt`. Use expressions without surrounding `/` so that the same pattern works for both list filtering and the generated AdGuard rule. For example:
+
+```text
+^example\.com$
+(^|\.)example\.net$
+^steampipe\.akamaized\.net$
+```
+
+The first pattern removes the exact `example.com` list entry; the second matches `example.net` and its subdomain entries. Dots are escaped because these files contain regex patterns. Domain list filtering is case-sensitive.
+
+Domain exclusions have two effects:
+
+1. The list adapter removes matching input lines from lists with `filter_custom=1` (the default).
+2. AdGuard loads exclusions from both exit nodes as `SERVFAIL` rewrite rules for `az-resolver`, stopping the ASN fallback for a matching query.
+
+The adapter filters list entries, not all hostnames covered by the resulting AdGuard rules. Excluding `subdomain.example.com` does not remove an `example.com` entry, and a manually added AdGuard rule is not processed by the adapter. If another rule already allows the first request from `az-local` or `az-world`, `dnsmap` creates VPN addresses without querying `az-resolver`.
+
+Because both exclusion filters target the shared `az-resolver` client, an exclusion loaded from either node can also prevent ASN fallback on the other node. Excluding a hostname does not remove independent IP/CIDR routes. CNAME targets are separate queries under `finalize force_resolve`; see [Direct DNS resolution for domains on VPN-listed CDN networks](#direct-dns-resolution-for-domains-on-vpn-listed-cdn-networks).
+
+### Adding ASNs
+
+ASN rules route domains through a VPN node based on the network that owns their resolved IPv4
+addresses. When the regular AdGuard request for `az-local` or `az-world` returns `SERVFAIL`,
+`dnsmap` resolves the domain directly through the `az-resolver` client and checks A
+records in the MaxMind ASN database. If at least one address matches a rule, all IPv4 addresses
+from that DNS response are mapped through the corresponding VPN node. If there are no A records
+or none of their networks match, the original filtered response is preserved.
+
+Each non-empty line may contain:
+
+- An exact ASN number: `AS13335` or `13335`
+- A case-insensitive substring of the raw MaxMind organization name: `Cloudflare`
+- A case-insensitive regular expression enclosed in `/`: `/\bg-?core\b/`
+
+Include lists support comments starting with `#`, on separate lines or after a rule. Put exact rule lines without comments in exclude files. Distribution rules
+from `ASN_URL` and `ASN_WORLD_URL` are combined with the respective custom include files. Exclude
+files remove exact lines case-insensitively before the runtime lists are generated.
+
+Exclusions remove rule text, not every rule that can match the same network. To remove `AS20940`, use that exact line in the corresponding exclude file; `20940` is a different line for list filtering. If `Akamai` also remains in the include list, the network can still match that organization rule. Removing an ASN rule does not remove independent domain or IP rules.
+
+In single-server Compose mode, `ASN_FILES` points `az-local` to both resulting ASN files, so both
+lists are routed through the local exit node. In Swarm mode, each exit service receives only its own
+ASN file.
+
+For filter debugging, `dnsmap` logs the IP address, ASN, and organization for both matching and
+non-matching networks. `ASN data not found` means that MaxMind has no record for the address.
+Empty addresses and `0.0.0.0` are ignored without a database lookup. A successful match also
+prints the exact ASN, substring, or regex rule that triggered routing.
+
+### Adding IPs/Subnets
+
+Use these files for custom IP routes:
+
+- Local networks: `./config/antizapret/custom/include-ips-custom.txt` and `./config/antizapret/custom/exclude-ips-custom.txt`.
+- World networks: `./config/antizapret/custom/include-ips-world-custom.txt` and `./config/antizapret/custom/exclude-ips-world-custom.txt`.
+
+Add IPv4 addresses or CIDR prefixes, one per line, to the corresponding include file:
+
+```text
+192.0.2.10
+198.51.100.0/24
+```
+
+The custom include file is combined with the distribution list from `IPS_URL` (local) or `IPS_WORLD_URL` (world). The corresponding exclude file filters that combined list using extended regular expressions. To remove the two example entries, add:
+
+```text
+^192\.0\.2\.10$
+^198\.51\.100\.0/24$
+```
+
+This is text filtering, not subnet subtraction: excluding `198.51.100.10` does not remove it from an included `198.51.100.0/24`. Unlike domain and ASN rules, IP lists create routes for real addresses without DNS address rewriting. Removing an IP entry does not disable VPN routing triggered by a domain or ASN rule, and `exclude-hosts-custom.txt` does not remove IP routes.
+
+The VPN client also needs routes for these real addresses. OpenVPN generates push routes from the IP lists; WireGuard/AmneziaWG adds them to its default AllowedIPs when `WG_ALLOWED_IPS` is unset. After changes, reconnect OpenVPN clients and export/apply updated WireGuard configurations, or use BGP on supported routers.
+
+### Direct DNS resolution for domains on VPN-listed CDN networks
+
+If a domain works without a VPN but resolves to IPv4 addresses in an ASN included in the VPN lists, add a domain-specific upstream in AdGuard Home under **Settings → DNS settings → Upstream DNS servers**. For example, to download Steam content directly:
+
+```text
+[/steampipe.akamaized.net/]https://cloudflare-dns.com/dns-query
+```
+
+This Steam upstream is included in the default configuration. Existing installations retain their saved AdGuard settings, so add it manually if it is missing.
+
+Keep the existing upstreams, including `coredns`. The added upstream sends queries for this domain directly to Cloudflare, bypassing CoreDNS and VPN address rewriting. Other domains continue to use the existing VPN selection logic.
+
+This is also needed when `exclude-hosts-custom.txt` excludes the original domain but its CNAME points to a CDN in a VPN-listed ASN. CoreDNS uses `finalize force_resolve` to query CNAME targets again through the VPN nodes; the original domain's exclusion does not apply to those separate queries. A domain-specific upstream bypasses this entire path without disabling CDN routing for other domains.
+
+Save the DNS settings, clear the AdGuard DNS cache and the client's DNS cache, and repeat the lookup. The excluded domain should return real IP addresses instead of the VPN addresses in `14.16.0.0/14`. Upstream domain selectors are not regular expressions; add each required domain explicitly.
+
+### Updating and checking rules
+
+Exit containers check custom files every 10 seconds. Rebuilding lists may take longer while remote lists are being downloaded. AdGuard detects configuration changes, refreshes its filters and clears its DNS cache. Edit files on the correct exit host in Swarm mode.
+
+After an update, inspect the generated filter in AdGuard, clear the device's DNS cache and repeat the lookup. Addresses in `14.16.0.0/15` indicate the local VPN node; `14.18.0.0/15` indicate the world node. If an exclusion does not work, check the query log for both the original domain and its CNAME targets, the client (`az-local`, `az-world` or `az-resolver`), and the matching rule. ASN matches are also logged by `dnsmap`.
+
+[Online DPI check](https://hyperion-cs.github.io/dpi-checkers/ru/tcp-16-20/)
+
+You can also check blocked ASNs from a Docker host using DPI Detector. Run this command on the network you want to test:
+
+```shell
+docker run --rm -it --pull=always ghcr.io/runnin4ik/dpi-detector:latest --tests 3
+```
+
+Rebuild IP and ASN lists manually: `docker exec $(docker ps -q --filter=name=az | head -n1) doall`. Domain exclusion matchers and AdGuard filters are refreshed by the healthchecks described above.
 
 ## Adding Domains
-There are two ways of adding domains. Via custom rules and via black lists.
+For custom include/exclude files, see [Routing rules: include, exclude and ASN](#routing-rules-include-exclude-and-asn). The following sections explain manual AdGuard rules, external domain lists and routing for a specific client.
 
 ### Adding Domains via rules
 Open adguard panel: http://adguard.antizapret:3000/#custom_rules
 Rules/syntaxes: https://adguard-dns.io/kb/general/dns-filtering-syntax/#basic-examples
 
-By default, adguard rewrite all requests with SERVFAIL. This is a trick to make client retry DNS request to second, local DNS server.
-Rules with the dnsrewrite response modifier have higher priority than other rules in AdGuard Home and AdGuard DNS.
-To override default rule custom rules must have  `$dnsrewrite` modifier.
-
-To support default adguard filters default SERVFAIL rule applied only to internal requests from client=az-local and client=az-world
+By default, AdGuard returns `SERVFAIL` for internal requests from `az-local` and `az-world`. A domain rule with `@@` and `$dnsrewrite` allows the exit node to resolve and map that domain through the VPN. If no domain rule allows the request, `dnsmap` checks ASN rules; when neither path matches, CoreDNS tries the next upstream. Regular client queries keep the standard AdGuard filtering behavior.
 
 
 Examples:
@@ -571,7 +706,21 @@ Need to use adapter, to parse and adapt list in different formats.
  - Add domains for local exit node: `http://az-local.antizapret/list/?url=<ANY_URL>`
  - Add domains for the separate world exit node in Swarm mode: `http://az-world.antizapret/list/?url=<ANY_URL>`
  - In single-server Compose mode, use `az-local` for both kinds of domains.
-Supported formats: simple list of domains, adguard format, hosts format, json array of domains, regex list.
+Use plain domain lists, slash-delimited regex lists or JSON arrays of domain strings. Use `raw=1` for already formatted AdGuard rules; hosts-file IP/name pairs must be converted to domain names before using this adapter.
+
+### List adapter options
+
+ - `url` - download list from url
+ - `file` - read local file. Used for include-host-{custom,dist}.txt
+ - `filter_custom=1` - filter lists with rules from exclude-hosts-custom.txt.
+ - `filter_dist=0` - filter lists with rules from exclude-hosts-dist.txt
+ - `format=list` - 'list' or 'json'. Detected automatically.
+ - `client=az-local` - name of client to add to rules. Detected automatically.
+ - `allow=1` - disable this option, to block domains from list for this exit node.
+ - `raw=0` - dont modify rules
+ - `suffix=1` - add "$dnsrewrite,client=xxx" to rules
+ - `dnsrewrite=SERVFAIL` - set custom dnsrewrite value
+ - `regex=0` - use `regex=1` to wrap each input line as an AdGuard regular expression rule
 
 ### Routing a website through VPN for a specific client
 
@@ -595,69 +744,9 @@ To route a specific website through VPN for only one client:
 
 After configuration, a regular local query in AdGuard Home returns the website's real IP address, while a query from the specified VPN client returns a rewritten internal IP address whose traffic is routed through the VPN.
 
-
-Options for adapter: 
- - `url` - download list from url
- - `file` - read local file. Used for include-host-{custom,dist}.txt
- - `filter_custom=1` - filter lists with rules from exclude-hosts-custom.txt.
- - `filter_dist=0` - filter lists with rules from exclude-hosts-dist.txt
- - `format=list` - 'list' or 'json'. Detected automatically.
- - `client=az-local` - name of client to add to rules. Detected automatically.
- - `allow=1` - disable this option, to block domains from list for this exit node.
- - `raw=0` - dont modify rules
- - `suffix=1` - add "$dnsrewrite,client=xxx" to rules
- - `dnsrewrite=SERVFAIL` - set custom dnsrewrite value
- - `regex=0` - wrap each input line as an AdGuard regular expression rule
-
-The `exclude-hosts-custom.txt` file from each exit container is also loaded into AdGuard as a blocking DNS rewrite for the `az-resolver` client. This prevents a matching domain from being routed through a VPN node by an ASN rule. Patterns use extended regular expression syntax; already slash-delimited expressions are accepted as well.
-
-## Adding IPs/Subnets
-Add ips and subnets to `./config/antizapret/custom/include-ips-custom.txt`. 
-Containers periodically check changes in config folder (every 5-10 seconds) and restart/update after any change.
-
-## Adding ASNs
-
-ASN rules route domains through a VPN node based on the network that owns their resolved IPv4
-addresses. When the regular AdGuard request for `az-local` or `az-world` returns `SERVFAIL`,
-`dnsmap` resolves the domain directly through the `az-resolver` client and looks up every A
-record in the MaxMind ASN database. If at least one address matches a rule, all IPv4 addresses
-from that DNS response are mapped through the corresponding VPN node. If there are no A records
-or none of their networks match, the original filtered response is preserved.
-
-Custom rule files:
-
-- Local node: `./config/antizapret/custom/include-asn-custom.txt`
-- World node: `./config/antizapret/custom/include-asn-world-custom.txt`
-- Remove local rules: `./config/antizapret/custom/exclude-asn-custom.txt`
-- Remove world rules: `./config/antizapret/custom/exclude-asn-world-custom.txt`
-
-Each non-empty line may contain:
-
-- An exact ASN number: `AS13335` or `13335`
-- A case-insensitive substring of the raw MaxMind organization name: `Cloudflare`
-- A case-insensitive regular expression enclosed in `/`: `/\bg-?core\b/`
-
-Comments start with `#` and may be placed on separate lines or after a rule. Distribution rules
-from `ASN_URL` and `ASN_WORLD_URL` are combined with the respective custom include files. Exclude
-files remove exact lines case-insensitively before the runtime lists are generated.
-
-In single-server Compose mode, `ASN_FILES` points `az-local` to both resulting ASN files, so both
-lists are routed through the local exit node. In Swarm mode, each exit service receives only its own
-ASN file.
-
-For filter debugging, `dnsmap` logs the IP address, ASN, and organization for both matching and
-non-matching networks. `ASN data not found` means that MaxMind has no record for the address.
-Empty addresses and `0.0.0.0` are ignored without a database lookup. A successful match also
-prints the exact ASN, substring, or regex rule that triggered routing.
-
-[Online DPI check](https://hyperion-cs.github.io/dpi-checkers/ru/tcp-16-20/)
-
-Trigger update manually: `docker exec $(docker ps -q --filter=name=az | head -n1) doall`
-
 ## SOCKS5 and HTTP(S) Proxy (per-application routing)
 
-AntiZapret uses DNS-based split tunneling, which works only for domain-based connections.
-If an application connects directly by IP address, DNS interception does not work and traffic is not routed through the VPN tunnel.
+DNS address rewriting handles connections made through domain names. A connection to a real IP address uses the VPN only if the client's routes and the IP/CIDR lists cover that address. Use a proxy when you want to route an entire application through an exit node without maintaining domain or IP lists.
 
 `proxy` service is based on [3proxy](https://github.com/3proxy/3proxy) [container](https://github.com/tarampampam/3proxy-docker)
 It's a solution for per-application routing.
@@ -852,7 +941,7 @@ You can define these variables in docker-compose.override.yml file for your need
 - `DNS=adguard` - AdGuard host used for DNS-over-HTTPS requests (default: `adguard`; DoH port: `3000`).
 - `CLIENT=az-local` - AdGuard ClientID used by dnsmap. Set to `az-world` on the world node.
 - `AZ_SUBNET=14.16.0.0/15` - subnet for virtual addresses of blocked hosts. The world node uses `14.18.0.0/15`.
-- `ROUTES` - list of VPN containers and their virtual addresses. Used for iperf3 server.
+- `ROUTES` - container names and their routed addresses/subnets, used to maintain routes between VPN services, DNS and exit nodes.
 - `DOALL_DISABLED=` - skip list generation inside the container. Normally leave unset: init uses a shared `result` owner file so Docker Compose generates lists only once, while Swarm nodes generate them independently on their local volumes.
 - `IPTABLES_SAVE_DISABLED=` - skip iptables rules restore on startup and save on shutdown.
 - `WARP_ENABLED=0` - set to `1` to route exit-node traffic through Cloudflare WARP.
@@ -865,7 +954,7 @@ You can define these variables in docker-compose.override.yml file for your need
 - `ZAPRET_CONFIG=/opt/zapret2/config/zapret.conf` - path inside the container to the zapret2 configuration file. The default config is created automatically on first start and is persisted at `./config/antizapret/zapret2/zapret.conf`.
 
 ### Adguard: 
-- `ROUTES` - list of VPN containers and their virtual addresses. Used for unique client addresses in adguard logs
+- `ROUTES` - container names and their routed addresses/subnets. The route updater provides reachability to VPN clients and exit nodes; ClientIDs and client IPs are configured separately by the AdGuard entrypoint and healthcheck.
 - `AZ_WORLD_ENABLED=` - enables the separate `az-world` client, IP tracking, and world configuration checksum. Set automatically to `1` by `compose.swarm.yml`; leave unset in single-server Compose mode.
 - `ADGUARDHOME_PORT=3000`
 - `ADGUARDHOME_USERNAME=admin`
@@ -876,7 +965,7 @@ You can define these variables in docker-compose.override.yml file for your need
 - None
 
 ### Filebrowser:
-- `FILEBROWSER_PORT=admin`
+- `FILEBROWSER_USERNAME=admin`
 - `FILEBROWSER_PASSWORD=password`
 
 ### Https:
@@ -904,10 +993,11 @@ You can define these variables in docker-compose.override.yml file for your need
 - `AZ_SUBNET=14.16.0.0/14` - subnet for virtual blocked ips.
 
 ### Openvpn-ui
+- `AZ_SUBNET=14.16.0.0` - base address of the virtual `/14` route pushed to clients; this UI setting is an address without a CIDR suffix.
 - `OPENVPN_ADMIN_USERNAME=` - replace default username with your username
 - `OPENVPN_ADMIN_PASSWORD=` - replace default password with your password
 - `OPENVPN_EXTERNAL_IP` - external ip of your server, by default detected automatically
-- `OPENVPN_DNS=14.16.0.1` - DNS address for clients. Must be in `ANTIZAPRET_SUBNET`
+- `OPENVPN_DNS=14.16.0.1` - DNS address for clients. Must be in `AZ_SUBNET`
 - `OPENVPN_LOCAL_IP_RANGE=10.1.165.0` - subnet for ovpn clients. Subnet can be viewed in adguard journal or in ovpn-ui panel
 
 ### Wireguard/Wireguard Amnezia
@@ -915,7 +1005,7 @@ You can define these variables in docker-compose.override.yml file for your need
 - `WIREGUARD_PASSWORD=` - password for admin panel (used during initial setup only, change password via web UI afterwards)
 - `WIREGUARD_USERNAME=admin` - username for admin panel (used during initial setup only)
 - `AZ_SUBNET=14.16.0.0/14` - subnet for virtual blocked ips.
-- `WG_DEFAULT_DNS=14.16.0.1` - DNS address for clients. Must be in `ANTIZAPRET_SUBNET`
+- `WG_DEFAULT_DNS=14.16.0.1` - DNS address for clients. Must be in `AZ_SUBNET`
 - `WG_PERSISTENT_KEEPALIVE=25`
 - `PORT=51821` - admin panel port
 - `INSECURE=true` - allow HTTP access to admin panel
@@ -926,13 +1016,13 @@ You can define these variables in docker-compose.override.yml file for your need
 - `OVERRIDE_AUTO_AWG=awg`- environment variable to force the tunnel type: `awg` to always use AmneziaWG, `wg` to always use standard WireGuard; by default it’s unset and automatic detection is used, useful to override auto-selection and lock the mode.
 - `BGP_ENABLE=false` - start bird BGP server. Server will push routes to clients (some routers). Clients will receive route updates without updating wg/awg config.
 
-### SOCKS5 Proxy (depricated, use proxy below)
-- `SOCKS_USERNAME` - username for SOCKS5 authentication (omit to disable authentication)
-- `SOCKS_PASSWORD` - password for SOCKS5 authentication (omit to disable authentication)
+### SOCKS5 Proxy (deprecated, use proxy below)
+- `SOCKS_USERNAME` - legacy alias for `PROXY_LOGIN`, used by the compatibility `socks` service.
+- `SOCKS_PASSWORD` - legacy alias for `PROXY_PASSWORD`, used by the compatibility `socks` service.
 
 ### Proxy (http + socks5)
-- `PROXY_LOGIN` - username for HTTP authentication (omitting disable authentication)
-- `PROXY_PASSWORD` - password for HTTP authentication (omitting disable authentication)
+- `PROXY_LOGIN` - username for HTTP and SOCKS5 authentication.
+- `PROXY_PASSWORD` - password for HTTP and SOCKS5 authentication. If the login or password is empty, authentication is disabled.
 - `PROXY_PORT=8180` - HTTP port to listen
 - `SOCKS_PORT=8118` - SOCKS5 port to listen
 - `EXTRA_ACCOUNTS` - Additional login:password pairs. Example: `login:password;login2:password2`
@@ -940,7 +1030,7 @@ You can define these variables in docker-compose.override.yml file for your need
 
 ## DNS
 ### Adguard Upstream DNS
-AdGuard sends regular client queries through CoreDNS. For direct resolution used by ASN matching, the entrypoint configures the `az-resolver` client with Cloudflare, Google, and Quad9 upstreams. The generated configuration is stored in `./config/adguard/conf/AdGuardHome.yaml` and can be changed through the AdGuard Home UI.
+AdGuard sends ordinary client queries through CoreDNS, except domains with a dedicated upstream such as `steampipe.akamaized.net`. The default `az-local`, `az-world`, `coredns` and `az-resolver` clients use Cloudflare, Google and Quad9, with additional domain-specific upstreams where configured. `az-resolver` is used for direct resolution before ASN checks. Existing saved client settings are retained; when adding a missing `az-resolver` client to an older configuration, the entrypoint copies the `az-local` upstreams. The generated configuration is stored in `./config/adguard/conf/AdGuardHome.yaml` and can be changed through the AdGuard Home UI.
 
 The third-party `xbox-dns.ru` resolver can be configured manually as a domain-specific upstream when Gemini incorrectly detects the country from the exit server's IP address and refuses to work because of geographic restrictions. For example:
 
@@ -1137,7 +1227,7 @@ Supported environment variables:
 - `I4=...`
 - `I5=...`
 
-## Parameter Compatibility Table
+#### Parameter Compatibility Table
 
 | Parameter | Can differ between server and client | Configurable on server | Configurable on client |
 |-----------|-------------------------------------|----------------------|----------------------|
@@ -1148,7 +1238,7 @@ Supported environment variables:
 | H1–H4     | ❌ No, must match                    | ✅ Yes               | ❌ No (copied from server) |
 | I1–I5     | ✅ Yes                               | ✅ Yes               | ✅ Yes               |
 
-## Notes
+#### Notes
 
 - Parameters Jc, Jmin, Jmax, I1–I5 can be configured independently on server and client if needed.
 - Parameters S1–S4 and H1–H4 **must match** between server and client; client copies them automatically from the server.
@@ -1222,4 +1312,4 @@ iperf3 server is included in antizapret-vpn container.
 - [lighttpd](https://github.com/lighttpd/lighttpd1.4) - web server for unified dashboard
 - [caddy](https://github.com/caddyserver/caddy) - reverse proxy
 - [No Thought Is a Crime](https://ntc.party) — a forum about technical, political and economical aspects of internet censorship in different countries
-- [Dante](https://www.inet.no/dante/) - SOCKS5 proxy server for per-application routing
+- [3proxy](https://github.com/3proxy/3proxy) - HTTP(S) and SOCKS5 proxy for per-application routing
