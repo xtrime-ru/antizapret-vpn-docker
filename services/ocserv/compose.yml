@@ -47,6 +47,7 @@ services:
       - OC_USER=admin
       - OC_USERPASS=password
       - OC_SECRET=kvn
+      - VPN_CLIENT_FIREWALL=false
       - |
         ROUTES=
         ocserv:10.1.164.0/24;

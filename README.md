@@ -983,6 +983,7 @@ You can define these variables in docker-compose.override.yml file for your need
 - `OC_USER=admin` - user created on the first start.
 - `OC_USERPASS=password` - password assigned on the first start.
 - `OC_SECRET=kvn` - ocserv camouflage secret.
+- `VPN_CLIENT_FIREWALL=false` - when `true`, clients can reach only the routes pushed to them (global and group `route =` lines; `route = default` allows everything) and cannot ping through the tunnel. Protects against a client adding its own routes and using the server as an exit to arbitrary addresses.
 
 ### Openvpn
 - `ROUTES`
@@ -991,6 +992,7 @@ You can define these variables in docker-compose.override.yml file for your need
    - 1 - light obfuscation. Works with microtic and old keenetic routers
    - 2 - strong obfuscation. Works with most of the clients: openvpn official gui client, asus routers, new keenetic routers, openwrt routers.
 - `AZ_SUBNET=14.16.0.0/14` - subnet for virtual blocked ips.
+- `VPN_CLIENT_FIREWALL=false` - when `true`, clients can reach only `AZ_SUBNET`, the pushed blocked ranges, the Docker subnet and their own subnet, and cannot ping through the tunnel. Protects against a client adding its own routes and using the server as an exit to arbitrary addresses. Keep `false` for full-tunnel (`redirect-gateway`) or custom per-client routes.
 
 ### Openvpn-ui
 - `AZ_SUBNET=14.16.0.0` - base address of the virtual `/14` route pushed to clients; this UI setting is an address without a CIDR suffix.
@@ -1015,6 +1017,7 @@ You can define these variables in docker-compose.override.yml file for your need
 - `EXPERIMENTAL_AWG=true` - enable AmneziaWG support (wireguard-amnezia only)
 - `OVERRIDE_AUTO_AWG=awg`- environment variable to force the tunnel type: `awg` to always use AmneziaWG, `wg` to always use standard WireGuard; by default it’s unset and automatic detection is used, useful to override auto-selection and lock the mode.
 - `BGP_ENABLE=false` - start bird BGP server. Server will push routes to clients (some routers). Clients will receive route updates without updating wg/awg config.
+- `VPN_CLIENT_FIREWALL=false` - when `true`, clients can reach only the destinations from `WG_ALLOWED_IPS` (the same list written to client configs) and cannot ping through the tunnel. Guards against a modified client config. Replaces the wg-easy per-client firewall (it is switched off on start). Keep `false` if you edit AllowedIPs per client in the web UI.
 
 ### SOCKS5 Proxy (deprecated, use proxy below)
 - `SOCKS_USERNAME` - legacy alias for `PROXY_LOGIN`, used by the compatibility `socks` service.
