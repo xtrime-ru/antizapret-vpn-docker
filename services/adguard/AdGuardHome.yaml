@@ -32,6 +32,7 @@ dns:
   upstream_dns:
     - coredns
     - '[/*.antizapret/]127.0.0.11'
+    - '[/steampipe.akamaized.net/]https://cloudflare-dns.com/dns-query'
   upstream_dns_file: ""
   bootstrap_dns:
     - 127.0.0.11
