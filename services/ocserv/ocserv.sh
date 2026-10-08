@@ -29,22 +29,10 @@ export OC_IPV4_CIDR="${OC_DEFAULT_ADDRESS%.x}.0/24"
 export OC_SECRET="${OC_SECRET:-kvn}"
 OCSERV_TEMPLATE="${OCSERV_DIR}/ocserv.tmpl"
 ROUTE_TEMPLATE="${OCSERV_DIR}/az.tmpl"
-RUNTIME_DIR="/run/ocserv"
+RUNTIME_DIR="${OCSERV_DIR}" #"/run/ocserv"
 export OC_ROUTE="${RUNTIME_DIR}/config-per-group"
 RUNTIME_CONFIG="${RUNTIME_DIR}/ocserv.conf"
 CONFIG_FILES=(/opt/antizapret/result/ips*)
-
-# Restore editable templates in the bind-mounted config directory on every start.
-mkdir -p "$OCSERV_DIR"
-if [[ -r /usr/share/doc/ocserv/sample.config && ! -e "$OCSERV_DIR/sample.config" ]]; then
-    cp /usr/share/doc/ocserv/sample.config "$OCSERV_DIR/"
-fi
-if [[ ! -e "$OCSERV_TEMPLATE" ]]; then
-    cp /ocserv.tmpl "$OCSERV_TEMPLATE"
-fi
-if [[ ! -e "$ROUTE_TEMPLATE" ]]; then
-    cp /az.tmpl "$ROUTE_TEMPLATE"
-fi
 
 wait_for_certificate() {
     local elapsed=0
@@ -84,16 +72,31 @@ case "$CERT_TYPE" in
 esac
 
 mkdir -p "$OC_ROUTE"
-envsubst < "$OCSERV_TEMPLATE" > "$RUNTIME_CONFIG"
+# Create old sample.config
+if [[ -r /usr/share/doc/ocserv/sample.config && ! -e "$OCSERV_DIR/sample.config" ]]; then
+    cp /usr/share/doc/ocserv/sample.config "$OCSERV_DIR/"
+fi
+
+# Create ocserv config files
+if [[ ! -e "$OCSERV_TEMPLATE" ]]; then
+    cp /ocserv.tmpl "$OCSERV_TEMPLATE"
+fi
+if [[ ! -e "$ROUTE_TEMPLATE" ]]; then
+    cp /az.tmpl "$ROUTE_TEMPLATE"
+fi
+
+# oc conf
+if [[ ! -e "$RUNTIME_CONFIG" ]]; then
+    envsubst < "$OCSERV_TEMPLATE" > "$RUNTIME_CONFIG"
+    printf 'Generated ocserv config (%s):\n' "$RUNTIME_CONFIG"
+    sed -E 's|^([[:space:]]*camouflage_secret[[:space:]]*=[[:space:]]*).*$|\1"***"|' "$RUNTIME_CONFIG"
+fi
+
 # oc routes
 envsubst < "$ROUTE_TEMPLATE" > "$OC_ROUTE/az"
 if ((${#CONFIG_FILES[@]})); then
     sort -Vu "${CONFIG_FILES[@]}" | sed 's_.*_route = &_' >> "$OC_ROUTE/az"
 fi
-
-
-printf 'Generated ocserv config (%s):\n' "$RUNTIME_CONFIG"
-sed -E 's|^([[:space:]]*camouflage_secret[[:space:]]*=[[:space:]]*).*$|\1"***"|' "$RUNTIME_CONFIG"
 printf 'Generated ocserv group config (%s):\n' "$OC_ROUTE/az"
 cat "$OC_ROUTE/az"
 echo "***** Generated config end *****"
