@@ -17,7 +17,8 @@ validate_manifest() {
             (.source | type == "string") and
             (.compose | type == "string") and
             (.target | type == "string") and
-            (.aliases | type == "array")
+            (.aliases | type == "array") and
+            ((.build_args? // {}) | type == "object")
         )
     ' "$1" >/dev/null
 }
@@ -41,12 +42,20 @@ jq -c \
         publish_refs($image) |
         map("\($image.target).tags+=\(.)") |
         join("\n");
+    def build_arg_overrides($image):
+        ($image.build_args // {}) |
+        to_entries |
+        map("\($image.target).args.\(.key)=\(.value)") |
+        join("\n"); 
     {
         include: [
             .images[] as $current |
             (($old[0].images // []) | map(select(.name == $current.name)) | first) as $previous |
             select($previous == null or $previous.version != $current.version) |
-            $current + {set_tags: tag_overrides($current)}
+            $current + {
+                set_tags: tag_overrides($current),
+                set_build_args: build_arg_overrides($current)
+            }
         ]
     }
 ' "$CURRENT_VERSIONS"
