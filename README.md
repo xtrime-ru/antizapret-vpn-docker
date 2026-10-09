@@ -1172,16 +1172,7 @@ https://github.com/amnezia-vpn/amneziawg-linux-kernel-module?tab=readme-ov-file#
 
 The WireGuard image is based on stable `wg-easy` 15.4.0 and replaces its AmneziaWG 3.0 tools with AmneziaWG 3.1 tools. Install only the matching DKMS kernel module on the host; `awg` and `awg-quick` are already included in the container image.
 
-#### Ubuntu 26.04
-
-```bash
-sudo add-apt-repository ppa:amnezia/ppa
-sudo sed -i 's/\bresolute\b/noble/g' /etc/apt/sources.list.d/amnezia-ubuntu-ppa-resolute.sources
-sudo apt update
-sudo apt install -y linux-headers-$(uname -r) amneziawg-dkms
-```
-
-#### Ubuntu 24.04
+#### Ubuntu 26.04/24.04
 
 ```bash
 sudo add-apt-repository ppa:amnezia/ppa
@@ -1189,7 +1180,7 @@ sudo apt update
 sudo apt install -y linux-headers-$(uname -r) amneziawg-dkms
 ```
 
-#### Ubuntu 20.04, 22.04
+#### Ubuntu 22.04/20.04
 
 1. Edit `/etc/apt/sources.list` and uncomment `deb-src http://archive.ubuntu.com/ubuntu ... main restricted`.
 2. Run:
