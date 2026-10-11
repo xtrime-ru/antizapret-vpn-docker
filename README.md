@@ -14,6 +14,15 @@ This repo is based on idea from original [AntiZapret LXD image](https://bitbucke
   - [Single Server (Easy)](#single-server-easy)
   - [Docker Swarm, multiple exit nodes (Advanced)](#docker-swarm-multiple-exit-nodes-advanced)
   - [VPN / Hosting block](#vpn--hosting-block)
+  - [Memory usage](#memory-usage)
+    - [Memory by component](#memory-by-component)
+    - [Stress test with limited RAM](#stress-test-with-limited-ram)
+    - [Installing and configuring zram](#installing-and-configuring-zram)
+      - [Check swap](#check-swap)
+      - [Installation on Ubuntu 24.04](#installation-on-ubuntu-2404)
+      - [Installation on Ubuntu 26.04](#installation-on-ubuntu-2604)
+      - [Zram size and priority](#zram-size-and-priority)
+      - [Verify zram](#verify-zram)
   - [After installation](#after-installation)
   - [Access admin panels](#access-admin-panels)
     - [HTTPS](#https)
@@ -227,6 +236,141 @@ echo iptables-persistent iptables-persistent/autosave_v6 boolean false | sudo de
 apt install -y iptables-persistent
 
 ```
+
+## Memory usage
+
+We recommend **1 GB RAM with configured zram, or 2 GB without zram**.
+Zram is compressed swap in RAM: it compresses infrequently used pages without
+disk access, allocating memory as it fills. Compression uses CPU; severe
+memory pressure can still cause stalls. Allow headroom for VPN traffic and
+AdGuard list updates — its memory usage can rise to 500 MiB.
+
+### Memory by component
+
+AdGuard stores filters, indexes, and a DNS cache; VPN services store connections
+and network buffers. Docker, the Linux kernel, and file caches also use RAM.
+Linux can reclaim file caches when needed.
+
+Approximate production usage (13 containers, a VPS with 1.8 GiB RAM):
+
+| Component | Memory, MiB |
+| --- | ---: |
+| AdGuard | ≈270 |
+| AdGuard during list updates | up to 500 |
+| `az-local` | ≈140 |
+| CoreDNS | ≈40 |
+| WireGuard | ≈45 |
+| AmneziaWG | ≈45 |
+| OpenVPN | ≈15 |
+| OpenVPN UI | ≈20 |
+| HTTPS | ≈35 |
+| Firewall | ≈2 |
+| Proxy | ≈10 |
+| ocserv | ≈25 |
+| Dashboard | ≈4 |
+| IPsec | ≈10 |
+| Docker and helper processes | ≈275 |
+| Linux kernel (partial estimate) | ≈400 |
+
+The project and system occupied **about 1041 MiB (1.02 GiB)** excluding caches,
+counting zram data before compression. Table figures are approximate;
+rows cannot be added together because some kernel memory is counted twice.
+
+### Stress test with limited RAM
+
+Normal operation uses one AdGuard instance. The test ran **two instances**
+with identical filters to simulate elevated memory usage during list updates.
+They ran alongside `az-local`, `coredns`, `firewall`, `https`, `wireguard`,
+`wireguard-amnezia`, `openvpn`, and `openvpn-ui` — ten containers in total.
+
+One CPU, about 1 GB of zram with `lzo-rle` compression. RAM available to the
+system was artificially limited by allocating test data locked in memory
+that could not be swapped out. The test lasted about four minutes with light
+DNS traffic and no active VPN clients.
+
+| Approximate RAM | Logical memory occupied, MiB | AdGuard response time, ms: median / p95 | Result |
+| --- | ---: | ---: | --- |
+| 1 GB | 828 | 1.06 / 4.84 | Mean CPU: 17.7% |
+| 650 MB | 826 | 1.25 / 7.51 | No DNS errors, OOM kills, or AdGuard restarts; mean CPU: 24% |
+| 500 MB | ≈872 | — | Severe stalls; observed 100% CPU |
+
+Response times combine both AdGuard instances, using repeated DNS queries to
+one domain, mostly cached responses, without VPN. p95 means 95% of responses
+were faster than this value. No reliable response times are available for 500 MB.
+
+Logical memory occupied is RAM excluding caches and zram itself, plus zram
+pages before compression, minus test data. The total includes the project,
+Docker, and the kernel.
+
+At 650 MB RAM, zram stored **616 MiB of data in 144 MiB of RAM**, saving
+about **472 MiB**.
+
+### Installing and configuring zram
+
+#### Check swap
+
+```bash
+swapon --show
+zramctl
+```
+
+If `/dev/zram0` is already active, it does not need to be created again.
+Still check that the kernel metapackage listed for your Ubuntu release is
+installed: working zram does not guarantee the module will remain available
+after a kernel update. Run the following commands as root on a VPS with a
+standard Ubuntu kernel.
+
+#### Installation on Ubuntu 24.04
+
+```bash
+apt update
+apt install --no-install-recommends \
+    systemd-zram-generator linux-modules-extra-$(uname -r) \
+    linux-image-generic linux-firmware-minimal
+```
+
+`linux-image-generic` pulls in modules for future kernels;
+`linux-firmware-minimal` avoids the large firmware collection.
+
+#### Installation on Ubuntu 26.04
+
+```bash
+apt update
+apt install --no-install-recommends systemd-zram-generator linux-image-virtual
+```
+
+Zram is included in the regular kernel modules. `linux-image-virtual` keeps them
+updated with the kernel; extra modules and firmware are not needed for zram.
+If `linux-image-generic` is already installed, you can keep it.
+
+#### Zram size and priority
+
+For both releases, set the capacity equal to RAM and the priority to 100.
+Capacity is the limit before compression:
+
+```bash
+modprobe zram
+mkdir -p /etc/systemd/zram-generator.conf.d
+cat > /etc/systemd/zram-generator.conf.d/90-antizapret.conf <<'EOF'
+[zram0]
+zram-size = ram
+swap-priority = 100
+EOF
+systemctl daemon-reload
+systemctl reset-failed systemd-zram-setup@zram0.service dev-zram0.swap
+systemctl start dev-zram0.swap
+```
+
+If zram is already active, reboot the VPS to apply the new size.
+Keep the default compression algorithm, typically `lzo-rle`.
+Zram will start automatically at boot.
+
+#### Verify zram
+
+Check `free -h`, `swapon --show`, and `zramctl`: zram capacity should equal RAM,
+and swap priority should be 100. In `free`, `available` shows available RAM;
+in `zramctl`, `DATA` shows the size before compression and `TOTAL` shows RAM
+allocated to zram including overhead.
 
 ## After installation
 1. Make sure Secure DNS is disabled in your browser settings. 
