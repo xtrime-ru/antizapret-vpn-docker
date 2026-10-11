@@ -85,7 +85,7 @@
     {
       "name": "openvpn",
       "repository": "antizapret-vpn-openvpn",
-      "version": "6.9.1",
+      "version": "6.9.2",
       "source": "services/openvpn",
       "compose": "docker-compose.yml",
       "target": "openvpn",

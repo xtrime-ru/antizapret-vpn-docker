@@ -76,11 +76,11 @@ if [ ! -c /dev/net/tun ]; then
     mknod /dev/net/tun c 10 200
 fi
 
-if [[ ! -s fw-rules.sh ]]; then
+if [[ ! -s /opt/app/fw-rules.sh ]]; then
     echo "No additional firewall rules to apply."
 else
     echo "Applying firewall rules"
-    ./fw-rules.sh
+    /opt/app/fw-rules.sh
     echo 'Additional firewall rules applied.'
 fi
 
@@ -89,7 +89,7 @@ mkdir -p $OPENVPN_DIR/staticclients
 
 echo 'Start openvpn process...'
 mkdir -p $OPENVPN_DIR/log
-while true; do tail -f $OPENVPN_DIR/log/*.log; sleep 1; done &
+while true; do tail -f "$OPENVPN_DIR"/log/*.log || true; sleep 1; done &
 
 touch "$INIT_FILE"
 

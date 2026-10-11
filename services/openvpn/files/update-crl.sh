@@ -37,7 +37,7 @@ update_crl() {
 
     cd "$EASY_RSA"
     "$EASY_RSA/easyrsa" gen-crl
-    chmod +r $EASY_RSA/pki/crl.pem
+    chmod +r "$CRL_PATH"
     echo "$(date '+%Y-%m-%d %H:%M:%S') CRL updated successfully"
 }
 
