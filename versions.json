@@ -3,7 +3,7 @@
     {
       "name": "adguard",
       "repository": "antizapret-vpn-adguard",
-      "version": "6.9.1",
+      "version": "6.9.2",
       "source": "services/adguard",
       "compose": "docker-compose.yml",
       "target": "adguard",
