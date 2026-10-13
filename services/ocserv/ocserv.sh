@@ -116,6 +116,29 @@ if [ ! -c /dev/net/tun ]; then
     mknod /dev/net/tun c 10 200
 fi
 
+# Optional server-side client firewall (VPN_CLIENT_FIREWALL=true).
+# Clients may only reach the routes pushed to them (global + group configs) and must not ping through
+# the tunnel. tun has no cryptokey routing like WireGuard, so without this a client could run
+# `ip route add <ip> dev vpns0` and use the server as an exit to any address.
+if [ "${VPN_CLIENT_FIREWALL:-false}" = "true" ]; then
+    {
+        echo "*filter"
+        echo ":az_clients - [0:0]"
+        # Established flows skip the list: the destination is checked once, on the first packet.
+        echo "-A az_clients -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT"
+        # "route = default" (full tunnel) allows everything; <net>/<mask> is accepted by iptables as is.
+        grep -hE '^[[:space:]]*route[[:space:]]*=' "$RUNTIME_CONFIG" "$OC_ROUTE"/* \
+            | sed -E 's/^[[:space:]]*route[[:space:]]*=[[:space:]]*//; s/[[:space:]]+$//; s|^default$|0.0.0.0/0|' \
+            | grep -E '^[0-9.]+(/[0-9.]+)?$' | sort -u | sed 's/.*/-A az_clients -d & -j ACCEPT/' || true
+        echo "-A az_clients -j REJECT --reject-with icmp-admin-prohibited"
+        echo "COMMIT"
+    } | iptables-restore --noflush
+    iptables -I FORWARD -s "$OC_IPV4_CIDR" -j az_clients
+
+    # echo-request only, keep PMTUD/traceroute ICMP. Inserted last so it ends up above the az_clients jump.
+    iptables -I FORWARD -s "$OC_IPV4_CIDR" -p icmp --icmp-type echo-request -j DROP
+fi
+
 echo "Starting OpenConnect Server"
 touch "$FLAG_FILE"
 exec "$@"

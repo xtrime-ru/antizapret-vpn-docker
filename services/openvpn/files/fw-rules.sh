@@ -24,4 +24,29 @@ iptables -t nat -A masq_not_local -d ${DOCKER_SUBNET} -j MASQUERADE;
 iptables -t nat -A masq_not_local -d ${AZ_SUBNET} -j RETURN;
 iptables -t nat -A masq_not_local -j MASQUERADE;
 
+# Optional server-side client firewall (VPN_CLIENT_FIREWALL=true).
+# Clients may only reach what is pushed to them (AZ_SUBNET + blocked ranges) plus internal services
+# and their own subnet, and must not ping through the tunnel. tun has no cryptokey routing like
+# WireGuard, so without this a client could run `ip route add <ip> dev tun0` and use the server as
+# an exit to any address. Leave it off for full-tunnel (redirect-gateway) or custom client routes.
+if [ "${VPN_CLIENT_FIREWALL:-false}" = "true" ]; then
+    iptables -N az_clients;
+    # Established flows skip the list: the destination is checked once, on the first packet.
+    iptables -A az_clients -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT;
+    iptables -A az_clients -d ${AZ_SUBNET} -j ACCEPT;
+    iptables -A az_clients -d ${DOCKER_SUBNET} -j ACCEPT;
+    iptables -A az_clients -d ${OPENVPN_LOCAL_IP_RANGE}/24 -j ACCEPT;
+    # Blocked ranges pushed as `push "route <net> <mask>"` (same file the client config is built from).
+    # iptables accepts the <net>/<mask> notation as is. The list changes -> healthcheck restarts the container.
+    grep -oE 'route [0-9.]+ [0-9.]+' /opt/antizapret/result/openvpn-blocked-ranges.txt 2>/dev/null \
+        | awk '{print $2 "/" $3}' | sort -u | while read -r range; do
+        iptables -A az_clients -d "${range}" -j ACCEPT;
+    done
+    iptables -A az_clients -j REJECT --reject-with icmp-admin-prohibited;
+    iptables -I FORWARD -s ${OPENVPN_LOCAL_IP_RANGE}/24 -j az_clients;
+
+    # echo-request only, keep PMTUD/traceroute ICMP. Inserted last so it ends up above the az_clients jump.
+    iptables -I FORWARD -s ${OPENVPN_LOCAL_IP_RANGE}/24 -p icmp --icmp-type echo-request -j DROP;
+fi
+
 routes --vpn &

@@ -42,6 +42,7 @@ services:
         constraints: [ node.labels.location == local ]
     environment:
       - OBFUSCATE_TYPE=1
+      - VPN_CLIENT_FIREWALL=false
       - |
         ROUTES=
         ocserv:10.1.164.0/24;

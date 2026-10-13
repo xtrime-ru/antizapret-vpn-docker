@@ -87,6 +87,32 @@ fi
 unset PASSWORD
 unset PASSWORD_HASH
 
+# Optional server-side client firewall (VPN_CLIENT_FIREWALL=true).
+# Clients may only reach the destinations from their AllowedIPs (WG_ALLOWED_IPS, the same list that is
+# written to client configs) and must not ping through the tunnel. WireGuard cryptokey routing already
+# enforces AllowedIPs on the client side; this guards against a modified profile or manual routes.
+# One subnet-wide chain instead of the wg-easy "Per-Client Firewall" (WG_CLIENTS), which builds
+# clients x ranges rules and rebuilds them on every change. Loaded atomically with iptables-restore
+# from PostUp; established flows skip the list.
+# The ping rule lives in the mangle table: the wg-easy firewall inserts "-I FORWARD 1 -i wg0 -j WG_CLIENTS"
+# above filter rules, and its per-client ACCEPT would let echo-request through. mangle FORWARD runs first.
+CLIENT_FIREWALL_UP=""
+CLIENT_FIREWALL_DOWN=""
+if [ "${VPN_CLIENT_FIREWALL:-false}" = "true" ]; then
+    AZ_CLIENTS_RULES=/etc/az_clients.rules
+    {
+        echo "*filter"
+        echo ":az_clients - [0:0]"
+        echo "-A az_clients -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT"
+        echo "$WG_ALLOWED_IPS" | tr ',' '\n' | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' \
+            | grep -E '^[0-9.]+(/[0-9]+)?$' | sort -u | sed 's/.*/-A az_clients -d & -j ACCEPT/'
+        echo "-A az_clients -j REJECT --reject-with icmp-admin-prohibited"
+        echo "COMMIT"
+    } > "$AZ_CLIENTS_RULES"
+    CLIENT_FIREWALL_UP="iptables -t mangle -I FORWARD -s ${WG_IPV4_CIDR} -p icmp --icmp-type echo-request -j DROP; iptables-restore --noflush < ${AZ_CLIENTS_RULES}; iptables -I FORWARD -s ${WG_IPV4_CIDR} -j az_clients;"
+    CLIENT_FIREWALL_DOWN="iptables -t mangle -D FORWARD -s ${WG_IPV4_CIDR} -p icmp --icmp-type echo-request -j DROP; iptables -D FORWARD -s ${WG_IPV4_CIDR} -j az_clients; iptables -F az_clients; iptables -X az_clients;"
+fi
+
 CUSTOM_POST_UP=$(tr '\n' ' ' << EOF
 iptables -t nat -N masq_not_local;
 iptables -t nat -A POSTROUTING -s ${WG_IPV4_CIDR} -j masq_not_local;
@@ -95,6 +121,7 @@ iptables -t nat -A masq_not_local -d ${DOCKER_SUBNET} -p udp --dport 53 -j RETUR
 iptables -t nat -A masq_not_local -d ${DOCKER_SUBNET} -j MASQUERADE;
 iptables -t nat -A masq_not_local -d ${AZ_SUBNET} -j RETURN;
 iptables -t nat -A masq_not_local -j MASQUERADE;
+${CLIENT_FIREWALL_UP}
 iptables -A FORWARD -i wg0 -j ACCEPT;
 iptables -A FORWARD -o wg0 -j ACCEPT;
 EOF
@@ -104,6 +131,7 @@ CUSTOM_POST_DOWN=$(tr '\n' ' ' << EOF
 iptables -t nat -D POSTROUTING -s ${WG_IPV4_CIDR} -j masq_not_local;
 iptables -t nat -F masq_not_local;
 iptables -t nat -X masq_not_local;
+${CLIENT_FIREWALL_DOWN}
 iptables -D FORWARD -i wg0 -j ACCEPT;
 iptables -D FORWARD -o wg0 -j ACCEPT;
 EOF
@@ -129,6 +157,12 @@ update_db() {
 
     # Update interface port and CIDR
     sqlite3 "$DB_FILE" "UPDATE interfaces_table SET port=${WG_PORT}, ipv4_cidr='${WG_IPV4_CIDR}', mtu=${MTU} WHERE name='wg0';"
+
+    # With VPN_CLIENT_FIREWALL the subnet-wide az_clients chain replaces the wg-easy
+    # "Per-Client Firewall" (Admin -> Interface); both together would only duplicate rules.
+    if [ "${VPN_CLIENT_FIREWALL:-false}" = "true" ]; then
+        sqlite3 "$DB_FILE" "UPDATE interfaces_table SET firewall_enabled=0 WHERE name='wg0';"
+    fi
 
     # Update user config (allowed IPs, DNS, host, port, persistent keepalive)
     sqlite3 "$DB_FILE" "UPDATE user_configs_table SET default_allowed_ips='${ALLOWED_IPS_JSON}', default_dns='${DNS_JSON}', default_mtu=${MTU}, host='${host_val}', port=${WG_PORT} WHERE id='wg0';"
