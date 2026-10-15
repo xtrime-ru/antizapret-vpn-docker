@@ -1176,6 +1176,11 @@ You can define these variables in docker-compose.override.yml file for your need
 - `EXTRA_ACCOUNTS` - Additional login:password pairs. Example: `login:password;login2:password2`
 - `EXTRA_CONFIG` - Raw 3proxy config lines injected before proxy/socks directives (empty by default)
 
+### Firewall
+- `INTERVAL=3h` - blocklist refresh interval.
+- `V4_URL`, `V6_URL` - IPv4/IPv6 blocklists; sources from these networks cannot reach published container ports.
+- `EXCEPTIONS_FILE=` - optional file with exceptions, one per line: `interface destination-IP tcp|udp port[,port...]` (see `services/firewall/exceptions.example`). Blocklisted sources may still reach these published addresses/ports, for example SMTP of a mail server. Addresses and ports are the public ones, as seen before Docker DNAT. An invalid file stops the update and keeps the current rules. Apply changes immediately with `docker exec <firewall-container> /root/block.sh`.
+
 ## DNS
 ### Adguard Upstream DNS
 AdGuard sends ordinary client queries through CoreDNS, except domains with a dedicated upstream such as `steampipe.akamaized.net`. The default `az-local`, `az-world`, `coredns` and `az-resolver` clients use Cloudflare, Google and Quad9, with additional domain-specific upstreams where configured. `az-resolver` is used for direct resolution before ASN checks. Existing saved client settings are retained; when adding a missing `az-resolver` client to an older configuration, the entrypoint copies the `az-local` upstreams. The generated configuration is stored in `./config/adguard/conf/AdGuardHome.yaml` and can be changed through the AdGuard Home UI.

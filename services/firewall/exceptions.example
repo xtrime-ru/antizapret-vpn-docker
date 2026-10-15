@@ -1,0 +1,7 @@
+# Firewall exceptions: blocklisted sources may still reach these published services.
+# Format: interface destination-IP tcp|udp port[,port...]
+# - destination-IP: the host's public address the clients connect to (single IPv4/IPv6, no CIDR)
+# - ports: the published (host) ports, as seen before Docker DNAT
+# Example: a mail server that must accept SMTP from providers listed in the blocklist.
+eth0 203.0.113.10 tcp 25,465,587
+eth0 2001:db8::10 tcp 25,465,587

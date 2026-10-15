@@ -31,3 +31,6 @@ services:
       - V4_FILE=blacklist-v4.txt
       - V6_URL=https://raw.githubusercontent.com/C24Be/AS_Network_List/refs/heads/main/blacklists/blacklist-v6.txt
       - V6_FILE=blacklist-v6.txt
+      # Optional: path inside the container to an exceptions file (see exceptions.example),
+      # e.g. mount ./firewall-exceptions:/root/exceptions:ro and set /root/exceptions
+      - EXCEPTIONS_FILE=
