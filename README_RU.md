@@ -34,6 +34,8 @@ Antizapret создан для того, чтобы перенаправлять
   - [Сброс](#сброс)
 - [Документация](#документация)
   - [FAQ (Часто задаваемые вопросы)](#faq-часто-задаваемые-вопросы)
+    - [Таймауты DNS в AdGuard: как проверить связность Swarm](#таймауты-dns-в-adguard-как-проверить-связность-swarm)
+    - [Яндекс Облако: нет связи между az-local и az-world](#яндекс-облако-нет-связи-между-az-local-и-az-world)
   - [Алгоритм разрешения DNS](#алгоритм-разрешения-dns)
     - [Docker Swarm](#docker-swarm)
     - [Один сервер (Docker Compose)](#один-сервер-docker-compose)
@@ -173,6 +175,8 @@ services:
 Версии 5 и 6 обладают возможностью перенаправлять трафик на разные узлы выхода для разных доменов.
 Например, YouTube лучше всего работает, если узел выхода находится близко к клиенту, а другие сервисы требуют зарубежный IP для работы.
 Docker swarm используется для построения единой сети между контейнерами.
+
+> **Яндекс Облако (Yandex Cloud) и 1:1 NAT:** шифрованная overlay-сеть Swarm может не передавать трафик между `az-local` и `az-world`, если один из серверов находится за NAT. Для обхода проблемы отключите шифрование через `docker-compose.override.yml` и пересоздайте сеть и стек. Подробности и команды: [FAQ](#яндекс-облако-нет-связи-между-az-local-и-az-world).
 
 Рекомендуется использовать локальный сервер в качестве менеджера/первичного узла для VPN, DNS и контейнеров az-local.
 Зарубежный сервер — в качестве вторичного/воркер-узла для контейнера az-world.
@@ -578,6 +582,170 @@ git restore config
     3. Проверьте, загружены ли DIST-фильтры и имеют ли они ненулевые счетчики правил: http://adguard.antizapret:3000/#filters
     4. Проверьте этапы разрешения DNS: http://adguard.antizapret:3000/#logs?response_status=all&search=youtube.com  
        Число запросов зависит от доменных правил, проверки ASN, CNAME-цепочек и кэширования. Подробнее: [Алгоритм разрешения DNS](#алгоритм-разрешения-dns)
+    5. При DNS-таймаутах см. [диагностику связности Swarm](#таймауты-dns-в-adguard-как-проверить-связность-swarm).
+
+### Таймауты DNS в AdGuard: как проверить связность Swarm
+
+Команды `docker node` и `docker service` выполняйте на manager-узле.
+
+#### 1. Определите, какой DNS-сервер не отвечает
+
+```shell
+docker service logs --since 10m --tail 200 --timestamps antizapret_adguard
+```
+
+Смотрите поля `upstream=` / `addr=` и текст ошибки. Таймаут обращения к CoreDNS:
+
+```text
+[error] dnsproxy: response received upstream_type=main addr=coredns:53 proto=udp status="exchanging with coredns:53 over udp: read udp 10.200.0.33:53380->10.200.0.18:53: i/o timeout"
+```
+
+Если таймауты есть только для `coredns:53`, а внешние upstream Google, Cloudflare и другие отвечают, проверяйте внутреннюю цепочку `AdGuard → CoreDNS → az-world/az-local`. Это ещё не доказывает потерю пакетов: запрос может дойти, но ответ задержаться при дальнейшей обработке или потеряться на обратном пути.
+
+Не путайте DNS-сервер с клиентом AdGuard. Таймаут внешнего upstream:
+
+```text
+[error] dnsproxy: response received upstream_type=custom client_name=coredns addr=https://dns.google:443/dns-query proto=tcp status="… Client.Timeout exceeded while awaiting headers"
+```
+
+Здесь `client_name=coredns` — имя клиента, а таймаут произошёл при обращении к **Google DNS**. В таком случае проверяйте также доступ к внешним DNS, исходящий HTTPS и ошибки upstream. Сопоставляйте ошибки за один период времени, желательно для одного домена. Запросы и ответы также доступны в [журнале AdGuard](http://adguard.antizapret:3000/#logs).
+
+#### 2. Проверьте доступность нод
+
+```shell
+docker node ls
+```
+
+```text
+ID                         HOSTNAME   STATUS   AVAILABILITY   MANAGER STATUS   ENGINE VERSION
+ce9ydb2mezb20hvdgtyksdec4 *  az-local   Ready    Active         Leader           29.9.0
+x0ft0wbjotegkj0o6z51h47r8    az-world   Ready    Active                          29.9.0
+```
+
+Ожидаются `Ready` и `Active`; manager должен иметь статус `Leader` или `Reachable`. `Down` / `Unknown` требуют проверки связи между хостами и Docker daemon, `Drain` / `Pause` влияют на размещение задач. `Ready` подтверждает связь управления Swarm, но не исправность overlay-сети для трафика контейнеров.
+
+#### 3. Проверьте сервисы и историю задач
+
+```shell
+docker service ls
+docker service ps --no-trunc antizapret_adguard antizapret_coredns antizapret_az-local antizapret_az-world
+```
+
+```text
+NAME                  MODE         REPLICAS   IMAGE
+antizapret_adguard     replicated   1/1        xtrime/antizapret-vpn-adguard:6.9.2
+antizapret_az-local    replicated   1/1        xtrime/antizapret-vpn:6.9.4
+antizapret_az-world    replicated   1/1        xtrime/antizapret-vpn:6.9.4
+antizapret_coredns     replicated   1/1        xtrime/antizapret-vpn-coredns:6.6.4
+```
+
+```text
+NAME                       NODE       CURRENT STATE       ERROR
+antizapret_coredns.1        az-local   Running 2 days ago
+ \_ antizapret_coredns.1   az-local   Failed 2 days ago   "task: non-zero exit (255)"
+```
+
+Для указанных DNS-сервисов ожидается `1/1`. `0/1`, `Pending`, `Rejected` или повторяющиеся свежие `Failed` требуют изучения `ERROR` и логов сервиса. `docker service ls` не показывает историю перезапусков: её показывает [docker service ps](https://docs.docker.com/reference/cli/docker/service/ps/). Повторите проверку через 30–60 секунд: текущие задачи должны оставаться теми же, а время `Running` — расти. Старый `Failed` после обновления или перезагрузки сам по себе не означает текущую проблему.
+
+#### 4. Сопоставьте логи с тестовыми запросами
+
+```shell
+docker service logs --since 10m --tail 200 --timestamps antizapret_coredns
+docker service logs --since 10m --tail 200 --timestamps antizapret_az-local
+docker service logs --since 10m --tail 200 --timestamps antizapret_az-world
+```
+
+```text
+antizapret_coredns.1.…@az-local | [INFO] 10.200.0.33:51045 - 47063 "A IN example.com. udp 52 false 1232" NOERROR qr,rd,ra,ad 94 0.071461249s
+antizapret_az-local.1.…@az-local | Request: [10.200.0.33:38244] (udp) / 'example.com.' (A)
+antizapret_az-local.1.…@az-local | Reply: [10.200.0.33:38244] (udp) / 'example.com.' (A) / SERVFAIL
+antizapret_az-world.1.…@az-world | Request: [10.200.0.33:43260] (udp) / 'example.com.' (A)
+antizapret_az-world.1.…@az-world | Reply: [10.200.0.33:43260] (udp) / 'example.com.' (A) / RRs: A,A
+```
+
+Ищите DNS-строки `Request:` / `Reply:` и записи CoreDNS, а не только HTTP-запросы `/config-md5/`. В проекте логирование DNS включено по умолчанию. `SERVFAIL` от `az-local` или `az-world` может быть штатным ответом, если домен не соответствует правилам этого узла: CoreDNS переходит к следующему upstream. При успешном ответе `az-world` тот же запрос не обязан появляться у `az-local`.
+
+Чтобы проверить каждый сервер отдельно, выполните на **хосте, где запущен контейнер AdGuard** (обычно `az-local`):
+
+```shell
+ADGUARD_ID=$(docker ps -q --filter label=com.docker.swarm.service.name=antizapret_adguard --filter status=running | head -n 1)
+docker exec "$ADGUARD_ID" dig @coredns.antizapret example.com A +time=5 +tries=1 +noall +comments +answer
+docker exec "$ADGUARD_ID" dig @az-world.antizapret example.com A +time=5 +tries=1 +noall +comments +answer
+docker exec "$ADGUARD_ID" dig @az-local.antizapret example.com A +time=5 +tries=1 +noall +comments +answer
+```
+
+```text
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 47063
+example.com.  300  IN  A  14.18.138.112
+example.com.  300  IN  A  14.18.138.111
+```
+
+Если `ADGUARD_ID` пуст, найдите нужный хост через `docker service ps antizapret_adguard`; `docker ps` видит только локальные контейнеры. `NOERROR` и `SERVFAIL` означают, что DNS-ответ получен. `communications error … timed out` / `no servers could be reached` означают, что за заданное время ответ не пришёл.
+
+Эти пробы обходят кэш AdGuard. Для проверки полной цепочки выполните на VPN-клиенте `nslookup youtube.com 14.16.0.1`; при попадании в кэш или адресный upstream запрос не обязан идти в CoreDNS. Прямые пробы к узлам выхода проверяют путь от AdGuard; путь от CoreDNS проверяйте по логам одного запроса. Запись CoreDNS может появиться только после завершения обработки — дождитесь ответа или таймаута.
+
+Если `docker service logs` сообщает `incomplete log stream`, отсутствие строк не доказывает отсутствие запросов. Найдите текущую задачу через `docker service ps` и прочитайте локальные логи на её хосте, например для `az-world`:
+
+```shell
+docker ps --filter label=com.docker.swarm.service.name=antizapret_az-world
+AZ_WORLD_ID=$(docker ps -q --filter label=com.docker.swarm.service.name=antizapret_az-world --filter status=running | head -n 1)
+docker logs --since 10m --tail 200 --timestamps "$AZ_WORLD_ID"
+```
+
+#### 5. Проверьте firewall и сеть между серверами
+
+Если overlay-сеть Docker Swarm не работает, тестовые DNS-запросы из шага 4 к недоступным контейнерам завершатся таймаутом: `communications error … timed out` / `no servers could be reached`. Ноды при этом могут быть `Ready`, а сервисы — иметь все запущенные реплики.
+
+Дополнительно проверьте доступность `az-world` из контейнера AdGuard на `az-local`:
+
+```shell
+docker exec "$ADGUARD_ID" ping -c 4 -W 2 az-world.antizapret
+```
+
+При неработающей overlay-сети ответы на ping также не придут (`100% packet loss`). Если DNS-запросы завершаются таймаутом и ping не проходит, проверьте firewall и сеть между серверами. Отсутствие ответа на ping само по себе может быть вызвано блокировкой ICMP.
+
+1. Проверьте firewall на **обоих серверах**: UFW, правила iptables или другой используемый firewall. Убедитесь, что он разрешает трафик между нодами Swarm, включая пересылку трафика контейнеров.
+2. Если серверы находятся в облаке, проверьте также сетевые правила в панели провайдера (security groups).
+3. Убедитесь, что между нодами разрешены [порты и протоколы Docker Swarm](https://docs.docker.com/engine/swarm/swarm-tutorial/#open-protocols-and-ports-between-the-hosts):
+   - TCP `2377` — доступ к manager;
+   - TCP и UDP `7946` — обмен между нодами;
+   - UDP `4789` — трафик overlay-сети (если data path port не изменён);
+   - IP-протокол `50` (ESP) — для шифрованной overlay-сети. Это протокол, а не порт `50`.
+4. Если используется Яндекс Облако / 1:1 NAT, проверьте [проблему с шифрованной overlay-сетью](#яндекс-облако-нет-связи-между-az-local-и-az-world).
+
+Разрешайте эти подключения только между нодами Swarm. После исправления правил повторите DNS-пробы из шага 4 и проверьте логи.
+
+### Яндекс Облако: нет связи между az-local и az-world
+
+Если `az-local` размещён в Яндекс Облаке (Яндекс.Облако / Yandex Cloud, yandex.cloud), причиной отсутствия связи с `az-world` может быть шифрование overlay-сети Docker Swarm при 1:1 NAT. По [документации Yandex Cloud](https://yandex.cloud/en/docs/compute/concepts/network), публичный IP виртуальной машины отображается через NAT на внутренний адрес, например `10.128.0.22`. В Docker/Moby есть [открытая проблема #37115](https://github.com/moby/moby/issues/37115) с похожими симптомами для AWS/GCE: шифрованный overlay не передаёт трафик через 1:1 NAT. Обход проблемы — отключение шифрования overlay-сети.
+
+Дополнительный симптом: в [фильтрах AdGuard](http://adguard.antizapret:3000/#filters) у правил `az-local` есть ненулевые счётчики, а у `az-world` — нули. Это повод проверить связность узлов и загрузку фильтров; само по себе такое состояние не доказывает проблему с NAT.
+
+Чтобы применить обход:
+
+1. В `docker-compose.override.yml` добавьте переопределение:
+   ```yaml
+   networks:
+     default:
+       driver_opts:
+         encrypted: !reset null
+   ```
+   `!reset null` удаляет унаследованную опцию `encrypted`, сохраняя остальные параметры сети. Не используйте `encrypted: "false"`: наличие этой опции включает шифрование.
+2. На первичном/manager-узле удалите стек:
+   ```shell
+   docker stack rm antizapret
+   ```
+3. Дождитесь удаления сервисов и overlay-сети `antizapret_default`. Проверьте `docker stack ls` и `docker network ls`. Если сеть осталась после удаления сервисов, удалите её вручную:
+   ```shell
+   docker network rm antizapret_default
+   ```
+4. Заново разверните весь стек с изменённой конфигурацией:
+   ```shell
+   docker compose --env-file compose.swarm.env config | docker run --pull always --rm -i xtrime/antizapret-vpn:6 compose2swarm | docker stack deploy --prune -c - antizapret
+   ```
+5. Проверьте связь с `az-world` и обновление его фильтров в AdGuard.
+
+Простого перезапуска контейнеров или обновления стека недостаточно: существующую сеть нужно пересоздать. Во время удаления и повторного развёртывания стека VPN будет недоступен. После удаления `encrypted` трафик overlay-сети между серверами больше не шифруется Docker; шифрование клиентского VPN-соединения сохраняется.
 
 ## Алгоритм разрешения DNS
 
