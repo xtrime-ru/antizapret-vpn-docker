@@ -94,9 +94,9 @@ RUN apt-get update && \
 COPY --from=xtrime/antizapret-vpn:6.9.1  /usr/bin/routes /usr/bin/routes
 
 COPY --chmod=0755 ./ocserv.sh /
-COPY ./certificate.sh /
+COPY --chmod=0755 ./certificate.sh /
 COPY ./ocserv.tmpl /
 COPY ./az.tmpl /
 COPY --chmod=0755 ./healthcheck.sh /
 
-ENTRYPOINT ["/ocserv.sh", "/usr/sbin/ocserv", "--config", "/run/ocserv/ocserv.conf", "--foreground", "--log-stderr"]
+ENTRYPOINT ["/ocserv.sh", "/usr/sbin/ocserv", "--config", "/etc/ocserv/ocserv.conf", "--foreground", "--log-stderr"]
