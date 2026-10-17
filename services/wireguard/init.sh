@@ -4,9 +4,12 @@ CONFIG_FILES="/opt/antizapret/result/ips*"
 cat $CONFIG_FILES 2>/dev/null | md5sum | cut -d' ' -f1 > /.config_md5
 
 if [ -z "$WG_HOST" ]; then
-    ip="$(timeout 1s curl -4 icanhazip.com || echo '')"
-    if [ -n "$ip" ]; then
+    ip="$(curl -4 -fsS --connect-timeout 3 --max-time 5 icanhazip.com 2>/dev/null | tr -d '[:space:]' || true)"
+    if [[ "$ip" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]]; then
       export WG_HOST="$ip"
+    else
+      # update_db keeps the host already stored in the DB in this case.
+      echo "Warning: WG_HOST is not set and the public IPv4 could not be detected" >&2
     fi
 fi
 
@@ -131,7 +134,11 @@ update_db() {
     sqlite3 "$DB_FILE" "UPDATE interfaces_table SET port=${WG_PORT}, ipv4_cidr='${WG_IPV4_CIDR}', mtu=${MTU} WHERE name='wg0';"
 
     # Update user config (allowed IPs, DNS, host, port, persistent keepalive)
-    sqlite3 "$DB_FILE" "UPDATE user_configs_table SET default_allowed_ips='${ALLOWED_IPS_JSON}', default_dns='${DNS_JSON}', default_mtu=${MTU}, host='${host_val}', port=${WG_PORT} WHERE id='wg0';"
+    sqlite3 "$DB_FILE" "UPDATE user_configs_table SET default_allowed_ips='${ALLOWED_IPS_JSON}', default_dns='${DNS_JSON}', default_mtu=${MTU}, port=${WG_PORT} WHERE id='wg0';"
+    # An empty host (detection timed out) must not wipe the Endpoint of new profiles.
+    if [ -n "$host_val" ]; then
+        sqlite3 "$DB_FILE" "UPDATE user_configs_table SET host='${host_val}' WHERE id='wg0';"
+    fi
 
     if [ -n "$WG_PERSISTENT_KEEPALIVE" ]; then
         sqlite3 "$DB_FILE" "UPDATE user_configs_table SET default_persistent_keepalive=${WG_PERSISTENT_KEEPALIVE} WHERE id='wg0';"
