@@ -355,7 +355,6 @@ class ProxyResolver(BaseResolver):
                     return {real_addr: None for real_addr in unique_addresses}
 
             requests = {}
-            is_batch_leader = False
             for real_addr in unique_addresses:
                 existing_fake_addr = self.get_mapping(real_addr)
                 if existing_fake_addr:
@@ -373,11 +372,11 @@ class ProxyResolver(BaseResolver):
             if requests:
                 if not self.mapping_batch_running:
                     self.mapping_batch_running = True
-                    is_batch_leader = True
+                    threading.Thread(
+                        target=self.run_mapping_worker,
+                        name='dnsmap-mappings', daemon=True,
+                    ).start()
                 self.mapping_condition.notify()
-
-        if is_batch_leader:
-            self.apply_mapping_batches()
 
         for request in requests.values():
             request.event.wait()
@@ -386,6 +385,21 @@ class ProxyResolver(BaseResolver):
             real_addr: self.get_mapping(real_addr)
             for real_addr in unique_addresses
         }
+
+    def run_mapping_worker(self):
+        try:
+            self.apply_mapping_batches()
+        except Exception as error:
+            print("ERROR: Mapping worker failed: {}".format(error))
+            # Never leave DNS callers waiting if the worker exits unexpectedly.
+            with self.mapping_condition:
+                for request in self.pending_mappings.values():
+                    self.unassigned_addresses.appendleft(request.fake_addr)
+                    request.event.set()
+                self.pending_mappings.clear()
+                self.mapping_batch = []
+                self.mapping_batch_running = False
+                self.mapping_condition.notify_all()
 
     def apply_mapping_batches(self):
         while True:
@@ -413,10 +427,11 @@ class ProxyResolver(BaseResolver):
                 result = self.iptables_runner(
                     command,
                     input='\n'.join(rules),
+                    timeout=10,
                     capture_output=True,
                     text=True,
                 )
-            except OSError as error:
+            except (OSError, subprocess.TimeoutExpired) as error:
                 result = None
                 print('ERROR: Failed to execute iptables-restore: {}'.format(error))
 
