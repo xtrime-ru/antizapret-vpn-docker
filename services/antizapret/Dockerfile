@@ -1,18 +1,18 @@
-FROM golang:1.26 AS builder-api
+FROM golang:1.27 AS builder-api
 WORKDIR /app
 COPY ./api/go.* .
 RUN go mod download
 COPY ./api .
 RUN go test ./... && go build -o app
 
-FROM golang:1.26 AS builder-compose2swarm
+FROM golang:1.27 AS builder-compose2swarm
 WORKDIR /app
 COPY ./compose2swarm/go.* .
 RUN go mod download
 COPY ./compose2swarm .
 RUN go test ./... && go build -o compose2swarm
 
-FROM golang:1.26 AS builder-routes
+FROM golang:1.27 AS builder-routes
 WORKDIR /app
 COPY ./routes/go.* .
 RUN go mod download
@@ -24,7 +24,7 @@ FROM ubuntu:24.04 AS runtime-base
 
 WORKDIR /root
 
-ARG WARP_VERSION=2026.6.880.0
+ARG WARP_VERSION=2026.8.2115.0
 
 RUN <<-"EOT" bash -ex
     export APT_LISTCHANGES_FRONTEND=none DEBIAN_FRONTEND=noninteractive

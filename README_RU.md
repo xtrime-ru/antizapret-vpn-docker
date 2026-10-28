@@ -11,7 +11,7 @@
 
 [![Caddy 2.11.4](https://img.shields.io/badge/Caddy-2.11.4-1F88C0?style=flat-square&logo=caddy&logoColor=white)](services/https/Dockerfile)
 [![ocserv 1.5.0](https://img.shields.io/badge/ocserv-1.5.0-16803C?style=flat-square)](services/ocserv/Dockerfile)
-[![Cloudflare WARP 2026.6.880.0](https://img.shields.io/badge/Cloudflare%20WARP-2026.6.880.0-F38020?style=flat-square&logo=cloudflare&logoColor=white)](services/antizapret/Dockerfile)
+[![Cloudflare WARP 2026.8.2115.0](https://img.shields.io/badge/Cloudflare%20WARP-2026.8.2115.0-F38020?style=flat-square&logo=cloudflare&logoColor=white)](services/antizapret/Dockerfile)
 
 Версии компонентов, используемых в проекте.
 
