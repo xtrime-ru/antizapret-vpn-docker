@@ -7,10 +7,10 @@
 [![OpenVPN 2.7.8](https://img.shields.io/badge/OpenVPN-2.7.8-EA7E20?style=flat-square&logo=openvpn&logoColor=white)](services/openvpn/Dockerfile)
 [![AmneziaWG tools 3.1.20260812](docs/badges/amneziawg.svg)](https://github.com/amnezia-vpn/amneziawg-tools/releases/tag/v3.1.20260812)
 [![zapret2 1.0.5](https://img.shields.io/badge/zapret2-1.0.5-2563EB?style=flat-square)](services/antizapret/Dockerfile)
-[![CoreDNS 1.14.0](docs/badges/coredns.svg)](services/coredns/Dockerfile)
+[![CoreDNS 1.15.0](docs/badges/coredns.svg)](services/coredns/Dockerfile)
 
-[![Caddy 2.11.4](https://img.shields.io/badge/Caddy-2.11.4-1F88C0?style=flat-square&logo=caddy&logoColor=white)](services/https/Dockerfile)
-[![ocserv 1.5.0](https://img.shields.io/badge/ocserv-1.5.0-16803C?style=flat-square)](services/ocserv/Dockerfile)
+[![Caddy 2.11.7](https://img.shields.io/badge/Caddy-2.11.7-1F88C0?style=flat-square&logo=caddy&logoColor=white)](services/https/Dockerfile)
+[![ocserv 1.6.0](https://img.shields.io/badge/ocserv-1.6.0-16803C?style=flat-square)](services/ocserv/Dockerfile)
 [![Cloudflare WARP 2026.8.2115.0](https://img.shields.io/badge/Cloudflare%20WARP-2026.8.2115.0-F38020?style=flat-square&logo=cloudflare&logoColor=white)](services/antizapret/Dockerfile)
 
 Component versions used in this project.
@@ -468,6 +468,15 @@ List of default ports:
 Some containers have same ports. So you need to choose unique external port in docker-compose.override.yml.
 
 ## Update
+
+When upgrading ocserv to 1.6, custom IPv6 configurations must account for the
+server address changing from the network address plus one to the network
+address itself. Invalid or unreadable per-user/group configuration files now
+reject the affected session. The project's default IPv4 configuration needs
+no changes. CoreDNS finalizer now uses the minimum TTL across the CNAME chain.
+Caddy 2.11.7 defaults to a 16 KiB request header limit and one-minute idle
+read/write timeouts; custom applications that need larger headers or longer
+stalls can override these in their Caddy configuration.
 
 - Single instance
    ```shell
@@ -1299,7 +1308,7 @@ You can define these variables in docker-compose.override.yml file for your need
 
 ### Filebrowser:
 - `FILEBROWSER_USERNAME=admin`
-- `FILEBROWSER_PASSWORD=password`
+- `FILEBROWSER_PASSWORD=antizapret-browser` — new users require a non-common password of at least 12 characters. Existing users keep their password; change an explicitly configured `password` before recreating the container.
 
 ### Https:
 - `PROXY_DOMAIN=` - optional domain shared by the HTTPS services and ocserv. If empty, the public IPv4 address is detected at startup.

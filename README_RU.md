@@ -7,10 +7,10 @@
 [![OpenVPN 2.7.8](https://img.shields.io/badge/OpenVPN-2.7.8-EA7E20?style=flat-square&logo=openvpn&logoColor=white)](services/openvpn/Dockerfile)
 [![AmneziaWG tools 3.1.20260812](docs/badges/amneziawg.svg)](https://github.com/amnezia-vpn/amneziawg-tools/releases/tag/v3.1.20260812)
 [![zapret2 1.0.5](https://img.shields.io/badge/zapret2-1.0.5-2563EB?style=flat-square)](services/antizapret/Dockerfile)
-[![CoreDNS 1.14.0](docs/badges/coredns.svg)](services/coredns/Dockerfile)
+[![CoreDNS 1.15.0](docs/badges/coredns.svg)](services/coredns/Dockerfile)
 
-[![Caddy 2.11.4](https://img.shields.io/badge/Caddy-2.11.4-1F88C0?style=flat-square&logo=caddy&logoColor=white)](services/https/Dockerfile)
-[![ocserv 1.5.0](https://img.shields.io/badge/ocserv-1.5.0-16803C?style=flat-square)](services/ocserv/Dockerfile)
+[![Caddy 2.11.7](https://img.shields.io/badge/Caddy-2.11.7-1F88C0?style=flat-square&logo=caddy&logoColor=white)](services/https/Dockerfile)
+[![ocserv 1.6.0](https://img.shields.io/badge/ocserv-1.6.0-16803C?style=flat-square)](services/ocserv/Dockerfile)
 [![Cloudflare WARP 2026.8.2115.0](https://img.shields.io/badge/Cloudflare%20WARP-2026.8.2115.0-F38020?style=flat-square&logo=cloudflare&logoColor=white)](services/antizapret/Dockerfile)
 
 Версии компонентов, используемых в проекте.
@@ -467,6 +467,15 @@ services:
 Некоторые контейнеры используют одинаковые порты. Поэтому вам нужно выбрать уникальный внешний порт в docker-compose.override.yml.
 
 ## Обновление
+
+При обновлении ocserv до 1.6 в собственных IPv6-конфигах учтите смену адреса
+сервера: теперь это адрес сети, а не адрес сети плюс один. Ошибочные или
+недоступные конфиги пользователей/групп теперь приводят к отказу в подключении
+для соответствующей сессии. Стандартный IPv4-конфиг проекта менять не нужно.
+Плагин finalizer в CoreDNS теперь использует минимальный TTL по цепочке CNAME.
+В Caddy 2.11.7 лимит заголовков запроса по умолчанию составляет 16 КиБ, а
+таймауты простоя чтения/записи — одну минуту; для собственных приложений эти
+значения можно переопределить в конфигурации Caddy.
 
 - Одиночный экземпляр
    ```shell
@@ -1290,7 +1299,7 @@ docker compose --env-file compose.swarm.env config | docker run --pull always --
 
 ### Filebrowser:
 - `FILEBROWSER_USERNAME=admin`
-- `FILEBROWSER_PASSWORD=password`
+- `FILEBROWSER_PASSWORD=antizapret-browser` — для новых пользователей нужен пароль не короче 12 символов, отсутствующий в списке распространённых. Пароли существующих пользователей сохраняются; явно заданное значение `password` нужно заменить перед пересозданием контейнера.
 
 ### Https:
 - `PROXY_DOMAIN=` - необязательный общий домен HTTPS-сервисов и ocserv. Если значение пустое, при запуске определяется публичный IPv4 сервера.

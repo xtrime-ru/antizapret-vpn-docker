@@ -1,11 +1,12 @@
 #!/usr/bin/env /bin/sh
 
-/filebrowser config init \
+/bin/filebrowser config init \
     --address="0.0.0.0" \
     --branding.disableExternal \
     --branding.files="/branding" \
     --branding.name="AntiBrowser" \
     --locale="ru" \
+    --disableExec=false \
     --perm.create="false" \
     --perm.delete="false" \
     --perm.download="false" \
@@ -19,17 +20,22 @@
     --singleClick
 
 hook_indices=$(
-    /filebrowser cmds ls \
+    /bin/filebrowser cmds ls \
         | sed -n 's|^after_save(\([0-9][0-9]*\)): /hooks/doall\.sh$|\1|p' \
         | sort -rn
 )
 for hook_index in $hook_indices; do
-    /filebrowser cmds rm after_save "$hook_index"
+    /bin/filebrowser cmds rm after_save "$hook_index"
 done
-/filebrowser cmds add after_save '/hooks/doall.sh'
+/bin/filebrowser cmds add after_save '/hooks/doall.sh'
 
-/filebrowser users add --lockPassword \
-    ${FILEBROWSER_USERNAME:-"admin"}  \
-    ${FILEBROWSER_PASSWORD:-"password"} 
+if ! /bin/filebrowser users find "${FILEBROWSER_USERNAME:-admin}" >/dev/null 2>&1; then
+    /bin/filebrowser users add --lockPassword \
+        "${FILEBROWSER_USERNAME:-admin}" \
+        "${FILEBROWSER_PASSWORD:-antizapret-browser}" || {
+        echo 'Cannot create File Browser user. Set FILEBROWSER_PASSWORD to a non-common password of at least 12 characters.' >&2
+        exit 1
+    }
+fi
 
-exec /filebrowser
+exec /bin/filebrowser

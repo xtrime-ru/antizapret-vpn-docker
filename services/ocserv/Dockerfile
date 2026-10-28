@@ -2,7 +2,7 @@
 
 FROM ubuntu:24.04 AS builder
 
-ARG OCSERV_VERSION="1.5.0"
+ARG OCSERV_VERSION="1.6.0"
 ENV OCSERV_VERSION="${OCSERV_VERSION}"
 
 LABEL maintainer="Ivan Cherniy <kar-kar@r4ven.me>"
@@ -38,7 +38,7 @@ RUN apt-get update && \
 
 FROM ubuntu:24.04
 
-ARG OCSERV_VERSION="1.5.0"
+ARG OCSERV_VERSION="1.6.0"
 ENV OCSERV_VERSION="${OCSERV_VERSION}"
 
 LABEL maintainer="Ivan Cherniy <kar-kar@r4ven.me>"

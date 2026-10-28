@@ -34,7 +34,7 @@ services:
       service: filebrowser
     environment:
       - FILEBROWSER_USERNAME=admin
-      - FILEBROWSER_PASSWORD=password
+      - FILEBROWSER_PASSWORD=antizapret-browser
 
   ocserv:
     extends:

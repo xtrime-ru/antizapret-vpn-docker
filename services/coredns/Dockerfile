@@ -1,13 +1,13 @@
 FROM golang:1.27 AS builder
 
 ENV GOFLAGS="-buildvcs=false"
-ARG COREDNS_VERSION="v1.14.0"
+ARG COREDNS_VERSION="v1.15.0"
 WORKDIR /root
 RUN git clone --branch "$COREDNS_VERSION" --single-branch --depth 1 https://github.com/coredns/coredns \
     && cd coredns \
     && go mod download
 
-ARG FINALIZER_COMMIT=8b55ae976b15950f935c0dd25478a003d69f99f2
+ARG FINALIZER_COMMIT=fef8501d6f0ed6f67d7e50b41bdcbe8569d085d5
 RUN cd /root/coredns \
     && sed -i '/cache:cache/a\
 finalize:github.com/tmeckel/coredns-finalizer' plugin.cfg \

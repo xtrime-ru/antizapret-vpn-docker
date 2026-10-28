@@ -1,9 +1,10 @@
-ARG CADDY_VERSION="2.11.4"
+ARG CADDY_VERSION="2.11.7"
 
 FROM caddy:${CADDY_VERSION}-builder AS builder
 
+ARG CADDY_VERSION
 ARG CADDY_L4_VERSION="v0.1.2"
-RUN xcaddy build \
+RUN xcaddy build "v${CADDY_VERSION}" \
     --with github.com/mholt/caddy-l4@${CADDY_L4_VERSION}
 
 FROM caddy:${CADDY_VERSION}
