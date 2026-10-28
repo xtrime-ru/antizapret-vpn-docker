@@ -140,6 +140,15 @@ function stop_services () {
 trap stop_services EXIT HUP INT QUIT PIPE TERM
 
 if [ "$ZAPRET_ENABLED" = "1" ]; then
+    if [ -s "$ZAPRET_CONFIG" ]; then
+        # Regenerate only known, unmodified bundled configs; keep custom rules.
+        case "$(md5sum < "$ZAPRET_CONFIG" | awk '{print $1}')" in
+            5f71da81191ae869d849ed4f11576c56|0c7a96834a14bde6258d1dc283787b4e)
+                echo "Replacing old default zapret2 config: $ZAPRET_CONFIG"
+                rm -f -- "$ZAPRET_CONFIG"
+                ;;
+        esac
+    fi
     if [ ! -s "$ZAPRET_CONFIG" ]; then
         mkdir -p "$(dirname "$ZAPRET_CONFIG")"
         cp /root/zapret2/config.default "$ZAPRET_CONFIG"
