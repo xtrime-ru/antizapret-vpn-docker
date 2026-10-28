@@ -81,7 +81,7 @@ WORKDIR /root
 COPY --from=builder-api /app/app /opt/api/app
 COPY --from=builder-compose2swarm /app/compose2swarm /usr/bin/compose2swarm
 COPY --from=builder-routes /app/routes /usr/bin/routes
-COPY --from=vernette/ss-zapret2:v1.0.2 /opt/zapret2/ /opt/zapret2/
+COPY --from=vernette/ss-zapret2:v1.0.5 /opt/zapret2/ /opt/zapret2/
 COPY --from=runtime-files /runtime/ /
 
 RUN <<-"EOF" bash -ex
