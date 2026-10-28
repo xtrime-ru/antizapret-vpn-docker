@@ -2,6 +2,19 @@
 
 # AntiZapret VPN in Docker
 
+[![AdGuard Home v0.107.79](https://img.shields.io/badge/AdGuard%20Home-v0.107.79-68BC71?style=flat-square&logo=adguard&logoColor=white)](services/adguard/Dockerfile)
+[![wg-easy 15.5.0](https://img.shields.io/badge/wg--easy-15.5.0-88171A?style=flat-square&logo=wireguard&logoColor=white)](https://github.com/wg-easy/wg-easy/releases/tag/v15.5.0)
+[![OpenVPN 2.7.8](https://img.shields.io/badge/OpenVPN-2.7.8-EA7E20?style=flat-square&logo=openvpn&logoColor=white)](services/openvpn/Dockerfile)
+[![AmneziaWG tools 3.1.20260812](docs/badges/amneziawg.svg)](https://github.com/amnezia-vpn/amneziawg-tools/releases/tag/v3.1.20260812)
+[![zapret2 1.0.5](https://img.shields.io/badge/zapret2-1.0.5-2563EB?style=flat-square)](services/antizapret/Dockerfile)
+[![CoreDNS 1.14.0](docs/badges/coredns.svg)](services/coredns/Dockerfile)
+
+[![Caddy 2.11.4](https://img.shields.io/badge/Caddy-2.11.4-1F88C0?style=flat-square&logo=caddy&logoColor=white)](services/https/Dockerfile)
+[![ocserv 1.5.0](https://img.shields.io/badge/ocserv-1.5.0-16803C?style=flat-square)](services/ocserv/Dockerfile)
+[![Cloudflare WARP 2026.6.880.0](https://img.shields.io/badge/Cloudflare%20WARP-2026.6.880.0-F38020?style=flat-square&logo=cloudflare&logoColor=white)](services/antizapret/Dockerfile)
+
+Component versions used in this project.
+
 Antizapret created to redirect only blocked domains to VPN tunnel. Its called split tunneling.
 This repo is based on idea from original [AntiZapret LXD image](https://bitbucket.org/anticensority/antizapret-vpn-container/src/master/)
 
