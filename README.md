@@ -142,7 +142,7 @@ https://t.me/antizapret_support
 2. CoreDNS tries the VPN exit nodes in order: `az-world` → `az-local` in Swarm, or only `az-local` in single-server Compose.
 3. Each exit node asks AdGuard using its ClientID. A matching domain rule enables VPN routing; otherwise, `dnsmap` resolves through `az-resolver` and checks the returned IPv4 addresses against ASN and organization rules.
 4. For a match, `dnsmap` allocates virtual IPv4 addresses and creates iptables DNAT mappings to the real addresses. The default pools are `14.16.0.0/15` for the local exit and `14.18.0.0/15` for the world exit.
-5. CoreDNS returns virtual addresses for VPN-routed domains or falls back to an ordinary DNS answer when no exit node matches. `finalize force_resolve` also checks CNAME targets through the same routing chain.
+5. CoreDNS returns virtual addresses for VPN-routed domains or falls back to an ordinary DNS answer when no exit node matches. `finalize` also checks CNAME targets through the same routing chain.
 6. VPN clients route virtual addresses through the tunnel. Explicit IP/CIDR lists can also add routes for real addresses. See [Routing rules: include, exclude and ASN](#routing-rules-include-exclude-and-asn).
 
 
@@ -1249,7 +1249,7 @@ An empty answer does not create mappings. A failure to install mappings returns 
 
 ### CNAME resolution and direct exceptions
 
-CoreDNS keeps `finalize force_resolve` enabled so that a domain whose CNAME points to a blocked CDN can still use the VPN. The finalizer repeats queries for CNAME targets even if the initial response already contains their real A records.
+CoreDNS keeps `finalize` enabled so that a domain whose CNAME points to a blocked CDN can still use the VPN. The finalizer repeats queries for CNAME targets even if the initial response already contains their real A records. This configuration (without `force_resolve`) prevents DNS resolution failures (`DNS_PROBE_FINISHED_BAD_CONFIG`) that occurred with the previous `finalize force_resolve` directive on Ubuntu 26.04 with Docker Engine 29.x.
 
 Each CNAME target is a new query through the exit-node chain. Excluding the original domain from ASN routing does not automatically exclude its CNAME targets. For a domain that works directly, use a [domain-specific AdGuard upstream](#direct-dns-resolution-for-domains-on-vpn-listed-cdn-networks). That bypasses CoreDNS for the original query while preserving CDN routing for other domains.
 
@@ -1315,7 +1315,7 @@ Domain exclusions have two effects:
 
 The adapter filters list entries, not all hostnames covered by the resulting AdGuard rules. Excluding `subdomain.example.com` does not remove an `example.com` entry, and a manually added AdGuard rule is not processed by the adapter. If another rule already allows the first request from `az-local` or `az-world`, `dnsmap` creates VPN addresses without querying `az-resolver`.
 
-Because both exclusion filters target the shared `az-resolver` client, an exclusion loaded from either node can also prevent ASN fallback on the other node. Excluding a hostname does not remove independent IP/CIDR routes. CNAME targets are separate queries under `finalize force_resolve`; see [Direct DNS resolution for domains on VPN-listed CDN networks](#direct-dns-resolution-for-domains-on-vpn-listed-cdn-networks).
+Because both exclusion filters target the shared `az-resolver` client, an exclusion loaded from either node can also prevent ASN fallback on the other node. Excluding a hostname does not remove independent IP/CIDR routes. CNAME targets are separate queries under `finalize`; see [Direct DNS resolution for domains on VPN-listed CDN networks](#direct-dns-resolution-for-domains-on-vpn-listed-cdn-networks).
 
 ### Adding ASNs
 
@@ -1386,7 +1386,7 @@ This Steam upstream is included in the default configuration. Existing installat
 
 Keep the existing upstreams, including `coredns`. The added upstream sends queries for this domain directly to Cloudflare, bypassing CoreDNS and VPN address rewriting. Other domains continue to use the existing VPN selection logic.
 
-This is also needed when `exclude-hosts-custom.txt` excludes the original domain but its CNAME points to a CDN in a VPN-listed ASN. CoreDNS uses `finalize force_resolve` to query CNAME targets again through the VPN nodes; the original domain's exclusion does not apply to those separate queries. A domain-specific upstream bypasses this entire path without disabling CDN routing for other domains.
+This is also needed when `exclude-hosts-custom.txt` excludes the original domain but its CNAME points to a CDN in a VPN-listed ASN. CoreDNS uses `finalize` to query CNAME targets again through the VPN nodes; the original domain's exclusion does not apply to those separate queries. A domain-specific upstream bypasses this entire path without disabling CDN routing for other domains.
 
 Save the DNS settings, clear the AdGuard DNS cache and the client's DNS cache, and repeat the lookup. The excluded domain should return real IP addresses instead of the VPN addresses in `14.16.0.0/14`. Upstream domain selectors are not regular expressions; add each required domain explicitly.
 
