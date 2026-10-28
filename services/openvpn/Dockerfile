@@ -1,6 +1,6 @@
 FROM d3vilh/openvpn-server:0.5.5
 
-RUN apk add -U --no-cache ipcalc grep moreutils && apk del openvpn
+RUN apk add -U --no-cache ipcalc grep moreutils logrotate && apk del openvpn
 
 ARG OPENVPN_VER=2.7.8
 ADD files/socket.patch /socket.patch
@@ -33,3 +33,4 @@ COPY files/checkpsw.sh /opt/app
 COPY files/server-start.sh /opt/app/docker-entrypoint.sh
 COPY files/healthcheck.sh /opt/app/healthcheck.sh
 COPY files/update-crl.sh /opt/app/update-crl.sh
+COPY files/logrotate-openvpn /etc/logrotate.d/openvpn
