@@ -1,4 +1,4 @@
-ARG IMAGE=ghcr.io/wg-easy/wg-easy:15.4.0
+ARG IMAGE=ghcr.io/wg-easy/wg-easy:15.5.0
 
 FROM ${IMAGE} AS awg-tools-build
 
