@@ -28,6 +28,17 @@ ASN_URL='${ASN_URL:-""}'
 ASN_WORLD_URL='${ASN_WORLD_URL:-""}'
 ASN_FILES='${ASN_FILES:-""}'
 AZ_SUBNET=${AZ_SUBNET:-"14.16.0.0/15"}
+# IPv6 egress configuration (per exit node)
+IPV6_EGRESS_LOCAL_ENABLED=${IPV6_EGRESS_LOCAL_ENABLED:-0}
+IPV6_EGRESS_LOCAL_FILE=${IPV6_EGRESS_LOCAL_FILE:-""}
+IPV6_EGRESS_LOCAL_MODE=${IPV6_EGRESS_LOCAL_MODE:-adguard_only}
+IPV6_EGRESS_LOCAL_RESERVE_COUNT=${IPV6_EGRESS_LOCAL_RESERVE_COUNT:-100}
+IPV6_TRANSLATOR_LOCAL_PORT=${IPV6_TRANSLATOR_LOCAL_PORT:-9000}
+IPV6_EGRESS_WORLD_ENABLED=${IPV6_EGRESS_WORLD_ENABLED:-0}
+IPV6_EGRESS_WORLD_FILE=${IPV6_EGRESS_WORLD_FILE:-""}
+IPV6_EGRESS_WORLD_MODE=${IPV6_EGRESS_WORLD_MODE:-adguard_only}
+IPV6_EGRESS_WORLD_RESERVE_COUNT=${IPV6_EGRESS_WORLD_RESERVE_COUNT:-100}
+IPV6_TRANSLATOR_WORLD_PORT=${IPV6_TRANSLATOR_WORLD_PORT:-9000}
 LC_ALL=C.UTF-8
 EOF
 source /etc/default/antizapret
@@ -86,11 +97,26 @@ trap cleanup_doall_owner EXIT HUP INT QUIT PIPE TERM
 
 # Prepare iptables for dnsmap.py
 CHAIN=dnsmap
-iptables -t nat -N "$CHAIN"
-iptables -t nat -A PREROUTING -d "${AZ_SUBNET}" -j "$CHAIN"
-iptables -t nat -A OUTPUT -d "${AZ_SUBNET}" -j "$CHAIN"
+iptables -t nat -N "$CHAIN" 2>/dev/null || true
+# Anchor rules are idempotent: repeated container restarts must not duplicate them.
+iptables -t nat -C PREROUTING -d "${AZ_SUBNET}" -j "$CHAIN" 2>/dev/null || \
+    iptables -t nat -A PREROUTING -d "${AZ_SUBNET}" -j "$CHAIN"
+iptables -t nat -C OUTPUT -d "${AZ_SUBNET}" -j "$CHAIN" 2>/dev/null || \
+    iptables -t nat -A OUTPUT -d "${AZ_SUBNET}" -j "$CHAIN"
+# Prepare iptables for IPv6 egress mappings (separate chain to avoid flush conflicts)
+IPV6_CHAIN=dnsmap-ipv6
+iptables -t nat -N "$IPV6_CHAIN" 2>/dev/null || true
+# Flush mapping rules accumulated by previous runs before restoring the saved
+# set. dnsmap reloads mappings from iptables immediately after start, so
+# existing mappings are preserved and duplicates cannot accumulate.
+iptables -t nat -F "$IPV6_CHAIN" 2>/dev/null || true
+iptables -t nat -C PREROUTING -d "${AZ_SUBNET}" -j "$IPV6_CHAIN" 2>/dev/null || \
+    iptables -t nat -A PREROUTING -d "${AZ_SUBNET}" -j "$IPV6_CHAIN"
+iptables -t nat -C OUTPUT -d "${AZ_SUBNET}" -j "$IPV6_CHAIN" 2>/dev/null || \
+    iptables -t nat -A OUTPUT -d "${AZ_SUBNET}" -j "$IPV6_CHAIN"
 for eth in $(ip link | grep -oE "eth[0-9]"); do
-    iptables -t nat -A POSTROUTING -o "$eth" -j MASQUERADE
+    iptables -t nat -C POSTROUTING -o "$eth" -j MASQUERADE 2>/dev/null || \
+        iptables -t nat -A POSTROUTING -o "$eth" -j MASQUERADE
 done
 
 HOSTNAME=$(hostname -s)
@@ -108,6 +134,7 @@ if [ "$IPTABLES_SAVE_DISABLED" != "1" ] && [ -f "$IPTABLES_SAVE" ]; then
     {
       printf '*nat\n'
       grep -E "^-A $CHAIN " "$IPTABLES_SAVE" || true
+      grep -E "^-A $IPV6_CHAIN " "$IPTABLES_SAVE" || true
       printf 'COMMIT\n'
     } > "$IPTABLES_RESTORE_FILE"
 
@@ -124,7 +151,10 @@ set -x
 function save_iptables () {
     [ "$IPTABLES_SAVE_DISABLED" = "1" ] && return 0
     echo "saving iptables..."
-    iptables-save -t "nat" | grep -E "^-A $CHAIN " > /tmp/iptables.rules && mv -f /tmp/iptables.rules "$IPTABLES_SAVE" && echo "iptables saved"
+    {
+      iptables-save -t "nat" | grep -E "^-A $CHAIN "
+      iptables-save -t "nat" | grep -E "^-A $IPV6_CHAIN "
+    } > /tmp/iptables.rules && mv -f /tmp/iptables.rules "$IPTABLES_SAVE" && echo "iptables saved"
 }
 
 ZAPRET_STARTED=0
@@ -190,8 +220,63 @@ if ! timeout --kill-after=5s 5m /usr/bin/doall; then
     fi
 fi
 
+# Initialize IPv6 egress support
+# Supports both Singlebox (az-local only) and Swarm (az-local + az-world)
+# Each exit node has independent configuration: domain file, mapping file, translator port
+DNSMAP_EXTRA_ARGS=""
+
+if [ "$CLIENT" = "az-local" ]; then
+    IPV6_EGRESS_ENABLED_VAR="IPV6_EGRESS_LOCAL_ENABLED"
+    IPV6_EGRESS_FILE_VAR="IPV6_EGRESS_LOCAL_FILE"
+    IPV6_EGRESS_MODE_VAR="IPV6_EGRESS_LOCAL_MODE"
+    IPV6_EGRESS_RESERVE_VAR="IPV6_EGRESS_LOCAL_RESERVE_COUNT"
+    IPV6_TRANSLATOR_PORT_VAR="IPV6_TRANSLATOR_LOCAL_PORT"
+    IPV6_EGRESS_CLIENT_ID="az-ipv6-local"
+    DEFAULT_IPV6_EGRESS_FILE="/root/antizapret/config/custom/ipv6-egress-domains-local.txt"
+    DEFAULT_IPV6_MAPPING_FILE="/root/antizapret/result/ipv6-egress-mappings-local.txt"
+elif [ "$CLIENT" = "az-world" ]; then
+    IPV6_EGRESS_ENABLED_VAR="IPV6_EGRESS_WORLD_ENABLED"
+    IPV6_EGRESS_FILE_VAR="IPV6_EGRESS_WORLD_FILE"
+    IPV6_EGRESS_MODE_VAR="IPV6_EGRESS_WORLD_MODE"
+    IPV6_EGRESS_RESERVE_VAR="IPV6_EGRESS_WORLD_RESERVE_COUNT"
+    IPV6_TRANSLATOR_PORT_VAR="IPV6_TRANSLATOR_WORLD_PORT"
+    IPV6_EGRESS_CLIENT_ID="az-ipv6-world"
+    DEFAULT_IPV6_EGRESS_FILE="/root/antizapret/config/custom/ipv6-egress-domains-world.txt"
+    DEFAULT_IPV6_MAPPING_FILE="/root/antizapret/result/ipv6-egress-mappings-world.txt"
+else
+    IPV6_EGRESS_ENABLED_VAR=""
+    IPV6_EGRESS_FILE_VAR=""
+    IPV6_EGRESS_MODE_VAR=""
+    IPV6_EGRESS_RESERVE_VAR=""
+    IPV6_TRANSLATOR_PORT_VAR=""
+    IPV6_EGRESS_CLIENT_ID=""
+    DEFAULT_IPV6_EGRESS_FILE=""
+    DEFAULT_IPV6_MAPPING_FILE=""
+fi
+
+if [ -n "$IPV6_EGRESS_ENABLED_VAR" ]; then
+    IPV6_EGRESS_ENABLED="${!IPV6_EGRESS_ENABLED_VAR:-0}"
+    IPV6_EGRESS_FILE="${!IPV6_EGRESS_FILE_VAR:-$DEFAULT_IPV6_EGRESS_FILE}"
+    IPV6_EGRESS_MODE="${!IPV6_EGRESS_MODE_VAR:-adguard_only}"
+    IPV6_EGRESS_RESERVE_COUNT="${!IPV6_EGRESS_RESERVE_VAR:-100}"
+    IPV6_TRANSLATOR_PORT="${!IPV6_TRANSLATOR_PORT_VAR:-9000}"
+
+    if [ "$IPV6_EGRESS_ENABLED" = "1" ] && [ -n "$IPV6_EGRESS_FILE" ]; then
+        # Ensure the domains file exists
+        [ ! -f "$IPV6_EGRESS_FILE" ] && touch "$IPV6_EGRESS_FILE"
+        # Ensure the mapping file exists for the translator
+        [ ! -f "$DEFAULT_IPV6_MAPPING_FILE" ] && touch "$DEFAULT_IPV6_MAPPING_FILE"
+        # Start the IPv4→IPv6 translator service
+        postrun "IPV6_MAPPING_FILE=$DEFAULT_IPV6_MAPPING_FILE IPV6_TRANSLATOR_PORT=$IPV6_TRANSLATOR_PORT python3 /root/antizapret/ipv6_translator.py"
+        echo "IPv6 egress translator started for $CLIENT on port $IPV6_TRANSLATOR_PORT"
+        DNSMAP_EXTRA_ARGS="--ipv6-egress-file $IPV6_EGRESS_FILE --ipv6-translator-port $IPV6_TRANSLATOR_PORT --ipv6-egress-client-id $IPV6_EGRESS_CLIENT_ID --ipv6-egress-enabled --ipv6-mapping-file $DEFAULT_IPV6_MAPPING_FILE --ipv6-egress-mode $IPV6_EGRESS_MODE --ipv6-egress-reserve-count $IPV6_EGRESS_RESERVE_COUNT"
+    else
+        echo "IPv6 egress disabled for $CLIENT"
+    fi
+fi
+
 postrun 'while true; do /opt/api/app; done'
 postrun 'while true; do sleep 6h; timeout --kill-after=5s 10m /usr/bin/doall; done'
 postrun 'while true; do /usr/bin/iperf3 -s -1; done'
 
-/usr/bin/dnsmap -a 0.0.0.0 --iprange "$AZ_SUBNET" --asn-file "$ASN_FILES"
+/usr/bin/dnsmap -a 0.0.0.0 --iprange "$AZ_SUBNET" --asn-file "$ASN_FILES" $DNSMAP_EXTRA_ARGS
