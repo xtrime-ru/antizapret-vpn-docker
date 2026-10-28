@@ -1,5 +1,7 @@
 services:
   proxy:
+    dns:
+      - 14.16.0.1
     image: xtrime/antizapret-vpn-proxy:6.7.5
     init: true
     build:

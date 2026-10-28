@@ -963,6 +963,8 @@ This is text filtering, not subnet subtraction: excluding `198.51.100.10` does n
 
 The VPN client also needs routes for these real addresses. OpenVPN generates push routes from the IP lists; WireGuard/AmneziaWG adds them to its default AllowedIPs when `WG_ALLOWED_IPS` is unset. After changes, reconnect OpenVPN clients and export/apply updated WireGuard configurations, or use BGP on supported routers.
 
+Processes inside the OpenVPN, ocserv, WireGuard and proxy containers use AdGuard for external DNS queries through Docker's embedded DNS. Matching domains receive virtual addresses and use the corresponding exit node. IP/CIDR list routes apply to VPN client traffic; direct connections to real IPs from the containers themselves use the main routing table.
+
 ### Direct DNS resolution for domains on VPN-listed CDN networks
 
 If a domain works without a VPN but resolves to IPv4 addresses in an ASN included in the VPN lists, add a domain-specific upstream in AdGuard Home under **Settings → DNS settings → Upstream DNS servers**. For example, to download Steam content directly:

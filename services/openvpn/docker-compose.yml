@@ -1,6 +1,8 @@
 services:
   openvpn:
     hostname: openvpn.antizapret
+    dns:
+      - 14.16.0.1
     restart: unless-stopped
     cap_add:
       - NET_ADMIN
