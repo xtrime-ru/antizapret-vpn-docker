@@ -18,6 +18,12 @@ services:
     environment:
       - AZ_SUBNET=14.16.0.0/15
       - ASN_FILES=/root/antizapret/result/asn.txt
+      # IPv6 egress for az-local (Singlebox or Swarm local node)
+      - IPV6_EGRESS_LOCAL_ENABLED=0
+      - IPV6_EGRESS_LOCAL_FILE=/root/antizapret/config/custom/ipv6-egress-domains-local.txt
+      - IPV6_EGRESS_LOCAL_MODE=adguard_only
+      - IPV6_EGRESS_LOCAL_RESERVE_COUNT=100
+      - IPV6_TRANSLATOR_LOCAL_PORT=9000
 
   az-world:
     hostname: az-world.antizapret
@@ -39,6 +45,12 @@ services:
       - CLIENT=az-world
       - AZ_SUBNET=14.18.0.0/15
       - ASN_FILES=/root/antizapret/result/asn-world.txt
+      # IPv6 egress for az-world (Swarm world node only)
+      - IPV6_EGRESS_WORLD_ENABLED=0
+      - IPV6_EGRESS_WORLD_FILE=/root/antizapret/config/custom/ipv6-egress-domains-world.txt
+      - IPV6_EGRESS_WORLD_MODE=adguard_only
+      - IPV6_EGRESS_WORLD_RESERVE_COUNT=100
+      - IPV6_TRANSLATOR_WORLD_PORT=9000
 
   adguard:
     environment:

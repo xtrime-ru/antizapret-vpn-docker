@@ -1,0 +1,10 @@
+.git/
+**/__pycache__/
+**/*.pyc
+**/*.env
+**/.env
+docker-compose.override.yml
+config/
+*.swp
+*~
+.DS_Store
