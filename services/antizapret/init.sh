@@ -143,7 +143,7 @@ if [ "$ZAPRET_ENABLED" = "1" ]; then
     if [ -s "$ZAPRET_CONFIG" ]; then
         # Regenerate only known, unmodified bundled configs; keep custom rules.
         case "$(md5sum < "$ZAPRET_CONFIG" | awk '{print $1}')" in
-            5f71da81191ae869d849ed4f11576c56|0c7a96834a14bde6258d1dc283787b4e)
+            5f71da81191ae869d849ed4f11576c56|0c7a96834a14bde6258d1dc283787b4e|c1c4af3a708375336a0c2af953d4d3c6)
                 echo "Replacing old default zapret2 config: $ZAPRET_CONFIG"
                 rm -f -- "$ZAPRET_CONFIG"
                 ;;

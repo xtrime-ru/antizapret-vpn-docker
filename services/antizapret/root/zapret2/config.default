@@ -1,4 +1,6 @@
-FWTYPE=iptables
+# Let zapret2 select nftables when available, otherwise iptables.
+FWTYPE=
+POSTNAT=1
 
 SET_MAXELEM=522288
 IPSET_OPT="hashsize 262144 maxelem $SET_MAXELEM"
