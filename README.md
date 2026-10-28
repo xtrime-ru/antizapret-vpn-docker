@@ -1178,6 +1178,8 @@ services:
 
 On the first start, the default zapret2 config is created at `./config/antizapret/zapret2/zapret.conf`.
 
+The default config uses a dedicated TLS strategy, `multisplit:pos=10:seqovl=1`, for `youtube.com`, `googlevideo.com`, `youtubei.googleapis.com`, and `ggpht.com`, following vernette's config. Other TLS connections use `fake`, HTTP uses `http_methodeol`, and QUIC uses `fake` with six repeats. Effectiveness depends on the provider's DPI; use `blockcheck2.sh` below to verify. Image updates do not overwrite an existing `zapret.conf`: to apply the new profile, add its line from `services/antizapret/root/zapret2/config.default` before the general TLS profile in `NFQWS2_OPT`, then restart the service.
+
 ### Changing configuration
 Edit `NFQWS2_OPT` in this file to tune HTTP, TLS, and QUIC strategies. To disable zapret2 again, set `ZAPRET_ENABLED=0`.
 
