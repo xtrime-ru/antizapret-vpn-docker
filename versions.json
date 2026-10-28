@@ -13,7 +13,7 @@
       "name": "antizapret",
       "repository": "antizapret-vpn",
       "ghcr_repository": "antizapret-vpn-docker",
-      "version": "6.9.4",
+      "version": "6.10.0",
       "source": "services/antizapret",
       "compose": "docker-compose.yml",
       "target": "antizapret",
@@ -22,7 +22,7 @@
     {
       "name": "cloak",
       "repository": "antizapret-vpn-cloak",
-      "version": "5.0.0",
+      "version": "6.10.0",
       "source": "services/cloak",
       "compose": "docker-compose.yml",
       "target": "cloak",
@@ -31,7 +31,7 @@
     {
       "name": "coredns",
       "repository": "antizapret-vpn-coredns",
-      "version": "6.6.4",
+      "version": "6.10.0",
       "source": "services/coredns",
       "compose": "docker-compose.yml",
       "target": "coredns",
@@ -49,7 +49,7 @@
     {
       "name": "filebrowser",
       "repository": "antizapret-vpn-filebrowser",
-      "version": "5.3.1",
+      "version": "6.10.0",
       "source": "services/filebrowser",
       "compose": "docker-compose.yml",
       "target": "filebrowser",
@@ -67,7 +67,7 @@
     {
       "name": "https",
       "repository": "antizapret-vpn-https",
-      "version": "6.7.9",
+      "version": "6.10.0",
       "source": "services/https",
       "compose": "docker-compose.yml",
       "target": "https",
@@ -76,7 +76,7 @@
     {
       "name": "ocserv",
       "repository": "antizapret-vpn-ocserv",
-      "version": "6.9.1",
+      "version": "6.10.0",
       "source": "services/ocserv",
       "compose": "compose.yml",
       "target": "ocserv",
@@ -85,7 +85,7 @@
     {
       "name": "openvpn",
       "repository": "antizapret-vpn-openvpn",
-      "version": "6.9.2",
+      "version": "6.10.0",
       "source": "services/openvpn",
       "compose": "docker-compose.yml",
       "target": "openvpn",
@@ -112,7 +112,7 @@
     {
       "name": "wireguard",
       "repository": "antizapret-vpn-wireguard",
-      "version": "6.9.1",
+      "version": "6.10.0",
       "source": "services/wireguard",
       "compose": "docker-compose.base.yml",
       "target": "base",

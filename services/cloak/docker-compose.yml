@@ -1,7 +1,7 @@
 services:
   cloak:
     restart: unless-stopped
-    image: xtrime/antizapret-vpn-cloak:5.0.0
+    image: xtrime/antizapret-vpn-cloak:6.10.0
     build: 
       context: .
       x-bake:
