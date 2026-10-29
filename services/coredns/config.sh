@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -e
 
 # resolve domain address to ip address
 function resolve () {
@@ -21,4 +22,12 @@ else
     export AZ_FORWARD_HOSTS="$AZ_WORLD_HOST $AZ_LOCAL_HOST $DNS_HOST"
 fi
 
-envsubst < /root/Corefile.template > /Corefile
+[[ -s /Corefile ]] && cmp -s /Corefile <(envsubst < /root/Corefile.template) && exit 0
+
+# Publish atomically: reload must never see an empty or partial Corefile.
+corefile_tmp=$(mktemp /Corefile.XXXXXX)
+trap 'rm -f "$corefile_tmp"' EXIT
+envsubst < /root/Corefile.template > "$corefile_tmp"
+test -s "$corefile_tmp"
+chmod 644 "$corefile_tmp"
+mv -f "$corefile_tmp" /Corefile
