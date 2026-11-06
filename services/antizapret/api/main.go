@@ -300,7 +300,7 @@ func adaptList(w http.ResponseWriter, r *http.Request) {
 		file, err := openAllowedListFile(req.File)
 		if err != nil {
 			status := http.StatusInternalServerError
-			if errors.Is(err, errListFileNotAllowed) {
+			if errors.Is(err, errListFileNotAllowed) || errors.Is(err, fs.ErrNotExist) {
 				status = http.StatusForbidden
 			}
 			http.Error(w, fmt.Sprintf("Failed to open local file: %v", err), status)
@@ -371,7 +371,8 @@ func adaptList(w http.ResponseWriter, r *http.Request) {
 					suffix := ""
 
 					if len(req.DnsRewrite) > 0 {
-						if strings.HasPrefix(out, "@@") {
+						if req.Allow {
+							// Allow rules: $dnsrewrite without value cancels the catch-all SERVFAIL rule.
 							suffix = "$dnsrewrite"
 						} else {
 							suffix = fmt.Sprintf("$dnsrewrite=%s", req.DnsRewrite)

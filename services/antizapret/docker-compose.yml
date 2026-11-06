@@ -9,13 +9,15 @@ services:
     sysctls:
       - net.ipv4.ip_forward=1
       - net.ipv4.conf.all.src_valid_mark=1
+      - net.ipv4.conf.all.route_localnet=1
     extra_hosts:
       - "raw.githubusercontent.com=185.199.108.133"
       - "github.io=185.199.110.153"
       - "xtrime-ru.github.io=185.199.110.153"
       - "adguardteam.github.io=185.199.110.153"
     build: 
-      context: .
+      context: ../..
+      dockerfile: services/antizapret/Dockerfile
       x-bake:
         platforms:
           - linux/amd64
@@ -37,6 +39,8 @@ services:
       - $PWD/config/antizapret/iptables:/root/antizapret/iptables
       - $PWD/config/antizapret/warp:/var/lib/cloudflare-warp
       - $PWD/config/antizapret/zapret2:/opt/zapret2/config
+      - $PWD/config/antizapret/custom/ipv6-egress-domains-local.txt:/root/antizapret/config/custom/ipv6-egress-domains-local.txt
+      - $PWD/config/antizapret/custom/ipv6-egress-domains-world.txt:/root/antizapret/config/custom/ipv6-egress-domains-world.txt
       - $PWD/config/adguard/conf:/opt/adguardhome/conf
       - $PWD/config/adguard/work:/opt/adguardhome/work
     environment:
@@ -57,6 +61,17 @@ services:
       - WARP_ENABLED=0
       - ZAPRET_ENABLED=0
       - ZAPRET_CONFIG
+      # IPv6 egress configuration (per exit node)
+      - IPV6_EGRESS_LOCAL_ENABLED=0
+      - IPV6_EGRESS_LOCAL_FILE=/root/antizapret/config/custom/ipv6-egress-domains-local.txt
+      - IPV6_EGRESS_LOCAL_MODE=adguard_only
+      - IPV6_EGRESS_LOCAL_RESERVE_COUNT=100
+      - IPV6_TRANSLATOR_LOCAL_PORT=9000
+      - IPV6_EGRESS_WORLD_ENABLED=0
+      - IPV6_EGRESS_WORLD_FILE=/root/antizapret/config/custom/ipv6-egress-domains-world.txt
+      - IPV6_EGRESS_WORLD_MODE=adguard_only
+      - IPV6_EGRESS_WORLD_RESERVE_COUNT=100
+      - IPV6_TRANSLATOR_WORLD_PORT=9000
       - |
         IPS_URL=
         https://xtrime-ru.github.io/antizapret-vpn-docker/lists/ips.txt;

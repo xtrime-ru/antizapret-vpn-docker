@@ -107,7 +107,34 @@ services:
   az-local:
     environment:
       - WARP_ENABLED=1
+      # ---------------------------------------------------------------------------
+      # Selective IPv6 Egress (optional, disabled by default)
+      # ---------------------------------------------------------------------------
+      # To enable IPv6 egress for az-local (Singlebox mode), uncomment the lines
+      # below and configure the domains in config/antizapret/custom/ipv6-egress-domains-local.txt.
+      # The IPv6 Docker network is created automatically by docker-compose.yml
+      # (enable_ipv6: true); no manual docker network create is required.
+      #
+      # IPV6_EGRESS_LOCAL_ENABLED=1   # Enable IPv6 egress on az-local (0=off, 1=on)
+      # IPV6_EGRESS_LOCAL_FILE=/root/antizapret/config/custom/ipv6-egress-domains-local.txt
+      # IPV6_EGRESS_LOCAL_MODE=adguard_only   # adguard_only | file_only | adguard_with_file_fallback
+      # IPV6_EGRESS_LOCAL_RESERVE_COUNT=100   # Virtual IPv4 addresses reserved for IPv6 egress pool
+      # IPV6_TRANSLATOR_LOCAL_PORT=9000       # Port for the local IPv4→IPv6 translator
+      # ---------------------------------------------------------------------------
 
   # az-world:
   #   environment:
   #     - WARP_ENABLED=1
+  #     # ---------------------------------------------------------------------------
+  #     # Selective IPv6 Egress for az-world (Docker Swarm world node only)
+  #     # ---------------------------------------------------------------------------
+  #     # To enable IPv6 egress for az-world in Swarm mode, uncomment the az-world
+  #     # service above and the lines below. Configure domains in
+  #     # config/antizapret/custom/ipv6-egress-domains-world.txt.
+  #     #
+  #     # IPV6_EGRESS_WORLD_ENABLED=1   # Enable IPv6 egress on az-world (0=off, 1=on)
+  #     # IPV6_EGRESS_WORLD_FILE=/root/antizapret/config/custom/ipv6-egress-domains-world.txt
+  #     # IPV6_EGRESS_WORLD_MODE=adguard_only   # adguard_only | file_only | adguard_with_file_fallback
+  #     # IPV6_EGRESS_WORLD_RESERVE_COUNT=100   # Virtual IPv4 addresses reserved for IPv6 egress pool
+  #     # IPV6_TRANSLATOR_WORLD_PORT=9000       # Port for the world IPv4→IPv6 translator
+  #     # ---------------------------------------------------------------------------

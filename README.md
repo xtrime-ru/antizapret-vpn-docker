@@ -49,6 +49,12 @@ This repo is based on idea from original [AntiZapret LXD image](https://bitbucke
   - [FAQ (Frequently Asked Questions)](#faq-frequently-asked-questions)
     - [DNS timeouts in AdGuard: checking Swarm connectivity](#dns-timeouts-in-adguard-checking-swarm-connectivity)
     - [Yandex Cloud: no connectivity between az-local and az-world](#yandex-cloud-no-connectivity-between-az-local-and-az-world)
+  - [Selective IPv6 Egress](#selective-ipv6-egress)
+    - [How it works](#how-ipv6-egress-works)
+    - [Configuration](#ipv6-egress-configuration)
+    - [Requirements](#ipv6-egress-requirements)
+    - [Limitations](#ipv6-egress-limitations)
+    - [Diagnostics](#ipv6-egress-diagnostics)
   - [DNS resolving algorithm](#dns-resolving-algorithm)
     - [Docker Swarm](#docker-swarm)
     - [Single node (Docker Compose)](#single-node-docker-compose)
@@ -140,6 +146,375 @@ https://t.me/antizapret_support
 6. VPN clients route virtual addresses through the tunnel. Explicit IP/CIDR lists can also add routes for real addresses. See [Routing rules: include, exclude and ASN](#routing-rules-include-exclude-and-asn).
 
 
+# Selective IPv6 Egress
+
+AntiZapret VPN can route selected domains through the VPS's outgoing IPv6 connection while VPN clients
+continue to use internal virtual IPv4 addresses. This is useful when a destination is only reachable via
+IPv6, or when you want to force specific domains over IPv6 without requiring client-side IPv6 support.
+
+IPv6 egress is managed through **AdGuard Home Custom filtering rules** using dedicated ClientIDs:
+`az-ipv6-local` for the local exit node and `az-ipv6-world` for the world exit node. This integrates
+with the existing DNS infrastructure rather than creating a parallel rule engine.
+
+## How it works
+
+```mermaid
+graph TD
+    Client[VPN Client] -->|1. DNS A query| AdGuard[AdGuard Home]
+    AdGuard -->|2. Check az-ipv6-* rule| dnsmap[dnsmap resolver]
+    dnsmap -->|3. Query AAAA via CNAME chain| Upstream[(Upstream DNS)]
+    Upstream -->|4. Returns real IPv6| dnsmap
+    dnsmap -->|5. Allocate virtual IPv4<br/>14.16.x.x / 14.18.x.x| dnsmap
+    dnsmap -->|6. Store mapping<br/>virtual IPv4 → real IPv6| Translator[ipv6_translator]
+    dnsmap -->|7. Return A record<br/>with virtual IPv4| AdGuard
+    AdGuard -->|8. Return A to client| Client
+    Client -->|9. IPv4 traffic to virtual IP<br/>via VPN tunnel| DNAT[iptables DNAT]
+    DNAT -->|10. Redirect to 127.0.0.1:PORT| Translator
+    Translator -->|11. Connect to real IPv6<br/>and relay TCP/UDP| IPv6[(IPv6 Internet)]
+    IPv6 -->|12. Return traffic| Translator
+    Translator -->|13. Relay back via VPN| Client
+```
+
+1. Client requests `A example.com` from AdGuard Home via the VPN tunnel.
+2. AdGuard Home forwards the query to `dnsmap` (via CoreDNS).
+3. `dnsmap` checks if the domain is authorized for IPv6 egress by querying AdGuard Home with the
+   IPv6 egress ClientID (`az-ipv6-local` or `az-ipv6-world`). A matching Custom filtering rule
+   authorizes the domain; the catch-all SERVFAIL rule rejects unauthorized domains.
+4. If authorized and the VPS has IPv6 connectivity, `dnsmap` follows the CNAME chain and queries
+   `AAAA` records to find the real IPv6 address.
+5. `dnsmap` allocates a virtual IPv4 address from the exit node's pool (`14.16.0.0/15` for local,
+   `14.18.0.0/15` for world).
+6. `dnsmap` stores the mapping `virtual IPv4 → real IPv6` and creates an iptables DNAT rule
+   redirecting traffic to the local IPv4→IPv6 translator.
+7. The client receives an `A` record with the **virtual IPv4** address — the real IPv6 is never
+   exposed to the client.
+8. The client sends IPv4 traffic to the virtual address through the existing VPN tunnel.
+9. iptables DNAT redirects the traffic to `127.0.0.1:PORT` (the translator service).
+10. The translator looks up the mapping, connects to the real IPv6 address, and relays
+    TCP/UDP traffic bidirectionally.
+11. Response traffic returns through the same path in reverse.
+
+For domains **not** authorized for IPv6 egress, the existing IPv4-only behavior is unchanged.
+
+## Deployment modes
+
+| Mode | Description | az-local | az-world |
+|------|-------------|----------|----------|
+| **A** | IPv6 egress disabled (default) | Off | Off |
+| **B** | Singlebox, IPv6 egress via az-local | On | N/A |
+| **C** | Swarm, IPv6 egress only on az-local | On | Off |
+| **D** | Swarm, IPv6 egress only on az-world | Off | On |
+| **E** | Swarm, IPv6 egress on both nodes | On | On |
+
+## Configuration
+
+### Step 1: Add IPv6 egress domains via AdGuard Home
+
+The primary way to select domains for IPv6 egress is through **AdGuard Home Custom filtering rules**.
+
+Open the AdGuard Home web panel at `https://your-server:1443/#custom_rules` and add rules like:
+
+```
+# Authorize example.com for IPv6 egress on az-local
+||example.com^$dnsrewrite,client=az-ipv6-local,important
+
+# Authorize example.com for IPv6 egress on az-world
+||example.com^$dnsrewrite,client=az-ipv6-world,important
+```
+
+The `important` flag ensures the specific rule overrides the catch-all `||*^$dnsrewrite=SERVFAIL`
+rule for the IPv6 egress ClientIDs. The bare `$dnsrewrite` (without a value) cancels the catch-all
+rule; `dnsmap` only checks whether AdGuard returns NOERROR (authorized) or SERVFAIL (not authorized).
+
+Subdomains are automatically covered: a rule for `example.com` also matches `www.example.com`,
+`api.example.com`, etc.
+
+### Step 2: Enable IPv6 egress per exit node
+
+#### Mode A: Disabled (default)
+
+No changes needed. `IPV6_EGRESS_LOCAL_ENABLED=0` and `IPV6_EGRESS_WORLD_ENABLED=0`.
+
+#### Mode B: Singlebox, IPv6 egress via az-local
+
+In `docker-compose.override.yml`:
+
+```yaml
+services:
+  az-local:
+    environment:
+      - IPV6_EGRESS_LOCAL_ENABLED=1
+      - IPV6_EGRESS_LOCAL_FILE=/root/antizapret/config/custom/ipv6-egress-domains-local.txt
+      - IPV6_TRANSLATOR_LOCAL_PORT=9000
+```
+
+The volume mount for the domains file is already in `docker-compose.yml`.
+
+#### Mode C: Swarm, IPv6 egress only on az-local
+
+In `compose.swarm.yml` or `docker-compose.override.yml`:
+
+```yaml
+services:
+  az-local:
+    environment:
+      - IPV6_EGRESS_LOCAL_ENABLED=1
+      - IPV6_EGRESS_LOCAL_FILE=/root/antizapret/config/custom/ipv6-egress-domains-local.txt
+      - IPV6_TRANSLATOR_LOCAL_PORT=9000
+  az-world:
+    environment:
+      - IPV6_EGRESS_WORLD_ENABLED=0
+```
+
+#### Mode D: Swarm, IPv6 egress only on az-world
+
+```yaml
+services:
+  az-local:
+    environment:
+      - IPV6_EGRESS_LOCAL_ENABLED=0
+  az-world:
+    environment:
+      - IPV6_EGRESS_WORLD_ENABLED=1
+      - IPV6_EGRESS_WORLD_FILE=/root/antizapret/config/custom/ipv6-egress-domains-world.txt
+      - IPV6_TRANSLATOR_WORLD_PORT=9000
+```
+
+#### Mode E: Swarm, IPv6 egress on both nodes
+
+```yaml
+services:
+  az-local:
+    environment:
+      - IPV6_EGRESS_LOCAL_ENABLED=1
+      - IPV6_EGRESS_LOCAL_FILE=/root/antizapret/config/custom/ipv6-egress-domains-local.txt
+      - IPV6_TRANSLATOR_LOCAL_PORT=9000
+  az-world:
+    environment:
+      - IPV6_EGRESS_WORLD_ENABLED=1
+      - IPV6_EGRESS_WORLD_FILE=/root/antizapret/config/custom/ipv6-egress-domains-world.txt
+      - IPV6_TRANSLATOR_WORLD_PORT=9000
+```
+
+### Step 3: Create domain files (optional fallback)
+
+Example domain files are provided in `config/antizapret/custom/`:
+
+- `ipv6-egress-domains-local.txt` — for az-local
+- `ipv6-egress-domains-world.txt` — for az-world
+
+These are mounted automatically by `docker-compose.yml`. They serve as a fallback when AdGuard Home
+rules are not configured, or as an additional source of domains.
+
+### Step 4: AdGuard Home ClientIDs
+
+The following ClientIDs are pre-configured in `services/adguard/AdGuardHome.yaml`:
+
+| ClientID | Purpose | Catch-all rule |
+|----------|---------|----------------|
+| `az-ipv6-local` | IPv6 egress authorization for az-local | `||*^$dnsrewrite=SERVFAIL,client=az-ipv6-local` |
+| `az-ipv6-world` | IPv6 egress authorization for az-world | `||*^$dnsrewrite=SERVFAIL,client=az-ipv6-world` |
+
+Add specific domain rules with `important` to override the catch-all:
+
+```
+||example.com^$dnsrewrite,client=az-ipv6-local,important
+```
+
+### Environment variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `IPV6_EGRESS_LOCAL_ENABLED` | `0` | Enable IPv6 egress on az-local (1=on, 0=off) |
+| `IPV6_EGRESS_LOCAL_FILE` | (empty) | Path to IPv6 egress domains file for az-local |
+| `IPV6_TRANSLATOR_LOCAL_PORT` | `9000` | Translator port for az-local |
+| `IPV6_EGRESS_WORLD_ENABLED` | `0` | Enable IPv6 egress on az-world (1=on, 0=off) |
+| `IPV6_EGRESS_WORLD_FILE` | (empty) | Path to IPv6 egress domains file for az-world |
+| `IPV6_TRANSLATOR_WORLD_PORT` | `9000` | Translator port for az-world |
+
+## Requirements
+
+- **Global IPv6 connectivity on the VPS**: Each exit node must have a working global IPv6 address
+  and route. Without IPv6, IPv6 egress domains on that node will fail with `SERVFAIL` — existing
+  VPN functionality is unaffected.
+- **`NET_ADMIN` capability**: Already present in the `antizapret` container for iptables DNAT rules.
+- **Docker IPv6 network (created automatically)**: `docker-compose.yml` defines a Compose-managed
+  bridge network (`ipv6`, created as `<project>_ipv6`) with `enable_ipv6: true` and attaches
+  `az-local` to it. `docker compose up` creates the network automatically — there is no
+  `external: true` dependency and no manual `docker network create` is required. Docker allocates
+  a unique ULA IPv6 subnet per installation, so independent installations do not collide.
+  Only `az-local` is attached; other services keep using the default application network.
+- **No additional packages**: The translator is a pure Python3 script using only the standard library.
+- **Separate state per node**: `az-local` and `az-world` use independent mapping files, NAT rules,
+  and translator instances. State is never shared between nodes.
+
+### Docker IPv6 network and external connectivity
+
+The Compose-managed IPv6 network gives `az-local` an IPv6 address on a dedicated bridge interface.
+This alone does **not** guarantee that the container can reach the external IPv6 Internet. External
+IPv6 egress additionally requires on the host:
+
+- a global IPv6 address on the upstream interface,
+- an IPv6 default route,
+- IPv6 forwarding enabled (`net.ipv6.conf.all.forwarding=1`),
+- a firewall backend that lets Docker add the necessary IPv6 rules,
+- no host-level policy blocking outbound IPv6.
+
+If any of these is missing, the container may have an IPv6 address on the Docker network but still
+cannot reach external IPv6 destinations. Use `scripts/diagnose-ipv6-egress.sh` to distinguish
+between "no Docker IPv6 network", "no route inside the container", and "external IPv6 blocked on
+the host". The script is read-only by default; use `--check-external` for an explicit outbound
+IPv6 test.
+
+The translator listens on `127.0.0.1:9000` inside `az-local`. Traffic from VPN clients is DNAT'ed
+to this loopback address; if it does not reach the translator, enable
+`net.ipv4.conf.all.route_localnet=1` for the `az-local` container (per-container sysctl, does not
+affect the host or other containers).
+
+## Limitations
+
+- **TCP and UDP only**: The translator supports TCP (including HTTP/3 over QUIC when encapsulated
+  in UDP) and UDP. Raw IP protocols other than TCP/UDP are not supported.
+- **Virtual IPv4 pool shared**: IPv6 egress mappings consume addresses from the same pool as regular
+  IPv4 mappings (`14.16.0.0/15` for local, `14.18.0.0/15` for world). If the pool is exhausted,
+  old mappings are recycled (same behavior as existing dnsmap).
+- **MTU**: The translator does not fragment packets. Large packets may need path MTU discovery.
+- **No DNS64**: The client never receives IPv6 addresses. All client-facing DNS responses are A
+  records with virtual IPv4.
+- **Singlebox uses az-local only**: In Docker Compose single-server mode, only `az-local` is
+  available. `az-world` settings are ignored.
+- **Swarm node isolation**: `az-local` and `az-world` may run on different physical VPS servers.
+  Each node has its own IPv6 route, mapping file, and translator. They cannot share state.
+
+### CIDR reference
+
+| CIDR | Total addresses | Usable host addresses | Range |
+|------|-----------------|----------------------|-------|
+| `14.16.0.0/15` | 131,072 | 131,070 | `14.16.0.1` – `14.16.255.254` |
+| `14.18.0.0/15` | 131,072 | 131,070 | `14.18.0.1` – `14.18.255.254` |
+| `14.16.0.0/14` | 262,144 | 262,142 | `14.16.0.0` – `14.19.255.255` |
+
+Both `/15` pools are fully contained within the `/14` range used for client-side routing
+by WireGuard, AmneziaWG, and ocserv. IPv6 egress mappings are allocated from the same
+`/15` pools as regular IPv4 mappings, but from a separately reserved sub-range so that
+IPv6 egress pool exhaustion cannot affect regular IPv4 mappings.
+
+## Diagnostics
+
+Check translator logs:
+
+```bash
+# Singlebox or Swarm local node
+docker logs antizapret-vpn-az-local-1
+
+# Swarm world node
+docker service logs antizapret_az-world
+```
+
+Look for messages like:
+- `IPv6 egress domain: example.com (via AdGuard ClientID=az-ipv6-local)`
+- `IPv6 egress: IPv6 connectivity confirmed`
+- `IPv6 mapping 14.16.0.2 -> 2001:db8::1`
+- `IPv6 egress: returning A example.com -> 14.16.0.2 (IPv6: 2001:db8::1)`
+- `IPv6 egress: no IPv6 connectivity on this VPS, rejecting example.com`
+
+Check active iptables DNAT rules:
+
+```bash
+iptables -t nat -nL dnsmap
+```
+
+Check the mapping file used by the translator:
+
+```bash
+# Local node
+cat /root/antizapret/result/ipv6-egress-mappings-local.txt
+
+# World node
+cat /root/antizapret/result/ipv6-egress-mappings-world.txt
+```
+
+Verify IPv6 connectivity on the VPS:
+
+```bash
+ping6 -c 3 2001:4860:4860::8888
+curl -6 -I https://example.com
+```
+
+Run the read-only diagnostic script (no external host is contacted):
+
+```bash
+./scripts/diagnose-ipv6-egress.sh
+```
+
+It reports Docker/Compose versions, the IPv6 network state (`EnableIPv6`, driver, subnet),
+`az-local` network attachments, the IPv6 address and route inside the container, host forwarding
+and firewall signs, environment variables, translator process status, and the domains/mappings
+files. Use `./scripts/diagnose-ipv6-egress.sh --check-external` for an explicit outbound IPv6
+connectivity test (contacts an external IPv6 address).
+
+The diagnostic distinguishes three situations:
+1. Docker IPv6 network missing or without `EnableIPv6=true` → run `docker compose up -d` so
+   Compose creates the network.
+2. IPv6 enabled but `az-local` has no IPv6 address/route on the new interface → check the
+   container network attachment and Docker daemon IPv6 support.
+3. Route present but external IPv6 unreachable → check host IPv6 default route, forwarding
+   (`net.ipv6.conf.all.forwarding`), and firewall (`ip6tables`).
+
+Check AdGuard Home rules for IPv6 egress:
+
+```bash
+# View the AdGuard Home configuration
+cat config/adguard/conf/AdGuardHome.yaml | grep -A5 az-ipv6
+```
+
+## Fallback behavior
+
+- If a domain is authorized for IPv6 egress but has no `AAAA` record, DNS returns `SERVFAIL`.
+- If a domain is authorized for IPv6 egress and has `AAAA` records but no `A` record (AAAA-only domain, e.g. `ip6only.me`), `dnsmap` follows the CNAME chain, finds the AAAA records, allocates a virtual IPv4 address, creates NAT rules to the translator, and returns a synthetic `A` response. The real IPv6 address is never exposed to the client.
+- `AAAA`, `HTTPS`, and `SVCB` queries for IPv6 egress domains return empty `NOERROR` — no real IPv6 or CNAME target leaks to the client.
+- If the VPS has no IPv6 route, DNS returns `SERVFAIL` for IPv6 egress domains on that node.
+- Domains not authorized for IPv6 egress continue to work through the normal IPv4 path.
+- The feature is optional: with `IPV6_EGRESS_LOCAL_ENABLED=0` and `IPV6_EGRESS_WORLD_ENABLED=0`,
+  behavior is identical to the current release.
+- If AdGuard Home is unavailable, `dnsmap` falls back to the file-based domain list (if configured).
+
+## Disabling IPv6 egress
+
+To disable IPv6 egress on a node:
+
+```yaml
+services:
+  az-local:
+    environment:
+      - IPV6_EGRESS_LOCAL_ENABLED=0
+  az-world:
+    environment:
+      - IPV6_EGRESS_WORLD_ENABLED=0
+```
+
+Then restart the container(s). Existing mappings are cleaned up automatically on shutdown.
+
+### route_localnet requirement
+
+The IPv6 egress translator listens on `127.0.0.1:9000` inside the `az-local` (or `az-world`)
+container. Traffic from VPN clients is DNAT'ed to this loopback address. For forwarded packets
+(arriving on the VPN tunnel interface, not locally generated), the Linux kernel may drop
+packets destined to `127.0.0.0/8` unless `route_localnet` is enabled on the receiving interface.
+
+If IPv6 egress traffic does not reach the translator, try adding to the `az-local` service
+in `docker-compose.override.yml`:
+
+```yaml
+services:
+  az-local:
+    sysctls:
+      - net.ipv4.conf.all.route_localnet=1
+```
+
+This is a per-container setting and does not affect the host network or other containers.
+
+
 # Installation
 
 > [!IMPORTANT]
@@ -151,11 +526,17 @@ Recommended to use server located in western countries. Some sites will block us
 The default Compose configuration runs one `az-local` exit container. It handles
 both the local and world domain lists using the `14.16.0.0/15` range.
 
-0. Install [Docker Engine](https://docs.docker.com/engine/install/):
+0. Install [Docker Engine](https://docs.docker.com/engine/install/) and [Docker Compose](https://docs.docker.com/compose/install/):
    ```bash
    curl -fsSL https://get.docker.com -o get-docker.sh
    sudo sh get-docker.sh
    ```
+   Minimum versions: Docker Engine 20.10+ and Compose v2 (Compose CLI v1.28.0+).
+   The automatic IPv6 ULA bridge network (`enable_ipv6: true` without an explicit
+   IPv6 subnet) requires Docker Engine 27.0.0+; on older engines specify an explicit
+   IPv6 subnet in the `ipv6` network `ipam.config` or upgrade the engine. The IPv6
+   bridge network is created automatically by Compose on `docker compose up`; no
+   manual `docker network create` is required.
 1. Clone repository and start container:
    ```bash
    git clone https://github.com/xtrime-ru/antizapret-vpn-docker.git antizapret
@@ -182,6 +563,9 @@ Find full example in [docker-compose.override.sample.yml](./docker-compose.overr
    docker compose up -d
    docker system prune -f
 ```
+`docker compose up -d` automatically creates the IPv6 bridge network (`enable_ipv6: true`) and
+attaches `az-local` to it, so no manual `docker network create` is required. If Docker IPv6 is
+not supported by the daemon, Compose reports a clear error instead of silently skipping IPv6.
 
 ## Docker Swarm, multiple exit nodes (Advanced)
 Version 5 and 6 comes with ability to forward traffic to different exit nodes for different domains. 
@@ -485,6 +869,9 @@ stalls can override these in their Caddy configuration.
    docker compose up -d --remove-orphans
    docker system prune -af
    ```
+   The Compose-managed IPv6 network is recreated automatically by `docker compose up -d`.
+   If it was removed manually (e.g. `docker network prune`), the next `docker compose up -d`
+   recreates it. No manual `docker network create` is needed.
 - Swarm mode: 
    ```shell
    git pull --rebase

@@ -4,6 +4,16 @@ networks:
     ipam:
       config:
         - subnet: 10.200.0.0/24
+  # IPv6 egress network for az-local. Created automatically by Compose on
+  # `docker compose up` (no external network, no manual `docker network create`).
+  # Automatic ULA IPv6 subnet allocation (no explicit subnet) requires Docker
+  # Engine 27.0.0+; older engines need an explicit IPv6 subnet in ipam.config.
+  # Docker allocates a unique ULA IPv6 subnet per installation, so independent
+  # installations do not collide. Only az-local is attached; other services keep
+  # using the default application network.
+  ipv6:
+    driver: bridge
+    enable_ipv6: true
 
 services:
   az-local:
@@ -15,6 +25,7 @@ services:
           - az-local.antizapret
           - az-world
           - az-world.antizapret
+      ipv6: {}
     extends:
       file: services/antizapret/docker-compose.yml
       service: antizapret

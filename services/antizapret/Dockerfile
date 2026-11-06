@@ -1,22 +1,22 @@
 FROM golang:1.27 AS builder-api
 WORKDIR /app
-COPY ./api/go.* .
+COPY ./services/antizapret/api/go.* .
 RUN go mod download
-COPY ./api .
+COPY ./services/antizapret/api .
 RUN go test ./... && go build -o app
 
 FROM golang:1.27 AS builder-compose2swarm
 WORKDIR /app
-COPY ./compose2swarm/go.* .
+COPY ./services/antizapret/compose2swarm/go.* .
 RUN go mod download
-COPY ./compose2swarm .
+COPY ./services/antizapret/compose2swarm .
 RUN go test ./... && go build -o compose2swarm
 
 FROM golang:1.27 AS builder-routes
 WORKDIR /app
-COPY ./routes/go.* .
+COPY ./services/antizapret/routes/go.* .
 RUN go mod download
-COPY ./routes .
+COPY ./services/antizapret/routes .
 RUN go test ./... && \
     CGO_ENABLED=0 GOOS=linux go build -a -tags netgo -ldflags '-w -s -extldflags "-static"' -o routes
 
@@ -62,12 +62,30 @@ RUN mkdir -p /usr/share/GeoIP && \
 
 FROM runtime-base AS test-dnsmap
 WORKDIR /root/antizapret
-COPY ./root/antizapret/dnsmap.py ./root/antizapret/test_dnsmap.py ./
-RUN python3 -B -m unittest discover -v
+# Preserve the repository directory structure so that tests using
+# Path(__file__).resolve().parents[4] can locate the repo root and its
+# Compose files. The test file lives at
+# services/antizapret/root/antizapret/test_dnsmap.py, i.e. five levels
+# below the repo root.
+COPY ./services/antizapret/root/antizapret/dnsmap.py ./services/antizapret/root/antizapret/dnsmap.py
+COPY ./services/antizapret/root/antizapret/ipv6_translator.py ./services/antizapret/root/antizapret/ipv6_translator.py
+COPY ./services/antizapret/root/antizapret/test_dnsmap.py ./services/antizapret/root/antizapret/test_dnsmap.py
+COPY ./docker-compose.yml ./docker-compose.yml
+COPY ./services/antizapret/docker-compose.yml ./services/antizapret/docker-compose.yml
+COPY ./services/antizapret/init.sh ./services/antizapret/init.sh
+RUN <<-"EOT" bash -ex
+    export APT_LISTCHANGES_FRONTEND=none DEBIAN_FRONTEND=noninteractive
+    apt-get update -q
+    apt-get install -qqy --no-install-suggests --no-install-recommends \
+        python3-yaml
+    apt-get clean
+    rm -frv /var/lib/apt/lists/*
+EOT
+RUN cd /root/antizapret/services/antizapret/root/antizapret && python3 -B -m unittest discover -v
 
 FROM test-dnsmap AS runtime-files
-COPY ./root /runtime/root
-COPY ./init.sh ./healthcheck.sh /runtime/
+COPY ./services/antizapret/root /runtime/root
+COPY ./services/antizapret/init.sh ./services/antizapret/healthcheck.sh /runtime/
 
 RUN <<-"EOF" bash -ex
     for list in /runtime/root/antizapret/config/*-custom.txt; do rm -f $list; done
