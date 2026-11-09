@@ -1,0 +1,5 @@
+# Direct access, including when the resolved CDN belongs to a VPN-listed ASN.
+# v2fly syntax; absolute include URLs are supported by our list adapter.
+include:https://raw.githubusercontent.com/v2fly/domain-list-community/master/data/steam
+include:https://raw.githubusercontent.com/v2fly/domain-list-community/master/data/playstation
+include:https://raw.githubusercontent.com/v2fly/domain-list-community/master/data/rockstar
