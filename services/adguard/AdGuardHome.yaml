@@ -30,7 +30,7 @@ dns:
   ratelimit_whitelist: []
   refuse_any: true
   upstream_dns:
-    - coredns
+    - coredns.antizapret
     - '[/*.antizapret/]127.0.0.11'
   upstream_dns_file: ""
   bootstrap_dns:
