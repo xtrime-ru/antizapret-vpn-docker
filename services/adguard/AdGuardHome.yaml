@@ -165,6 +165,10 @@ filters:
     url: http://az-local.antizapret/list/?exclude=1&format=v2fly&url=https://xtrime-ru.github.io/antizapret-vpn-docker/lists/exclude.txt
     name: Direct Access Rules
     id: 15
+  - enabled: true
+    url: http://az-local.antizapret/list/?exclude=1&format=v2fly&url=https://raw.githubusercontent.com/v2fly/domain-list-community/master/data/category-ip-geo-detect
+    name: Direct Access Rules - IP Checkers
+    id: 16
 whitelist_filters: []
 user_rules:
   - '||*^$dnsrewrite=SERVFAIL,client=az-local'

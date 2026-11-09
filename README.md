@@ -1002,6 +1002,8 @@ Processes inside the OpenVPN, ocserv, WireGuard and proxy containers use AdGuard
 
 The bundled **Direct Access Rules** filter loads `lists/exclude.txt` using `format=v2fly&exclude=1`. Steam, PlayStation and Rockstar use direct resolution even on VPN-listed CDN ASNs. On startup, the updated AdGuard container adds this filter when missing and migrates the standard **Excluded Custom Local/World Rules** URLs to `exclude=1&regex=1`, preserving filter IDs and enabled states. The next healthcheck refreshes cached filters and clears AdGuard's DNS cache. User rules and Custom include filters are preserved. The old bundled Steam/Rockstar upstream entry is removed.
 
+The separate **Direct Access Rules - IP Checkers** filter loads the v2fly `category-ip-geo-detect` list directly. It keeps IP-checking services direct and can be disabled independently of the gaming exclusions.
+
 For your own exceptions, add a regular expression to `exclude-hosts-custom.txt`. This filters domain list entries and prevents ASN fallback for matching names. Important exclusions also override ordinary include rules covering a broader parent domain. Independent IP routes can still route traffic through VPN.
 
 A domain-specific upstream remains an option for bypassing the complete exit chain: add `[/example.com/]https://cloudflare-dns.com/dns-query` under **Settings → DNS settings → Upstream DNS servers**, keeping `coredns` and the other upstreams. Clear DNS caches after changing rules.

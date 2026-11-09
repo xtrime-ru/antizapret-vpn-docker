@@ -101,6 +101,7 @@ ensure_filter 'http://az-local.antizapret/list/?exclude=1&regex=1&file=/root/ant
 ensure_filter 'http://az-world.antizapret/list/?exclude=1&regex=1&file=/root/antizapret/config/custom/exclude-hosts-custom.txt' 'Excluded Custom World Rules'
 
 ensure_filter 'http://az-local.antizapret/list/?exclude=1&format=v2fly&url=https://xtrime-ru.github.io/antizapret-vpn-docker/lists/exclude.txt' 'Direct Access Rules'
+ensure_filter 'http://az-local.antizapret/list/?exclude=1&format=v2fly&url=https://raw.githubusercontent.com/v2fly/domain-list-community/master/data/category-ip-geo-detect' 'Direct Access Rules - IP Checkers'
 
 # Replace only the old bundled Steam/Rockstar upstream; retain user upstreams.
 yq -i 'del(.dns.upstream_dns[] | select(. == "[/steampipe.akamaized.net/rockstargames.com/]https://cloudflare-dns.com/dns-query"))' /opt/adguardhome/conf/AdGuardHome.yaml || exit 1
