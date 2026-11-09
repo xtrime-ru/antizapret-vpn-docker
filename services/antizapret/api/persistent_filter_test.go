@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -94,5 +95,64 @@ func TestListSlowSourceDoesNotBlockAnotherRequest(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("second request waited for the slow source")
+	}
+}
+
+func TestEmptyFilterDoesNotStartGrep(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "exclude")
+	if err := os.WriteFile(path, []byte(" \n\t\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	filter, err := NewRegexFilter(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer filter.Close()
+	input := []listRule{{value: "example.org", pattern: "|example.org|"}}
+	output, err := filter.Filter(input)
+	if err != nil || len(output) != 1 || output[0] != input[0] {
+		t.Fatalf("output=%v err=%v", output, err)
+	}
+	if filter.cmd != nil {
+		t.Fatal("empty filter started grep")
+	}
+	if _, err := filter.Filter([]listRule{{value: "embedded\nnewline"}}); err == nil {
+		t.Fatal("reserved separator was accepted")
+	}
+}
+
+func TestFilterReusesBuffersAcrossConcurrentBatches(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "exclude")
+	if err := os.WriteFile(path, []byte("^drop\\.\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	filter, err := NewRegexFilter(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer filter.Close()
+	errors := make(chan error, 8)
+	for worker := 0; worker < 8; worker++ {
+		go func() {
+			for batch := 0; batch < 4; batch++ {
+				keep, drop := fmt.Sprintf("keep.%d.%d.example", worker, batch), fmt.Sprintf("drop.%d.%d.example", worker, batch)
+				input := []listRule{{value: keep, pattern: "|" + keep + "|"}, {value: drop}, {value: keep}}
+				output, err := filter.Filter(input)
+				if err != nil {
+					errors <- err
+					return
+				}
+				if len(output) != 2 || output[0].value != keep || output[1].value != keep || output[0].pattern != "|"+keep+"|" {
+					errors <- fmt.Errorf("unexpected batch output: %v", output)
+					return
+				}
+			}
+			errors <- nil
+		}()
+	}
+	for worker := 0; worker < 8; worker++ {
+		if err := <-errors; err != nil {
+			t.Error(err)
+		}
 	}
 }

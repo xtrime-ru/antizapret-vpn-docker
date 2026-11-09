@@ -76,10 +76,17 @@ update_client() {
         DESIRED_IDS_NORMALIZED=$(echo "$DESIRED_IDS" | jq -c 'sort | unique')
 
         if [ "$CURRENT_IDS_NORMALIZED" != "$DESIRED_IDS_NORMALIZED" ]; then
+            if [ "$client_name" = "coredns" ]; then
+                # Rebuild upstreams before updating IDs, so failures are retried.
+                echo "CoreDNS address changed; reloading DNS upstreams"
+                DNS_CONFIG=$(curl -fsS "http://127.0.0.1:$ADGUARDHOME_PORT/control/dns_info" -H "Authorization: Basic $AUTH")
+                UPSTREAM_BODY=$(echo "$DNS_CONFIG" | jq -ce '{upstream_dns} | select(.upstream_dns | type == "array")')
+                curl -fsS -X POST "http://127.0.0.1:$ADGUARDHOME_PORT/control/dns_config" -H 'Content-Type: application/json' -H "Authorization: Basic $AUTH" --data "$UPSTREAM_BODY"
+            fi
             UPDATED_CLIENT=$(echo "$FULL_CLIENT" | jq --argjson ids "$DESIRED_IDS" '.ids = $ids')
             UPDATE_BODY=$(printf '{"name":"%s","data":%s}' "$client_name" "$(echo "$UPDATED_CLIENT" | jq -c .)")
             echo "Updating $client_name ids to $DESIRED_IDS"
-            curl -s -X POST "http://127.0.0.1:$ADGUARDHOME_PORT/control/clients/update" -H 'Content-Type: application/json' -H "Authorization: Basic $AUTH" --data "$UPDATE_BODY"
+            curl -fsS -X POST "http://127.0.0.1:$ADGUARDHOME_PORT/control/clients/update" -H 'Content-Type: application/json' -H "Authorization: Basic $AUTH" --data "$UPDATE_BODY"
             client_updated=1
         fi
     fi

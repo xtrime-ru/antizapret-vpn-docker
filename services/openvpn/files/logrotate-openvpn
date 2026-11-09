@@ -1,0 +1,12 @@
+# Include the upstream directory used by the optional 2FA script and UI defaults.
+/etc/openvpn/log/*.log /var/log/openvpn/*.log {
+    daily
+    rotate 7
+    maxage 7
+    compress
+    missingok
+    notifempty
+    su root root
+    # Preserve the open file descriptor without restarting the VPN server.
+    copytruncate
+}

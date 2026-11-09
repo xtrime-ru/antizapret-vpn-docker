@@ -2,7 +2,7 @@
 
 FROM ubuntu:24.04 AS builder
 
-ARG OCSERV_VERSION="1.5.0"
+ARG OCSERV_VERSION="1.6.0"
 ENV OCSERV_VERSION="${OCSERV_VERSION}"
 
 LABEL maintainer="Ivan Cherniy <kar-kar@r4ven.me>"
@@ -38,7 +38,7 @@ RUN apt-get update && \
 
 FROM ubuntu:24.04
 
-ARG OCSERV_VERSION="1.5.0"
+ARG OCSERV_VERSION="1.6.0"
 ENV OCSERV_VERSION="${OCSERV_VERSION}"
 
 LABEL maintainer="Ivan Cherniy <kar-kar@r4ven.me>"
@@ -91,7 +91,7 @@ RUN apt-get update && \
     apt-get clean --yes && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 
-COPY --from=xtrime/antizapret-vpn:6.9.1  /usr/bin/routes /usr/bin/routes
+COPY --from=xtrime/antizapret-vpn:6.10.0  /usr/bin/routes /usr/bin/routes
 
 COPY --chmod=0755 ./ocserv.sh /
 COPY ./certificate.sh /

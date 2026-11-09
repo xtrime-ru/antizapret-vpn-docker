@@ -1,5 +1,5 @@
-FROM golang:alpine as builder
-ARG CLOAK_VER=2.9.0
+FROM golang:1.27-alpine AS builder
+ARG CLOAK_VER=2.12.0
 WORKDIR /cloak
 RUN apk add -U --no-cache git curl make
 RUN curl -LO https://github.com/cbeuw/Cloak/archive/refs/tags/v${CLOAK_VER}.tar.gz && \

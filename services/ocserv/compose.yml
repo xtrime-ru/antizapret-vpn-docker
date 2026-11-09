@@ -1,8 +1,10 @@
 services:
   ocserv:
     init: true
+    dns:
+      - 14.16.0.1
     restart: unless-stopped
-    image: xtrime/antizapret-vpn-ocserv:6.9.1
+    image: xtrime/antizapret-vpn-ocserv:6.10.0
     hostname: ocserv.antizapret
     build:
       context: .

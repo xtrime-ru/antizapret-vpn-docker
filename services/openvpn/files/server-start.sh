@@ -89,6 +89,11 @@ mkdir -p $OPENVPN_DIR/staticclients
 
 echo 'Start openvpn process...'
 mkdir -p $OPENVPN_DIR/log
+while true; do
+    logrotate --state "$OPENVPN_DIR/log/.logrotate.status" /etc/logrotate.d/openvpn \
+        || echo 'OpenVPN log rotation failed' >&2
+    sleep 86400
+done &
 while true; do tail -f "$OPENVPN_DIR"/log/*.log || true; sleep 1; done &
 
 touch "$INIT_FILE"

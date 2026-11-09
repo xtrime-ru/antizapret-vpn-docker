@@ -6,7 +6,6 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -103,6 +102,7 @@ func openAllowedListFile(path string) (*os.File, error) {
 }
 
 type ListRequest struct {
+	Exclude      bool   `schema:"exclude"` // override domain/ASN routing for internal clients
 	Url          string `schema:"url"`
 	File         string `schema:"file"`
 	Format       string `schema:"format"`
@@ -116,12 +116,85 @@ type ListRequest struct {
 	Regex        bool   `schema:"regex"`         //convert each line from an ERE to an AdGuard regex rule
 }
 
+func (req ListRequest) validate() error {
+	switch req.Format {
+	case "", "list", "json", "v2fly":
+	default:
+		return errors.New("unsupported format (use 'json', 'list' or 'v2fly')")
+	}
+	switch {
+	case req.Format == "v2fly" && (req.Raw || req.Regex):
+		return errors.New("format=v2fly cannot be combined with raw=1 or regex=1")
+	case req.Raw && req.Regex:
+		return errors.New("raw=1 cannot be combined with regex=1")
+	case req.Exclude && req.Raw:
+		return errors.New("exclude=1 cannot be combined with raw=1")
+	}
+	return nil
+}
+
+// listRule preserves the original value for exclusion matching.
+type listRule struct {
+	value   string
+	pattern string // optional AdGuard pattern, already converted by the parser
+}
+
+// Build the request-wide modifiers once; rendering a normal domain then needs
+// only one allocation for the complete output rule.
+func (req ListRequest) renderer() func(listRule) string {
+	prefix, suffix := "", ""
+	if req.Allow {
+		prefix = "@@"
+	}
+	if req.Suffix {
+		var options []string
+		if req.DnsRewrite != "" {
+			option := "dnsrewrite"
+			if !req.Allow {
+				option += "=" + req.DnsRewrite
+			}
+			options = append(options, option)
+		}
+		if req.Client != "" {
+			options = append(options, "client="+req.Client)
+		}
+		if req.Exclude {
+			options = append(options, "important")
+		}
+		if len(options) > 0 {
+			suffix = "$" + strings.Join(options, ",")
+		}
+	}
+	return func(rule listRule) string {
+		out := strings.TrimSpace(rule.value)
+		if req.Raw || (rule.pattern == "" && (out == "" || strings.HasPrefix(out, "!") || strings.HasPrefix(out, "#"))) {
+			return out
+		}
+		left, right := "", ""
+		switch {
+		case rule.pattern != "":
+			out = rule.pattern
+		case req.Regex:
+			if !(strings.HasPrefix(out, "/") && strings.HasSuffix(out, "/")) {
+				left, right = "/", "/"
+				out = strings.ReplaceAll(out, "/", `\/`)
+			}
+		case !strings.HasPrefix(out, "/"):
+			left, right = "||", "^"
+		}
+		return prefix + left + out + right + suffix
+	}
+}
+
 type RegexFilter struct {
 	cmd         *exec.Cmd
 	stdin       io.WriteCloser
 	reader      *bufio.Reader
 	lock        sync.Mutex
 	patternFile string
+	empty       bool
+	input       []byte
+	excluded    map[string]bool
 }
 
 var excludeMatcherDist *RegexFilter
@@ -152,14 +225,23 @@ func (rf *RegexFilter) start() error {
 	return nil
 }
 
-func (rf *RegexFilter) Filter(lines []string) (result []string, err error) {
+func (rf *RegexFilter) Filter(rules []listRule) (result []listRule, err error) {
 	rf.lock.Lock()
 	defer rf.lock.Unlock()
-	for _, line := range lines {
-		if strings.ContainsRune(line, '\n') || line == delim {
+	for _, rule := range rules {
+		if strings.ContainsRune(rule.value, '\n') || rule.value == delim {
 			return nil, errors.New("list item contains a reserved separator")
 		}
 	}
+	if rf.empty || len(rules) == 0 {
+		return rules, nil
+	}
+	rf.input = rf.input[:0]
+	for _, rule := range rules {
+		rf.input = append(rf.input, rule.value...)
+		rf.input = append(rf.input, '\n')
+	}
+	rf.input = append(rf.input, delim[0], '\n')
 	if rf.cmd == nil {
 		if err = rf.start(); err != nil {
 			_ = rf.Close()
@@ -169,7 +251,7 @@ func (rf *RegexFilter) Filter(lines []string) (result []string, err error) {
 	// Drain stdout while writing the batch, so neither pipe can fill and stall.
 	written := make(chan error, 1)
 	go func() {
-		_, err := io.WriteString(rf.stdin, strings.Join(lines, "\n")+"\n"+delim+"\n")
+		_, err := rf.stdin.Write(rf.input)
 		written <- err
 	}()
 	defer func() {
@@ -183,7 +265,7 @@ func (rf *RegexFilter) Filter(lines []string) (result []string, err error) {
 			_ = rf.Close()
 		}
 	}()
-	excluded := make(map[string]bool)
+	clear(rf.excluded)
 	for {
 		line, readErr := rf.reader.ReadString('\n')
 		if readErr != nil {
@@ -193,11 +275,12 @@ func (rf *RegexFilter) Filter(lines []string) (result []string, err error) {
 		if line == delim {
 			break
 		}
-		excluded[line] = true
+		rf.excluded[line] = true
 	}
-	for _, line := range lines {
-		if !excluded[line] {
-			result = append(result, line)
+	result = rules[:0]
+	for _, rule := range rules {
+		if !rf.excluded[rule.value] {
+			result = append(result, rule)
 		}
 	}
 	return result, nil
@@ -220,6 +303,15 @@ func NewRegexFilter(file string) (*RegexFilter, error) {
 	if out, err := exec.Command("sed", "-i", `s/\s*$//; /^$/d`, file).CombinedOutput(); err != nil {
 		return nil, fmt.Errorf("failed to normalize exclude filter: %w: %s", err, out)
 	}
+	info, err := os.Stat(file)
+	if err != nil {
+		return nil, err
+	}
+	rf := &RegexFilter{patternFile: file, empty: info.Size() == 0}
+	if rf.empty {
+		return rf, nil
+	}
+	rf.excluded = make(map[string]bool)
 	// Validate on reload so an invalid pattern keeps the old filter active.
 	cmd := exec.Command("grep", "-a", "-E", "-f", file, "/dev/null")
 	output, err := cmd.CombinedOutput()
@@ -227,7 +319,6 @@ func NewRegexFilter(file string) (*RegexFilter, error) {
 	if err != nil && !(errors.As(err, &exitErr) && exitErr.ExitCode() == 1) {
 		return nil, fmt.Errorf("invalid exclude filter %s: %w: %s", file, err, output)
 	}
-	rf := &RegexFilter{patternFile: file}
 	if err := rf.start(); err != nil {
 		_ = rf.Close()
 		return nil, err
@@ -253,7 +344,19 @@ func adaptList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var reader io.ReadCloser
+	req.Format = strings.ToLower(req.Format)
+	if err := req.validate(); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if req.Exclude {
+		req.Allow, req.Raw, req.Suffix = false, false, true
+		req.Client, req.DnsRewrite = "az-local|az-world|az-resolver", "SERVFAIL"
+		req.FilterCustom, req.FilterDist = false, false
+	}
+
+	var reader io.Reader
 	if req.Url != "" {
 		// Create a new HTTP request
 		reqRemote, err := http.NewRequestWithContext(r.Context(), http.MethodGet, req.Url, nil)
@@ -313,9 +416,11 @@ func adaptList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Format != "" && !strings.EqualFold(req.Format, "list") && !strings.EqualFold(req.Format, "json") {
-		http.Error(w, "Unsupported format (use 'json' or 'list')", http.StatusBadRequest)
-		return
+	if req.Format == "" {
+		req.Format = "auto"
+		if req.Raw || req.Regex {
+			req.Format = "list"
+		}
 	}
 
 	// Create a flusher to stream output
@@ -331,120 +436,62 @@ func adaptList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
+	started := false
 
-	var buffer []string
-	// Helper to process and write each line
+	render := req.renderer()
+	writer := bufio.NewWriterSize(w, 32*1024)
+	var buffer []listRule
 	processBuffer := func() {
 		excludeMatchersLock.RLock()
 		defer excludeMatchersLock.RUnlock()
-		filtered := buffer
-		buffer = nil
 		var err error
 		if req.FilterDist {
-			filtered, err = excludeMatcherDist.Filter(filtered)
+			buffer, err = excludeMatcherDist.Filter(buffer)
 			if err != nil {
 				abort(err)
 			}
 		}
 		if req.FilterCustom {
-			filtered, err = excludeMatcherCustom.Filter(filtered)
+			buffer, err = excludeMatcherCustom.Filter(buffer)
 			if err != nil {
 				abort(err)
 			}
 		}
-
-		for _, line := range filtered {
-			out := strings.TrimSpace(line)
-			if req.Raw || out == "" || strings.HasPrefix(out, "!") || strings.HasPrefix(out, "#") {
-				//
-			} else {
-				if req.Regex && !(strings.HasPrefix(out, "/") && strings.HasSuffix(out, "/")) {
-					out = "/" + strings.ReplaceAll(out, "/", `\/`) + "/"
-				} else if !req.Regex && !strings.HasPrefix(out, "/") {
-					out = "||" + out + "^"
-				}
-				if req.Allow {
-					out = "@@" + out
-				}
-				if req.Suffix {
-					suffix := ""
-
-					if len(req.DnsRewrite) > 0 {
-						if strings.HasPrefix(out, "@@") {
-							suffix = "$dnsrewrite"
-						} else {
-							suffix = fmt.Sprintf("$dnsrewrite=%s", req.DnsRewrite)
-						}
-					}
-
-					if len(req.Client) > 0 {
-						if len(suffix) > 0 {
-							suffix += ","
-						}
-						suffix += fmt.Sprintf("client=%s", req.Client)
-					}
-					out += suffix
-				}
+		for _, rule := range buffer {
+			started = true
+			if _, err := writer.WriteString(render(rule)); err != nil {
+				abort(err)
 			}
-
-			if _, err := fmt.Fprintln(w, out); err != nil {
+			if err := writer.WriteByte('\n'); err != nil {
 				abort(err)
 			}
 		}
-
+		if err := writer.Flush(); err != nil {
+			abort(err)
+		}
+		if started {
+			flusher.Flush()
+		}
+		buffer = buffer[:0]
 	}
-
-	processLine := func(line string) {
-		buffer = append(buffer, line)
+	processRule := func(rule listRule) {
+		buffer = append(buffer, rule)
 		if len(buffer) > 1000 {
 			processBuffer()
 		}
 	}
-
-	if req.Format == "" {
-		req.Format = "list"
+	source := req.File
+	if req.Url != "" {
+		source = req.Url
 	}
-	// Handle format types
-	switch strings.ToLower(req.Format) {
-	case "list":
-		// Stream line-by-line
-		scanner := bufio.NewScanner(reader)
-		for scanner.Scan() {
-			processLine(scanner.Text())
-		}
-		if err := scanner.Err(); err != nil {
+	if err := req.parser(r.Context(), source).Parse(reader, processRule); err != nil {
+		if started {
 			abort(err)
 		}
-	case "json":
-		// Stream JSON array one element at a time
-		dec := json.NewDecoder(reader)
-
-		// Expect start of array
-		t, err := dec.Token()
-		if err != nil {
-			abort(err)
-		}
-		if delim, ok := t.(json.Delim); !ok || delim != '[' {
-			abort(errors.New("expected JSON array"))
-		}
-
-		// Decode each element until end of array
-		for dec.More() {
-			var item string
-			if err := dec.Decode(&item); err != nil {
-				abort(err)
-			}
-			processLine(item)
-		}
-
-		// Consume closing bracket
-		if _, err := dec.Token(); err != nil {
-			abort(err)
-		}
-	default:
-		abort(errors.New("unsupported format (use 'json' or 'list')"))
+		http.Error(w, fmt.Sprintf("Failed to parse list: %v", err), http.StatusBadGateway)
+		return
 	}
+
 	processBuffer()
 	flusher.Flush()
 }

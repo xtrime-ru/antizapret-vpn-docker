@@ -1,14 +1,11 @@
 services:
   coredns:
-    image: xtrime/antizapret-vpn-coredns:6.6.4
+    image: xtrime/antizapret-vpn-coredns:6.11.0
     hostname: coredns.antizapret
     restart: unless-stopped
     init: true
     build: 
       context: .
-      args:
-        - COREDNS_VERSION=v1.14.4
-        - FINALIZER_COMMIT=ff5520b12d228cda15948c8bb247a650d916b0be
       x-bake:
         platforms:
           - linux/amd64

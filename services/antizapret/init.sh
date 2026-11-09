@@ -8,6 +8,9 @@ function postrun () {
     nohup bash -c "$@" &
 }
 
+WARP_PROTOCOL=${WARP_PROTOCOL:-WireGuard}
+WARP_PORT=${WARP_PORT:-500}
+
 DOCKER_SUBNET="$(ipcalc "$(ip -4 addr show dev eth0 | awk '$1=="inet" {print $2; exit}')" | awk '/Network:/ {print $2}')"
 
 # save DNS variables to /etc/default/antizapret
@@ -140,6 +143,15 @@ function stop_services () {
 trap stop_services EXIT HUP INT QUIT PIPE TERM
 
 if [ "$ZAPRET_ENABLED" = "1" ]; then
+    if [ -s "$ZAPRET_CONFIG" ]; then
+        # Regenerate only known, unmodified bundled configs; keep custom rules.
+        case "$(md5sum < "$ZAPRET_CONFIG" | awk '{print $1}')" in
+            5f71da81191ae869d849ed4f11576c56|0c7a96834a14bde6258d1dc283787b4e|c1c4af3a708375336a0c2af953d4d3c6)
+                echo "Replacing old default zapret2 config: $ZAPRET_CONFIG"
+                rm -f -- "$ZAPRET_CONFIG"
+                ;;
+        esac
+    fi
     if [ ! -s "$ZAPRET_CONFIG" ]; then
         mkdir -p "$(dirname "$ZAPRET_CONFIG")"
         cp /root/zapret2/config.default "$ZAPRET_CONFIG"
@@ -159,14 +171,39 @@ if [ "$WARP_ENABLED" = "1" ]; then
 
     timeout 30 bash -c 'until warp-cli --accept-tos status >/dev/null 2>&1; do sleep 1; done'
 
+    warp_read_config() {
+        python3 - <<'PY'
+import json
+with open('/var/lib/cloudflare-warp/conf.json') as f:
+    config = json.load(f)
+print(config['tunnel_key_data']['tunnel_type'], config['endpoints'][0]['v4'].rsplit(':', 1)[0])
+PY
+    }
+
+    warp-cli --accept-tos disconnect
     [ -f /var/lib/cloudflare-warp/reg.json ] || warp-cli --accept-tos registration new
+    read -r warp_previous_protocol warp_endpoint < <(warp_read_config)
+    warp-cli --accept-tos tunnel protocol set "$WARP_PROTOCOL"
+    if [ "$warp_previous_protocol" != "${WARP_PROTOCOL,,}" ]; then
+        echo "Re-registering WARP: $warp_previous_protocol -> $WARP_PROTOCOL"
+        warp-cli --accept-tos registration delete
+        warp-cli --accept-tos registration new
+        read -r warp_previous_protocol warp_endpoint < <(warp_read_config)
+    fi
+    if [ "$WARP_PORT" = 0 ]; then
+        warp-cli --accept-tos tunnel endpoint reset
+    else
+        warp-cli --accept-tos tunnel endpoint set "$warp_endpoint:$WARP_PORT"
+    fi
+    if [ "$WARP_PROTOCOL" = MASQUE ]; then
+        warp-cli --accept-tos tunnel masque-options set h3-with-h2-fallback
+    fi
+    warp-cli --accept-tos mode tunnel_only
     while read -r nameserver; do
         warp-cli --accept-tos tunnel ip add "$nameserver" || true
     done < <(awk '$1 == "nameserver" {print $2}' /etc/resolv.conf)
-    warp-cli --accept-tos tunnel protocol set MASQUE
-    warp-cli --accept-tos mode tunnel_only
     warp-cli --accept-tos connect
-    timeout 30 bash -c 'until warp-cli --accept-tos status | grep -q Connected; do sleep 1; done'
+    timeout --kill-after=5s 30 bash -c 'until warp-cli --accept-tos status | grep -q "^Status update: Connected$"; do sleep 1; done'
 
     iptables -t nat -A POSTROUTING -o CloudflareWARP -j MASQUERADE
     iptables -t mangle -A FORWARD -o CloudflareWARP -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu

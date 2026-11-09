@@ -34,7 +34,7 @@ services:
       service: filebrowser
     environment:
       - FILEBROWSER_USERNAME=admin
-      - FILEBROWSER_PASSWORD=password
+      - FILEBROWSER_PASSWORD=antizapret-browser
 
   ocserv:
     extends:
@@ -107,6 +107,8 @@ services:
   az-local:
     environment:
       - WARP_ENABLED=1
+      - WARP_PROTOCOL=WireGuard
+      - WARP_PORT=500
 
   # az-world:
   #   environment:

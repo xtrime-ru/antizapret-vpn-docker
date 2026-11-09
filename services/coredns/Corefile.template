@@ -9,7 +9,6 @@
         failover SERVFAIL
         max_fails 0
     }
-    finalize force_resolve
 
     reload 2s
 }

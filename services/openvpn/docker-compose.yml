@@ -1,6 +1,8 @@
 services:
   openvpn:
     hostname: openvpn.antizapret
+    dns:
+      - 14.16.0.1
     restart: unless-stopped
     cap_add:
       - NET_ADMIN
@@ -10,7 +12,7 @@ services:
       - net.ipv4.conf.all.src_valid_mark=1
     devices:
       - /dev/net/tun:/dev/net/tun
-    image: xtrime/antizapret-vpn-openvpn:6.9.3
+    image: xtrime/antizapret-vpn-openvpn:6.10.0
     build:
       context: .
       x-bake:
