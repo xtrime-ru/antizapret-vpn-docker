@@ -55,6 +55,8 @@ services:
       - DOALL_DISABLED
       - IPTABLES_SAVE_DISABLED
       - WARP_ENABLED=0
+      - WARP_PROTOCOL=${WARP_PROTOCOL:-WireGuard}
+      - WARP_PORT=${WARP_PORT:-500}
       - ZAPRET_ENABLED=0
       - ZAPRET_CONFIG
       - |

@@ -1248,22 +1248,22 @@ services:
   az-local:
     environment:
       - WARP_ENABLED=1
+      - WARP_PROTOCOL=WireGuard
+      - WARP_PORT=500
 ```
 
-Use `az-world` instead to enable WARP on the world exit node. Examples for both
-nodes are at the end of `docker-compose.override.sample.yml`; the world example
-is commented out.
+Use `az-world` instead for the world exit node. Apply changes with
+`docker compose up -d`.
 
-Apply the configuration normally. No additional WARP command is needed:
+The defaults are WireGuard on UDP/500. For MASQUE, set `WARP_PROTOCOL=MASQUE`
+and `WARP_PORT=443` (HTTP/3 with HTTP/2 fallback). `WARP_PORT=0` lets the client
+choose its endpoint automatically. No fixed IP is bundled; DNS stays under
+Antizapret control. With zapret2, non-default MASQUE UDP ports must also be
+added to its firewall and strategy filters.
 
-```shell
-docker compose up -d
-```
-
-The registration is persisted in `./config/antizapret/warp`. WARP runs in
-traffic-only mode to leave DNS under Antizapret control and uses MASQUE. Since
-zapret2 starts first, its QUIC strategy processes the outer WARP tunnel traffic
-on UDP/443.
+Registration is stored in `./config/antizapret/warp`. When `WARP_PROTOCOL`
+changes, startup automatically replaces the registration; any license
+association may need to be restored. Changing only the port keeps it.
 
 ### Docker Swarm
 
@@ -1287,6 +1287,8 @@ You can define these variables in docker-compose.override.yml file for your need
 - `DOALL_DISABLED=` - skip list generation inside the container. Normally leave unset: init uses a shared `result` owner file so Docker Compose generates lists only once, while Swarm nodes generate them independently on their local volumes.
 - `IPTABLES_SAVE_DISABLED=` - skip iptables rules restore on startup and save on shutdown.
 - `WARP_ENABLED=0` - set to `1` to route exit-node traffic through Cloudflare WARP.
+- `WARP_PROTOCOL=WireGuard` - tunnel protocol: `WireGuard` or `MASQUE` (case-sensitive).
+- `WARP_PORT=500` - endpoint port, `1`–`65535`; `0` lets the client select its endpoint automatically. For MASQUE, normally use `443`.
 - `IPS_URL=` - semicolon-separated URLs with IP prefixes for the local node. The merged result is written to `result/ips.txt`.
 - `IPS_WORLD_URL=` - semicolon-separated URLs with IP prefixes for the world node. The merged result is written to `result/ips-world.txt`.
 - `ASN_URL=` - semicolon-separated URLs with ASN numbers or organization names for the local node. The merged result is written to `result/asn.txt`.
