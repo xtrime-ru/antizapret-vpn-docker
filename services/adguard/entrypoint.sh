@@ -120,6 +120,7 @@ AZ_LOCAL_HOST="$AZ_LOCAL_HOST" \
 AZ_WORLD_CLIENT_IDS="$AZ_WORLD_CLIENT_IDS" \
 COREDNS_HOST="$COREDNS_HOST" \
 yq -i '
+    (.dns.upstream_dns[] | select(. == "coredns")) = "coredns.antizapret" |
     .http.address = "0.0.0.0:" + strenv(ADGUARDHOME_PORT) |
     .http.doh.insecure_enabled=true |
     .dns.use_private_ptr_resolvers=false |
