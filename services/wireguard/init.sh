@@ -3,15 +3,27 @@
 CONFIG_FILES="/opt/antizapret/result/ips*"
 cat $CONFIG_FILES 2>/dev/null | md5sum | cut -d' ' -f1 > /dev/shm/.config_md5
 
+is_ipv4() {
+    local octet='(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])'
+    [[ "$1" =~ ^$octet\.$octet\.$octet\.$octet$ ]]
+}
+
 if [ -z "$WG_HOST" ]; then
-    ip="$(timeout 1s curl -4 icanhazip.com || echo '')"
-    if [ -n "$ip" ]; then
-      export WG_HOST="$ip"
+    if ip="$(curl -4 --fail --silent --show-error --connect-timeout 5 --max-time 5 \
+        --retry 2 https://icanhazip.com)" && is_ipv4 "$ip"; then
+        export WG_HOST="$ip"
+    else
+        echo "Warning: Could not determine a valid public IPv4 address; preserving the saved host." >&2
     fi
 fi
 
 export WG_DEFAULT_ADDRESS=${WG_DEFAULT_ADDRESS:-"10.1.166.x"}
 export WG_PORT=${WG_PORT:-51820}
+export WG_INTERFACE=${WG_INTERFACE:-wg0}
+if [[ ! "$WG_INTERFACE" =~ ^[a-zA-Z0-9_=+.-]{1,15}$ ]]; then
+    echo "Error: Invalid interface name: $WG_INTERFACE" >&2
+    exit 1
+fi
 export MTU=${MTU:-1280}
 export AZ_SUBNET=${AZ_SUBNET:-"14.16.0.0/14"}
 WG_DEFAULT_DNS_VALUE="${WG_DEFAULT_DNS:-14.16.0.1}"
@@ -99,8 +111,8 @@ iptables -t nat -A masq_not_local -d ${DOCKER_SUBNET} -p udp --dport 53 -j RETUR
 iptables -t nat -A masq_not_local -d ${DOCKER_SUBNET} -j MASQUERADE;
 iptables -t nat -A masq_not_local -d ${AZ_SUBNET} -j RETURN;
 iptables -t nat -A masq_not_local -j MASQUERADE;
-iptables -A FORWARD -i wg0 -j ACCEPT;
-iptables -A FORWARD -o wg0 -j ACCEPT;
+iptables -A FORWARD -i ${WG_INTERFACE} -j ACCEPT;
+iptables -A FORWARD -o ${WG_INTERFACE} -j ACCEPT;
 EOF
 )
 
@@ -111,8 +123,8 @@ fi;
 iptables -t nat -D POSTROUTING -s ${WG_IPV4_CIDR} -j masq_not_local;
 iptables -t nat -F masq_not_local;
 iptables -t nat -X masq_not_local;
-iptables -D FORWARD -i wg0 -j ACCEPT;
-iptables -D FORWARD -o wg0 -j ACCEPT;
+iptables -D FORWARD -i ${WG_INTERFACE} -j ACCEPT;
+iptables -D FORWARD -o ${WG_INTERFACE} -j ACCEPT;
 EOF
 )
 
@@ -126,22 +138,33 @@ DNS_JSON="[\"${WG_DEFAULT_DNS_VALUE}\"]"
 update_db() {
     local post_up
     local post_down
-    local host_val
+    local host_update=""
+    local interface_name
+    # wg-easy renames the interface after this script runs. Update the current
+    # row so changes also apply when WG_INTERFACE has just been changed.
+    interface_name=$(sqlite3 "$DB_FILE" "SELECT name FROM interfaces_table LIMIT 1;") || return 1
+    if [ -z "$interface_name" ]; then
+        echo "Error: WireGuard interface not found in $DB_FILE" >&2
+        return 1
+    fi
+    interface_name=$(sql_escape "$interface_name")
     post_up=$(sql_escape "$CUSTOM_POST_UP")
     post_down=$(sql_escape "$CUSTOM_POST_DOWN")
-    host_val=$(sql_escape "$WG_HOST")
+    if [ -n "$WG_HOST" ]; then
+        host_update=", host='$(sql_escape "$WG_HOST")'"
+    fi
 
     # Update hooks (PostUp/PostDown)
-    sqlite3 "$DB_FILE" "UPDATE hooks_table SET post_up='${post_up}', post_down='${post_down}' WHERE id='wg0';"
+    sqlite3 "$DB_FILE" "UPDATE hooks_table SET post_up='${post_up}', post_down='${post_down}' WHERE id='${interface_name}';"
 
     # Update interface port and CIDR
-    sqlite3 "$DB_FILE" "UPDATE interfaces_table SET port=${WG_PORT}, ipv4_cidr='${WG_IPV4_CIDR}', mtu=${MTU} WHERE name='wg0';"
+    sqlite3 "$DB_FILE" "UPDATE interfaces_table SET port=${WG_PORT}, ipv4_cidr='${WG_IPV4_CIDR}', mtu=${MTU} WHERE name='${interface_name}';"
 
     # Update user config (allowed IPs, DNS, host, port, persistent keepalive)
-    sqlite3 "$DB_FILE" "UPDATE user_configs_table SET default_allowed_ips='${ALLOWED_IPS_JSON}', default_dns='${DNS_JSON}', default_mtu=${MTU}, host='${host_val}', port=${WG_PORT} WHERE id='wg0';"
+    sqlite3 "$DB_FILE" "UPDATE user_configs_table SET default_allowed_ips='${ALLOWED_IPS_JSON}', default_dns='${DNS_JSON}', default_mtu=${MTU}, port=${WG_PORT}${host_update} WHERE id='${interface_name}';"
 
     if [ -n "$WG_PERSISTENT_KEEPALIVE" ]; then
-        sqlite3 "$DB_FILE" "UPDATE user_configs_table SET default_persistent_keepalive=${WG_PERSISTENT_KEEPALIVE} WHERE id='wg0';"
+        sqlite3 "$DB_FILE" "UPDATE user_configs_table SET default_persistent_keepalive=${WG_PERSISTENT_KEEPALIVE} WHERE id='${interface_name}';"
     fi
 
     # Update AmneziaWG junk packet settings if set
@@ -150,8 +173,8 @@ update_db() {
         JMIN_VAL=${JMIN:-20}
         JMAX_VAL=${JMAX:-100}
 
-        sqlite3 "$DB_FILE" "UPDATE interfaces_table SET j_c=${JC_VAL}, j_min=${JMIN_VAL}, j_max=${JMAX_VAL} WHERE name='wg0';"
-        sqlite3 "$DB_FILE" "UPDATE user_configs_table SET default_j_c=${JC_VAL}, default_j_min=${JMIN_VAL}, default_j_max=${JMAX_VAL}, default_i1=${I1_VAL}, default_i2=${I2_VAL}, default_i3=${I3_VAL}, default_i4=${I4_VAL}, default_i5=${I5_VAL} WHERE id='wg0';"
+        sqlite3 "$DB_FILE" "UPDATE interfaces_table SET j_c=${JC_VAL}, j_min=${JMIN_VAL}, j_max=${JMAX_VAL} WHERE name='${interface_name}';"
+        sqlite3 "$DB_FILE" "UPDATE user_configs_table SET default_j_c=${JC_VAL}, default_j_min=${JMIN_VAL}, default_j_max=${JMAX_VAL}, default_i1=${I1_VAL}, default_i2=${I2_VAL}, default_i3=${I3_VAL}, default_i4=${I4_VAL}, default_i5=${I5_VAL} WHERE id='${interface_name}';"
     fi
 
     # migrate legacy wg0.json server and client entries if present
@@ -182,7 +205,7 @@ update_db() {
             [ -n "$srv_h2" ] && update_query+=" , h2='${srv_h2}'"
             [ -n "$srv_h3" ] && update_query+=" , h3='${srv_h3}'"
             [ -n "$srv_h4" ] && update_query+=" , h4='${srv_h4}'"
-            update_query+=" WHERE name='wg0';"
+            update_query+=" WHERE name='${interface_name}';"
             sqlite3 "$DB_FILE" "$update_query"
         fi
 
@@ -226,7 +249,7 @@ update_db() {
                 fi
                 sqlite3 "$DB_FILE" "INSERT INTO
                   clients_table(user_id,interface_id,name,ipv4_address,ipv6_address, server_allowed_ips,persistent_keepalive,mtu,private_key,public_key,pre_shared_key,expires_at,enabled,created_at,updated_at${awg_keys})
-                  VALUES(1,'wg0','$(sql_escape "$cname")','${caddr}','$(printf "$ipv6_prefix:%x" ${cid})','[]',${WG_PERSISTENT_KEEPALIVE},${MTU},'$(sql_escape "$cpriv")','$(sql_escape "$cpub")','$(sql_escape "$cpsk")',${cexpire},${c_enabled_val},'${ccreated}','${cupdated}'${awg_values});
+                  VALUES(1,'${interface_name}','$(sql_escape "$cname")','${caddr}','$(printf "$ipv6_prefix:%x" ${cid})','[]',${WG_PERSISTENT_KEEPALIVE},${MTU},'$(sql_escape "$cpriv")','$(sql_escape "$cpub")','$(sql_escape "$cpsk")',${cexpire},${c_enabled_val},'${ccreated}','${cupdated}'${awg_values});
                 "
             done
         fi
