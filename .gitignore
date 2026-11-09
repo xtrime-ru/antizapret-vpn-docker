@@ -4,3 +4,5 @@
 !.dockerignore
 /docker-compose.override.yml
 /config/
+
+__pycache__/
