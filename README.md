@@ -996,8 +996,6 @@ This is text filtering, not subnet subtraction: excluding `198.51.100.10` does n
 
 The VPN client also needs routes for these real addresses. OpenVPN generates push routes from the IP lists; WireGuard/AmneziaWG adds them to its default AllowedIPs when `WG_ALLOWED_IPS` is unset. After changes, reconnect OpenVPN clients and export/apply updated WireGuard configurations, or use BGP on supported routers.
 
-Processes inside the OpenVPN, ocserv, WireGuard and proxy containers use AdGuard for external DNS queries through Docker's embedded DNS. Matching domains receive virtual addresses and use the corresponding exit node. IP/CIDR list routes apply to VPN client traffic; direct connections to real IPs from the containers themselves use the main routing table.
-
 ### Direct DNS resolution for domains on VPN-listed CDN networks
 
 The bundled **Direct Access Rules** filter loads `lists/exclude.txt` using `format=v2fly&exclude=1`. Steam, PlayStation and Rockstar use direct resolution even on VPN-listed CDN ASNs. On startup, the updated AdGuard container adds this filter when missing and migrates the standard **Excluded Custom Local/World Rules** URLs to `exclude=1&regex=1`, preserving filter IDs and enabled states. The next healthcheck refreshes cached filters and clears AdGuard's DNS cache. User rules and Custom include filters are preserved. The old bundled Steam/Rockstar upstream entry is removed.
