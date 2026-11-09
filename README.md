@@ -2,7 +2,7 @@
 
 # AntiZapret VPN in Docker
 
-[![AdGuard Home v0.107.79](https://img.shields.io/badge/AdGuard%20Home-v0.107.79-68BC71?style=flat-square&logo=adguard&logoColor=white)](services/adguard/Dockerfile)
+[![AdGuard Home v1.0.0-b.2](https://img.shields.io/badge/AdGuard%20Home-v1.0.0--b.2-68BC71?style=flat-square&logo=adguard&logoColor=white)](services/adguard/Dockerfile)
 [![wg-easy 15.5.0](https://img.shields.io/badge/wg--easy-15.5.0-88171A?style=flat-square&logo=wireguard&logoColor=white)](https://github.com/wg-easy/wg-easy/releases/tag/v15.5.0)
 [![OpenVPN 2.7.8](https://img.shields.io/badge/OpenVPN-2.7.8-EA7E20?style=flat-square&logo=openvpn&logoColor=white)](services/openvpn/Dockerfile)
 [![AmneziaWG tools 3.1.20260812](docs/badges/amneziawg.svg)](https://github.com/amnezia-vpn/amneziawg-tools/releases/tag/v3.1.20260812)
@@ -134,9 +134,9 @@ https://t.me/antizapret_support
 
 1. AdGuard Home applies its DNS filters and forwards ordinary queries to CoreDNS. Domain-specific upstreams can resolve selected domains directly.
 2. CoreDNS tries the VPN exit nodes in order: `az-world` → `az-local` in Swarm, or only `az-local` in single-server Compose.
-3. Each exit node asks AdGuard using its ClientID. A matching domain rule enables VPN routing; otherwise, `dnsmap` resolves through `az-resolver` and checks the returned IPv4 addresses against ASN and organization rules.
+3. Each exit node asks AdGuard using its ClientID. Domain exclusions take priority over ordinary includes. Without an exclusion, an include enables VPN routing; otherwise, `dnsmap` resolves through `az-resolver` and checks the returned IPv4 addresses against ASN and organization rules.
 4. For a match, `dnsmap` allocates virtual IPv4 addresses and creates iptables DNAT mappings to the real addresses. The default pools are `14.16.0.0/15` for the local exit and `14.18.0.0/15` for the world exit.
-5. CoreDNS returns virtual addresses for VPN-routed domains or falls back to an ordinary DNS answer when no exit node matches. `finalize force_resolve` also checks CNAME targets through the same routing chain.
+5. CoreDNS returns virtual addresses for VPN-routed domains or falls back to an ordinary DNS answer when no exit node matches. ASN matching uses the IPv4 addresses in the resolved answer, including CDN addresses behind CNAMEs.
 6. VPN clients route virtual addresses through the tunnel. Explicit IP/CIDR lists can also add routes for real addresses. See [Routing rules: include, exclude and ASN](#routing-rules-include-exclude-and-asn).
 
 
@@ -852,9 +852,9 @@ flowchart TB
 ```
 
 1. `dnsmap` sends the original query to AdGuard using the DoH protocol over internal HTTP at `/dns-query/<CLIENT>`, with `<CLIENT>` set to `az-local` or `az-world`. The default AdGuard DoH port is `3000`.
-2. For that client, AdGuard's default `SERVFAIL` rewrite is overridden by a matching domain include rule. If the response contains IPv4 addresses, `dnsmap` maps them immediately; it does not check ASN or query `az-resolver` in this branch.
+2. For that client, a matching domain include cancels AdGuard's default `SERVFAIL` rewrite unless an important exclusion also matches. If the response contains IPv4 addresses, `dnsmap` maps them immediately; it does not check ASN or query `az-resolver` in this branch.
 3. If the first response is `SERVFAIL`, `dnsmap` sends the same original query with ClientID `az-resolver`. The default upstreams for this client are Cloudflare, Google and Quad9, rather than CoreDNS.
-4. A matching domain exclusion returns `SERVFAIL` for `az-resolver` and stops the ASN check. Other resolver errors are also returned without creating mappings.
+4. A matching domain exclusion also returns `SERVFAIL` for `az-resolver`, stopping the ASN check after blocking the ordinary include at the first request. Other resolver errors are also returned without creating mappings.
 5. If direct resolution succeeds, `dnsmap` checks the returned IPv4 addresses in the MaxMind ASN database. If any address matches an ASN number, organization substring or organization regex, all IPv4 addresses in that response are mapped through this exit node. With no matching address, the original `SERVFAIL` is returned to CoreDNS.
 6. When mapping addresses, `dnsmap` removes CNAME records, replaces A records with virtual addresses under the original query name, and sets their TTL to 300 seconds. It installs DNAT mappings from the virtual addresses to the real addresses.
 
@@ -862,18 +862,19 @@ An empty answer does not create mappings. A failure to install mappings returns 
 
 ### CNAME resolution and direct exceptions
 
-CoreDNS keeps `finalize force_resolve` enabled so that a domain whose CNAME points to a blocked CDN can still use the VPN. The finalizer repeats queries for CNAME targets even if the initial response already contains their real A records.
+CoreDNS forwards answers without re-querying each CNAME target. `dnsmap` checks the resolved IPv4 addresses against MaxMind ASN rules, so CDN routing does not require a CNAME finalizer.
 
-Each CNAME target is a new query through the exit-node chain. Excluding the original domain from ASN routing does not automatically exclude its CNAME targets. For a domain that works directly, use a [domain-specific AdGuard upstream](#direct-dns-resolution-for-domains-on-vpn-listed-cdn-networks). That bypasses CoreDNS for the original query while preserving CDN routing for other domains.
+The bundled `lists/exclude.txt` loads Steam, PlayStation and Rockstar domain lists from v2fly. AdGuard's **Direct Access Rules** filter returns important `SERVFAIL` rewrites for `az-local`, `az-world` and `az-resolver`, overriding ordinary custom/dist includes and preventing ASN routing. CoreDNS then reaches the direct AdGuard upstream. Independent IP routes still apply. The new list supplies AdGuard rules only; it does not remove entries from include lists.
 
 ### Reading the query log
 
-For a domain routed by ASN, the AdGuard log can show:
+When inspecting domain and ASN routing, the AdGuard log can show:
 
 | Client | Response | Meaning |
 |---|---|---|
-| `az-world` or `az-local` | `SERVFAIL` | No domain rule allowed the first request; ASN fallback may still follow |
+| `az-world` or `az-local` | `SERVFAIL` | No include matched, or an important exclusion overrode it; a resolver request follows |
 | `az-resolver` | `NOERROR`, real IPv4 addresses | Direct resolution for the subsequent ASN check |
+| `az-resolver` | `SERVFAIL` from an exclusion | Neither domain nor ASN routing is used for this query |
 | Original VPN client | `NOERROR`, `14.18.*` or `14.16.*` | An exit node mapped the addresses through the VPN |
 
 A `SERVFAIL` entry for an exit ClientID alone does not prove that the exit was skipped: inspect the following `az-resolver` request and the `ASN match` messages in the exit container's logs. If all exits return `SERVFAIL`, a query from `coredns` to an ordinary upstream provides the direct answer. Caching and CNAME chains change the number of log entries per client query.
@@ -882,7 +883,7 @@ A `SERVFAIL` entry for an exit ClientID alone does not prove that the exit was s
 
 Distribution (`dist`) domain, IP and ASN lists are enabled by default. AdGuard Home automatically refreshes the bundled domain lists from GitHub through the list adapter. The antizapret container downloads and updates the IP and ASN lists from GitHub separately. No manual rules are needed for the standard setup. Custom files are optional: use them only to add your own entries or exclude entries from the supplied lists.
 
-Use custom files to route domains and IP networks through the VPN or remove rules from the distributed lists. `include` adds rules; `exclude` removes matching entries from a specific list. An exclusion is not a universal instruction to bypass every other routing rule.
+Use custom files to route domains and IP networks through the VPN or exclude them. Domain exclusions take priority over ordinary domain includes and ASN routing. IP and ASN exclusion files remove matching rule text from their respective lists; domain exclusions do not remove independent IP/CIDR routes.
 
 ### Custom rule files
 
@@ -890,7 +891,7 @@ Files are stored in `./config/antizapret/custom/` on the corresponding exit node
 
 | Include file | Exclude file | What it controls |
 |---|---|---|
-| `include-hosts-custom.txt` | `exclude-hosts-custom.txt` | Domain lists served by this exit node; domain exclusions also feed the AdGuard `az-resolver` filter |
+| `include-hosts-custom.txt` | `exclude-hosts-custom.txt` | Domain lists served by this exit node; exclusions also feed important AdGuard rules for `az-local`, `az-world` and `az-resolver` |
 | `include-ips-custom.txt` | `exclude-ips-custom.txt` | Local IPv4 addresses and CIDR prefixes |
 | `include-ips-world-custom.txt` | `exclude-ips-world-custom.txt` | World IPv4 addresses and CIDR prefixes |
 | `include-asn-custom.txt` | `exclude-asn-custom.txt` | Local ASN and organization rules |
@@ -924,11 +925,21 @@ The first pattern removes the exact `example.com` list entry; the second matches
 Domain exclusions have two effects:
 
 1. The list adapter removes matching input lines from lists with `filter_custom=1` (the default).
-2. AdGuard loads exclusions from both exit nodes as `SERVFAIL` rewrite rules for `az-resolver`, stopping the ASN fallback for a matching query.
+2. AdGuard loads exclusions from both exit nodes as important `SERVFAIL` rewrite rules for `az-local`, `az-world` and `az-resolver`, overriding ordinary includes and stopping ASN fallback.
 
-The adapter filters list entries, not all hostnames covered by the resulting AdGuard rules. Excluding `subdomain.example.com` does not remove an `example.com` entry, and a manually added AdGuard rule is not processed by the adapter. If another rule already allows the first request from `az-local` or `az-world`, `dnsmap` creates VPN addresses without querying `az-resolver`.
+The adapter filters list entries, not all hostnames covered by the resulting AdGuard rules. Excluding `subdomain.example.com` does not remove an `example.com` entry, but the generated important AdGuard exclusion still overrides that parent-domain include for matching queries. The routing order is **exclude > include > ASN**. Rules entered directly in AdGuard retain its native semantics: an explicit `@@…$dnsrewrite,important` can override an exclusion. The two default `||*^$dnsrewrite=SERVFAIL` rules stay without `important` so ordinary includes can cancel them.
 
-Because both exclusion filters target the shared `az-resolver` client, an exclusion loaded from either node can also prevent ASN fallback on the other node. Excluding a hostname does not remove independent IP/CIDR routes. CNAME targets are separate queries under `finalize force_resolve`; see [Direct DNS resolution for domains on VPN-listed CDN networks](#direct-dns-resolution-for-domains-on-vpn-listed-cdn-networks).
+Because both exclusion filters target all three internal clients, an exclusion loaded from either node also applies to the other node. Excluding a hostname does not remove independent IP/CIDR routes. CoreDNS no longer re-queries CNAME targets separately.
+
+The bundled `lists/exclude.txt` is separate from these custom regex files: it uses v2fly syntax and only supplies the **Direct Access Rules** AdGuard filter. It never removes input lines from include lists. The existing `filter_custom` option keeps its text-filtering behavior for `exclude-hosts-custom.txt`.
+
+For example, an ordinary include for `example.com` can coexist with this generated exclusion:
+
+```text
+||direct.example.com^$dnsrewrite=SERVFAIL,client=az-local|az-world|az-resolver,important
+```
+
+Queries for `direct.example.com` and its subdomains bypass domain and ASN routing on both exit nodes. The final AdGuard request from `coredns` is outside the exclusion's client scope and returns the direct answer.
 
 ### Adding ASNs
 
@@ -989,19 +1000,11 @@ Processes inside the OpenVPN, ocserv, WireGuard and proxy containers use AdGuard
 
 ### Direct DNS resolution for domains on VPN-listed CDN networks
 
-If a domain works without a VPN but resolves to IPv4 addresses in an ASN included in the VPN lists, add a domain-specific upstream in AdGuard Home under **Settings → DNS settings → Upstream DNS servers**. For example, to download Steam content directly:
+The bundled **Direct Access Rules** filter loads `lists/exclude.txt` using `format=v2fly&exclude=1`. Steam, PlayStation and Rockstar use direct resolution even on VPN-listed CDN ASNs. On startup, the updated AdGuard container adds this filter when missing and migrates the standard **Excluded Custom Local/World Rules** URLs to `exclude=1&regex=1`, preserving filter IDs and enabled states. The next healthcheck refreshes cached filters and clears AdGuard's DNS cache. User rules and Custom include filters are preserved. The old bundled Steam/Rockstar upstream entry is removed.
 
-```text
-[/steampipe.akamaized.net/]https://cloudflare-dns.com/dns-query
-```
+For your own exceptions, add a regular expression to `exclude-hosts-custom.txt`. This filters domain list entries and prevents ASN fallback for matching names. Important exclusions also override ordinary include rules covering a broader parent domain. Independent IP routes can still route traffic through VPN.
 
-This Steam upstream is included in the default configuration. Existing installations retain their saved AdGuard settings, so add it manually if it is missing.
-
-Keep the existing upstreams, including `coredns`. The added upstream sends queries for this domain directly to Cloudflare, bypassing CoreDNS and VPN address rewriting. Other domains continue to use the existing VPN selection logic.
-
-This is also needed when `exclude-hosts-custom.txt` excludes the original domain but its CNAME points to a CDN in a VPN-listed ASN. CoreDNS uses `finalize force_resolve` to query CNAME targets again through the VPN nodes; the original domain's exclusion does not apply to those separate queries. A domain-specific upstream bypasses this entire path without disabling CDN routing for other domains.
-
-Save the DNS settings, clear the AdGuard DNS cache and the client's DNS cache, and repeat the lookup. The excluded domain should return real IP addresses instead of the VPN addresses in `14.16.0.0/14`. Upstream domain selectors are not regular expressions; add each required domain explicitly.
+A domain-specific upstream remains an option for bypassing the complete exit chain: add `[/example.com/]https://cloudflare-dns.com/dns-query` under **Settings → DNS settings → Upstream DNS servers**, keeping `coredns` and the other upstreams. Clear DNS caches after changing rules.
 
 ### Updating and checking rules
 
@@ -1026,7 +1029,7 @@ For custom include/exclude files, see [Routing rules: include, exclude and ASN](
 Open adguard panel: http://adguard.antizapret:3000/#custom_rules
 Rules/syntaxes: https://adguard-dns.io/kb/general/dns-filtering-syntax/#basic-examples
 
-By default, AdGuard returns `SERVFAIL` for internal requests from `az-local` and `az-world`. A domain rule with `@@` and `$dnsrewrite` allows the exit node to resolve and map that domain through the VPN. If no domain rule allows the request, `dnsmap` checks ASN rules; when neither path matches, CoreDNS tries the next upstream. Regular client queries keep the standard AdGuard filtering behavior.
+By default, AdGuard returns `SERVFAIL` for internal requests from `az-local` and `az-world`. A domain rule with `@@` and `$dnsrewrite` allows the exit node to resolve and map that domain through the VPN unless an important exclusion matches. If no include allows the request, `dnsmap` queries `az-resolver`; an exclusion stops this request too, otherwise ASN rules are checked. When neither path matches, CoreDNS tries the next upstream. Regular client queries keep the standard AdGuard filtering behavior.
 
 
 Examples:
@@ -1046,7 +1049,7 @@ Need to use adapter, to parse and adapt list in different formats.
  - Add domains for local exit node: `http://az-local.antizapret/list/?url=<ANY_URL>`
  - Add domains for the separate world exit node in Swarm mode: `http://az-world.antizapret/list/?url=<ANY_URL>`
  - In single-server Compose mode, use `az-local` for both kinds of domains.
-Use plain domain lists, slash-delimited regex lists or JSON arrays of domain strings. Use `raw=1` for already formatted AdGuard rules; hosts-file IP/name pairs must be converted to domain names before using this adapter.
+Use plain domain lists, slash-delimited regex lists or JSON arrays of domain strings. In plain domain lists, only the first whitespace-separated token is used; trailing attributes and comments are ignored. `raw=1` and regex rules preserve spaces. Use `raw=1` for already formatted AdGuard rules; hosts-file IP/name pairs must be converted to domain names before using this adapter.
 
 ### List adapter options
 
@@ -1054,13 +1057,20 @@ Use plain domain lists, slash-delimited regex lists or JSON arrays of domain str
  - `file` - read local file. Used for include-host-{custom,dist}.txt
  - `filter_custom=1` - filter lists with rules from exclude-hosts-custom.txt.
  - `filter_dist=0` - filter lists with rules from exclude-hosts-dist.txt
- - `format=list` - 'list' or 'json'. Detected automatically.
+ - `format=list` - `list`, `json`, or `v2fly`. JSON is detected from the response Content-Type; without `format=`, each line is processed as v2fly when it starts with `include:`, `domain:`, `full:`, `keyword:` or `regexp:` after trimming. Other lines use plain list parsing. This streams the source and its includes without buffering whole lists. Explicit `format=` takes priority; `raw=1` and `regex=1` disable automatic parsing.
+ - `exclude=0` - `exclude=1` emits important `SERVFAIL` rewrites for `az-local|az-world|az-resolver`, overriding ordinary includes and disabling ASN fallback. It forces `allow=0`, `suffix=1`, `raw=0` and disables custom/dist filtering for this exclusion source.
  - `client=az-local` - name of client to add to rules. Detected automatically.
  - `allow=1` - disable this option, to block domains from list for this exit node.
  - `raw=0` - dont modify rules
  - `suffix=1` - add "$dnsrewrite,client=xxx" to rules
  - `dnsrewrite=SERVFAIL` - set custom dnsrewrite value
  - `regex=0` - use `regex=1` to wrap each input line as an AdGuard regular expression rule
+
+Incompatible modes return HTTP 400 before loading the source: `v2fly` with `raw=1` or `regex=1`, `raw=1` with `regex=1`, and `exclude=1` with `raw=1`.
+
+`format=v2fly` supports bare domains, `domain:`, exact `full:`, `keyword:`, `regexp:`, `#` comments and recursive `include:filename`. Include attributes require all `@attr` and exclude all `@-attr`. Filenames resolve relative to the source; absolute HTTP(S) includes are an adapter extension used by `lists/exclude.txt`. Invalid rules, cycles and excessive nesting fail the request; errors after output begins abort the response. Incoming `&list` affiliations are not discovered automatically; include those rules explicitly.
+
+Example: `http://az-local.antizapret/list/?format=v2fly&exclude=1&url=https://raw.githubusercontent.com/v2fly/domain-list-community/master/data/steam`.
 
 ### Routing a website through VPN for a specific client
 
@@ -1374,7 +1384,7 @@ You can define these variables in docker-compose.override.yml file for your need
 
 ## DNS
 ### Adguard Upstream DNS
-AdGuard sends ordinary client queries through CoreDNS, except domains with a dedicated upstream such as `steampipe.akamaized.net`. The default `az-local`, `az-world`, `coredns` and `az-resolver` clients use Cloudflare, Google and Quad9, with additional domain-specific upstreams where configured. `az-resolver` is used for direct resolution before ASN checks. Existing saved client settings are retained; when adding a missing `az-resolver` client to an older configuration, the entrypoint copies the `az-local` upstreams. The generated configuration is stored in `./config/adguard/conf/AdGuardHome.yaml` and can be changed through the AdGuard Home UI.
+AdGuard sends ordinary client queries through CoreDNS, except domains with a separately configured upstream. Bundled Steam/Rockstar direct access is now handled by exclusion filters rather than a dedicated upstream. The default `az-local`, `az-world`, `coredns` and `az-resolver` clients use Cloudflare, Google and Quad9, with additional domain-specific upstreams where configured. `az-resolver` is used for direct resolution before ASN checks. Existing saved client settings are retained; when adding a missing `az-resolver` client to an older configuration, the entrypoint copies the `az-local` upstreams. The generated configuration is stored in `./config/adguard/conf/AdGuardHome.yaml` and can be changed through the AdGuard Home UI.
 
 The third-party `xbox-dns.ru` resolver can be configured manually as a domain-specific upstream when Gemini incorrectly detects the country from the exit server's IP address and refuses to work because of geographic restrictions. For example:
 

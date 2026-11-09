@@ -32,7 +32,6 @@ dns:
   upstream_dns:
     - coredns
     - '[/*.antizapret/]127.0.0.11'
-    - '[/steampipe.akamaized.net/rockstargames.com/]https://cloudflare-dns.com/dns-query'
   upstream_dns_file: ""
   bootstrap_dns:
     - 127.0.0.11
@@ -155,13 +154,17 @@ filters:
     name: Blockedin.org List
     id: 12
   - enabled: true
-    url: http://az-local.antizapret/list/?regex=1&allow=0&client=az-resolver&filter_custom=0&filter_dist=0&file=/root/antizapret/config/custom/exclude-hosts-custom.txt
+    url: http://az-local.antizapret/list/?exclude=1&regex=1&file=/root/antizapret/config/custom/exclude-hosts-custom.txt
     name: Excluded Custom Local Rules
     id: 13
   - enabled: true
-    url: http://az-world.antizapret/list/?regex=1&allow=0&client=az-resolver&filter_custom=0&filter_dist=0&file=/root/antizapret/config/custom/exclude-hosts-custom.txt
+    url: http://az-world.antizapret/list/?exclude=1&regex=1&file=/root/antizapret/config/custom/exclude-hosts-custom.txt
     name: Excluded Custom World Rules
     id: 14
+  - enabled: true
+    url: http://az-local.antizapret/list/?exclude=1&format=v2fly&url=https://xtrime-ru.github.io/antizapret-vpn-docker/lists/exclude.txt
+    name: Direct Access Rules
+    id: 15
 whitelist_filters: []
 user_rules:
   - '||*^$dnsrewrite=SERVFAIL,client=az-local'

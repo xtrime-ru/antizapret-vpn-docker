@@ -76,10 +76,34 @@ function ensure_filter () {
             "id": env(FILTER_ID)
         }]
     ' /opt/adguardhome/conf/AdGuardHome.yaml || exit 1
+    : > /dev/shm/.config_md5
 }
 
-ensure_filter 'http://az-local.antizapret/list/?regex=1&allow=0&client=az-resolver&filter_custom=0&filter_dist=0&file=/root/antizapret/config/custom/exclude-hosts-custom.txt' 'Excluded Custom Local Rules'
-ensure_filter 'http://az-world.antizapret/list/?regex=1&allow=0&client=az-resolver&filter_custom=0&filter_dist=0&file=/root/antizapret/config/custom/exclude-hosts-custom.txt' 'Excluded Custom World Rules'
+function migrate_filter () {
+    local old_url="$1"
+    local new_url="$2"
+
+    if ! FILTER_OLD="$old_url" yq -e '.filters[] | select(.url == strenv(FILTER_OLD))' /opt/adguardhome/conf/AdGuardHome.yaml >/dev/null 2>&1; then
+        return
+    fi
+
+    FILTER_OLD="$old_url" FILTER_NEW="$new_url" yq -i '
+        (.filters[] | select(.url == strenv(FILTER_OLD)) | .url) = strenv(FILTER_NEW)
+    ' /opt/adguardhome/conf/AdGuardHome.yaml || exit 1
+    # Let the healthcheck refresh cached rules and clear DNS cache after startup.
+    : > /dev/shm/.config_md5
+}
+
+migrate_filter 'http://az-local.antizapret/list/?regex=1&allow=0&client=az-resolver&filter_custom=0&filter_dist=0&file=/root/antizapret/config/custom/exclude-hosts-custom.txt' 'http://az-local.antizapret/list/?exclude=1&regex=1&file=/root/antizapret/config/custom/exclude-hosts-custom.txt'
+migrate_filter 'http://az-world.antizapret/list/?regex=1&allow=0&client=az-resolver&filter_custom=0&filter_dist=0&file=/root/antizapret/config/custom/exclude-hosts-custom.txt' 'http://az-world.antizapret/list/?exclude=1&regex=1&file=/root/antizapret/config/custom/exclude-hosts-custom.txt'
+
+ensure_filter 'http://az-local.antizapret/list/?exclude=1&regex=1&file=/root/antizapret/config/custom/exclude-hosts-custom.txt' 'Excluded Custom Local Rules'
+ensure_filter 'http://az-world.antizapret/list/?exclude=1&regex=1&file=/root/antizapret/config/custom/exclude-hosts-custom.txt' 'Excluded Custom World Rules'
+
+ensure_filter 'http://az-local.antizapret/list/?exclude=1&format=v2fly&url=https://xtrime-ru.github.io/antizapret-vpn-docker/lists/exclude.txt' 'Direct Access Rules'
+
+# Replace only the old bundled Steam/Rockstar upstream; retain user upstreams.
+yq -i 'del(.dns.upstream_dns[] | select(. == "[/steampipe.akamaized.net/rockstargames.com/]https://cloudflare-dns.com/dns-query"))' /opt/adguardhome/conf/AdGuardHome.yaml || exit 1
 
 # AdGuard's migration to schema 34 replaces http.doh with the legacy TLS flag.
 # Set that flag before startup; let AdGuard migrate the remaining configuration.
