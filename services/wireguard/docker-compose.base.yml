@@ -1,8 +1,6 @@
 services:
   base:
     init: true
-    dns:
-      - 14.16.0.1
     restart: unless-stopped
     image: xtrime/antizapret-vpn-wireguard:6.11.0
     build:
