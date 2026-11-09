@@ -9,7 +9,7 @@
     --disableExec=false \
     --perm.create="false" \
     --perm.delete="false" \
-    --perm.download="false" \
+    --perm.download="true" \
     --perm.execute="false" \
     --perm.modify="true" \
     --perm.rename="false" \
@@ -18,6 +18,10 @@
     --root="/srv" \
     --shell="sh -c" \
     --singleClick
+
+# File Browser also requires download permission to read files in the editor.
+# config init does not update an existing database.
+/bin/filebrowser config set --perm.download=true || exit 1
 
 hook_indices=$(
     /bin/filebrowser cmds ls \
@@ -29,7 +33,10 @@ for hook_index in $hook_indices; do
 done
 /bin/filebrowser cmds add after_save '/hooks/doall.sh'
 
-if ! /bin/filebrowser users find "${FILEBROWSER_USERNAME:-admin}" >/dev/null 2>&1; then
+if /bin/filebrowser users find "${FILEBROWSER_USERNAME:-admin}" >/dev/null 2>&1; then
+    /bin/filebrowser users update "${FILEBROWSER_USERNAME:-admin}" \
+        --perm.download=true --lockPassword || exit 1
+else
     /bin/filebrowser users add --lockPassword \
         "${FILEBROWSER_USERNAME:-admin}" \
         "${FILEBROWSER_PASSWORD:-antizapret-browser}" || {
