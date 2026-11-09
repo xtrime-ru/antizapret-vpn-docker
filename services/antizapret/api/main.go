@@ -192,6 +192,9 @@ type RegexFilter struct {
 	reader      *bufio.Reader
 	lock        sync.Mutex
 	patternFile string
+	empty       bool
+	input       []byte
+	excluded    map[string]bool
 }
 
 var excludeMatcherDist *RegexFilter
@@ -225,13 +228,20 @@ func (rf *RegexFilter) start() error {
 func (rf *RegexFilter) Filter(rules []listRule) (result []listRule, err error) {
 	rf.lock.Lock()
 	defer rf.lock.Unlock()
-	lines := make([]string, len(rules))
-	for i, rule := range rules {
-		lines[i] = rule.value
+	for _, rule := range rules {
 		if strings.ContainsRune(rule.value, '\n') || rule.value == delim {
 			return nil, errors.New("list item contains a reserved separator")
 		}
 	}
+	if rf.empty || len(rules) == 0 {
+		return rules, nil
+	}
+	rf.input = rf.input[:0]
+	for _, rule := range rules {
+		rf.input = append(rf.input, rule.value...)
+		rf.input = append(rf.input, '\n')
+	}
+	rf.input = append(rf.input, delim[0], '\n')
 	if rf.cmd == nil {
 		if err = rf.start(); err != nil {
 			_ = rf.Close()
@@ -241,7 +251,7 @@ func (rf *RegexFilter) Filter(rules []listRule) (result []listRule, err error) {
 	// Drain stdout while writing the batch, so neither pipe can fill and stall.
 	written := make(chan error, 1)
 	go func() {
-		_, err := io.WriteString(rf.stdin, strings.Join(lines, "\n")+"\n"+delim+"\n")
+		_, err := rf.stdin.Write(rf.input)
 		written <- err
 	}()
 	defer func() {
@@ -255,7 +265,7 @@ func (rf *RegexFilter) Filter(rules []listRule) (result []listRule, err error) {
 			_ = rf.Close()
 		}
 	}()
-	excluded := make(map[string]bool)
+	clear(rf.excluded)
 	for {
 		line, readErr := rf.reader.ReadString('\n')
 		if readErr != nil {
@@ -265,11 +275,11 @@ func (rf *RegexFilter) Filter(rules []listRule) (result []listRule, err error) {
 		if line == delim {
 			break
 		}
-		excluded[line] = true
+		rf.excluded[line] = true
 	}
 	result = rules[:0]
 	for _, rule := range rules {
-		if !excluded[rule.value] {
+		if !rf.excluded[rule.value] {
 			result = append(result, rule)
 		}
 	}
@@ -293,6 +303,15 @@ func NewRegexFilter(file string) (*RegexFilter, error) {
 	if out, err := exec.Command("sed", "-i", `s/\s*$//; /^$/d`, file).CombinedOutput(); err != nil {
 		return nil, fmt.Errorf("failed to normalize exclude filter: %w: %s", err, out)
 	}
+	info, err := os.Stat(file)
+	if err != nil {
+		return nil, err
+	}
+	rf := &RegexFilter{patternFile: file, empty: info.Size() == 0}
+	if rf.empty {
+		return rf, nil
+	}
+	rf.excluded = make(map[string]bool)
 	// Validate on reload so an invalid pattern keeps the old filter active.
 	cmd := exec.Command("grep", "-a", "-E", "-f", file, "/dev/null")
 	output, err := cmd.CombinedOutput()
@@ -300,7 +319,6 @@ func NewRegexFilter(file string) (*RegexFilter, error) {
 	if err != nil && !(errors.As(err, &exitErr) && exitErr.ExitCode() == 1) {
 		return nil, fmt.Errorf("invalid exclude filter %s: %w: %s", file, err, output)
 	}
-	rf := &RegexFilter{patternFile: file}
 	if err := rf.start(); err != nil {
 		_ = rf.Close()
 		return nil, err
