@@ -7,5 +7,8 @@
 #Discord
 35.217.0.0/18
 
+#Discord Cloudflare Voice
+104.29.0.0/16
+
 #Google Meet
 142.250.82.0/24
