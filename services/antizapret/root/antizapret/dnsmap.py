@@ -9,6 +9,7 @@ from urllib.parse import quote
 from collections import deque, namedtuple
 from ipaddress import IPv4Network
 
+import idna
 import maxminddb
 
 from dnslib import DNSRecord, RCODE, QTYPE, A
@@ -122,6 +123,16 @@ class ProxyResolver(BaseResolver):
             raise ValueError('Empty organization regex')
         return (line, re.compile(pattern, re.IGNORECASE | re.UNICODE))
 
+    @staticmethod
+    def domain_matcher(condition):
+        kind, _, pattern = condition.partition(':')
+        if kind == 'domain':
+            domain = idna.encode(pattern, uts46=True).decode('ascii').rstrip('.')
+            pattern = r'(?:^|\.)' + re.escape(domain) + r'$'
+        elif kind != 'regexp' or not pattern:
+            raise ValueError('Invalid ASN domain condition: {}'.format(condition))
+        return re.compile(pattern, re.IGNORECASE)
+
     @classmethod
     def load_asn_list(cls, path):
         asn_rules = {}
@@ -136,29 +147,13 @@ class ProxyResolver(BaseResolver):
                     if not line:
                         continue
                     parts = line.split(None, 1)
-                    if len(parts) == 2 and re.fullmatch(r'(?:AS)?[0-9]+', parts[0], re.IGNORECASE):
-                        asn = int(re.sub(r'^AS', '', parts[0], flags=re.IGNORECASE))
-                        kind, separator, value = parts[1].partition(':')
-                        if not separator or not value:
-                            raise ValueError('Invalid ASN domain rule: {}'.format(line))
-                        if kind == 'domain':
-                            value = value.rstrip('.').lower()
-                            if not re.fullmatch(r'[a-z0-9_-]+(?:\.[a-z0-9_-]+)*', value):
-                                raise ValueError('Invalid ASN domain rule: {}'.format(line))
-                            matcher = value
-                        elif kind == 'regexp':
-                            matcher = re.compile(value, re.IGNORECASE)
+                    asn_match = re.fullmatch(r'(?:AS)?([0-9]+)', parts[0], re.IGNORECASE)
+                    if asn_match:
+                        asn = int(asn_match[1])
+                        if len(parts) == 1:
+                            asn_rules[asn] = line
                         else:
-                            raise ValueError('Unknown ASN domain matcher: {}'.format(line))
-                        domain_rules.append((asn, line, kind, matcher))
-                        continue
-                    normalized_asn = line.upper()
-                    if normalized_asn.startswith('AS') and normalized_asn[2:].isdigit():
-                        asn = int(normalized_asn[2:])
-                        asn_rules[asn] = line
-                    elif line.isdigit():
-                        asn = int(line)
-                        asn_rules[asn] = line
+                            domain_rules.append((asn, line, cls.domain_matcher(parts[1])))
                     elif line.startswith('/') and line.endswith('/'):
                         regex_rules.append(cls.organization_regex_rule(line))
                     else:
@@ -296,11 +291,8 @@ class ProxyResolver(BaseResolver):
                         break
         if not rule and hostname:
             hostname = hostname.rstrip('.').lower()
-            for rule_asn, rule_line, kind, matcher in rules.domain_rules:
-                if asn != rule_asn:
-                    continue
-                if ((kind == 'domain' and (hostname == matcher or hostname.endswith('.' + matcher)))
-                        or (kind == 'regexp' and matcher.search(hostname))):
+            for rule_asn, rule_line, matcher in rules.domain_rules:
+                if asn == rule_asn and matcher.search(hostname):
                     rule = rule_line
                     break
         if rule:
