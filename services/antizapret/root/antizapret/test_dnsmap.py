@@ -458,6 +458,31 @@ class ConditionalAsnTests(ResolverTestCase):
         self.asn_database.get.return_value['autonomous_system_number'] = 3216
         self.assertFalse(resolver.is_blocked_asn('192.0.2.1', 'rr1.googlevideo.com'))
 
+    def test_idn_domain_rules_accept_unicode_and_punycode(self):
+        for domain in ('пример.рф', 'ПРИМЕР.РФ.', 'xn--e1afmkfd.xn--p1ai'):
+            with self.subTest(domain=domain):
+                resolver = self.load_rules('AS15169 domain:' + domain + '\n')
+                for hostname in ('пример.рф', 'видео.пример.рф',
+                                 'xn--e1afmkfd.xn--p1ai'):
+                    request = DNSRecord.parse(DNSRecord.question(hostname, 'A').pack())
+                    self.assertTrue(resolver.is_blocked_asn(
+                        '192.0.2.1', str(request.q.qname)))
+                self.assertFalse(resolver.is_blocked_asn(
+                    '192.0.2.1', 'evilxn--e1afmkfd.xn--p1ai'))
+
+    def test_idna_validation_rejects_invalid_domains(self):
+        resolver = self.load_rules('AS15169 domain:googlevideo.com\n')
+        old_rules = resolver.asn_match_rules
+        for domain in ('', '.', 'a..com', 'example.com..', '-example.com',
+                       'example-.com', 'bad_name.com', '*.example.com',
+                       'xn--.com', 'a' * 64 + '.com',
+                       '.'.join(['a' * 63] * 4)):
+            with self.subTest(domain=domain):
+                self.asn_file.write_text('AS15169 domain:' + domain, encoding='utf-8')
+                with self.assertRaises((ValueError, UnicodeError)):
+                    resolver.reload_asn_list()
+                self.assertIs(resolver.asn_match_rules, old_rules)
+
     def test_repeated_asn_rules_are_alternatives_and_regex_keeps_commas(self):
         resolver = self.load_rules(
             'AS15169 domain:youtube.com\n'

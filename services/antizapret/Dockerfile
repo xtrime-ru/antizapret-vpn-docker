@@ -48,6 +48,7 @@ RUN <<-"EOT" bash -ex
         moreutils \
         procps \
         python3-dnslib \
+        python3-idna \
         python3-maxminddb \
         sipcalc \
         vim-tiny \
