@@ -956,11 +956,23 @@ Each non-empty line may contain:
 - A case-insensitive substring of the raw MaxMind organization name: `Cloudflare`
 - A case-insensitive regular expression enclosed in `/`: `/\bg-?core\b/`
 
-Include lists support comments starting with `#`, on separate lines or after a rule. Put exact rule lines without comments in exclude files. Distribution rules
-from `ASN_URL` and `ASN_WORLD_URL` are combined with the respective custom include files. Exclude
-files remove exact lines case-insensitively before the runtime lists are generated.
+An exact ASN can be restricted to a DNS query hostname with `domain:` or `regexp:`:
 
-Exclusions remove rule text, not every rule that can match the same network. To remove `AS20940`, use that exact line in the corresponding exclude file; `20940` is a different line for list filtering. If `Akamai` also remains in the include list, the network can still match that organization rule. Removing an ASN rule does not remove independent domain or IP rules.
+```text
+AS15169 domain:googlevideo.com
+AS15169 domain:youtube.com
+AS21395 regexp:^rr?[0-9]+---sn-example\.googlevideo\.com$
+```
+
+`domain:` matches the domain and its subdomains. `regexp:` matches the queried hostname using Python regular expressions. Both ignore case and the final DNS dot. Each line requires both the ASN and hostname to match; separate lines are alternatives. Use one matcher per line, repeating the ASN to list multiple domains. Commas are part of a regular expression, not list separators. These prefixes follow the domain matcher notation used by v2fly; ASN conditions are a project extension.
+
+Replace an unrestricted ASN entry when adding restrictions: a remaining `AS15169` or matching organization rule still routes all domains in that network. Invalid conditions reject the new list; a running resolver retains its previous rules.
+
+Include lists support comments starting with `#`, on separate lines or after a rule. The same comment syntax is supported in exclude files. Distribution rules
+from `ASN_URL` and `ASN_WORLD_URL` are combined with the respective custom include files. Exclude
+files are applied case-insensitively before the runtime lists are generated.
+
+ASN exclusions use literal, case-insensitive matching with word boundaries (`grep -F -i -w`). `AS15169` removes all lines containing that token, including `domain:` and `regexp:` rules, but does not match `AS151690` or the bare form `15169`. Use the number format written in the include list. A condition can narrow the excluded text; regex syntax in an exclusion is treated literally. Organization exclusions also match whole words: `Cloudflare` removes `Cloudflare Inc.` but not `NotCloudflare`. Remaining organization rules can still match the network. ASN exclusions do not remove independent domain or IP rules.
 
 In single-server Compose mode, `ASN_FILES` points `az-local` to both resulting ASN files, so both
 lists are routed through the local exit node. In Swarm mode, each exit service receives only its own

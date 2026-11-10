@@ -3,3 +3,6 @@
 include:https://raw.githubusercontent.com/v2fly/domain-list-community/master/data/steam
 include:https://raw.githubusercontent.com/v2fly/domain-list-community/master/data/playstation
 include:https://raw.githubusercontent.com/v2fly/domain-list-community/master/data/rockstar
+
+redirector.googlevideo.com
+redirector.gvt1.com

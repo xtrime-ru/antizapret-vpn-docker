@@ -2,6 +2,7 @@
 # docker run --rm -v "$PWD/services/antizapret/root/antizapret:/tests:ro" -w /tests xtrime/antizapret-vpn:6.7.0 python3 -B -m unittest -v test_dnsmap.py
 
 import queue
+import subprocess
 import tempfile
 import threading
 import unittest
@@ -436,6 +437,136 @@ class AsnListTests(ResolverTestCase):
             resolver.request_asn_reload(None, None)
         self.assertIs(resolver.asn_match_rules, old_rules)
         self.assertEqual(output.call_args.args[0], 2)
+
+
+class ConditionalAsnTests(ResolverTestCase):
+    def load_rules(self, text):
+        self.asn_file.write_text(text, encoding='utf-8')
+        resolver = self.make_resolver()
+        self.asn_database.get.return_value = {
+            'autonomous_system_number': 15169,
+            'autonomous_system_organization': 'Google LLC',
+        }
+        return resolver
+
+    def test_domain_requires_both_asn_and_hostname(self):
+        resolver = self.load_rules('AS15169 domain:googlevideo.com\n')
+        for hostname in ('googlevideo.com', 'RR1.googlevideo.COM.'):
+            self.assertTrue(resolver.is_blocked_asn('192.0.2.1', hostname))
+        for hostname in ('youtube.com', 'evilgooglevideo.com', 'googlevideo.com.example', ''):
+            self.assertFalse(resolver.is_blocked_asn('192.0.2.1', hostname))
+        self.asn_database.get.return_value['autonomous_system_number'] = 3216
+        self.assertFalse(resolver.is_blocked_asn('192.0.2.1', 'rr1.googlevideo.com'))
+
+    def test_repeated_asn_rules_are_alternatives_and_regex_keeps_commas(self):
+        resolver = self.load_rules(
+            'AS15169 domain:youtube.com\n'
+            '15169 regexp:^rr[0-9]{1,3}---sn-test\\.googlevideo\\.com$\n'
+        )
+        for hostname in ('www.youtube.com', 'RR12---sn-test.googlevideo.com.'):
+            self.assertTrue(resolver.is_blocked_asn('192.0.2.1', hostname))
+        for hostname in ('rr1234---sn-test.googlevideo.com', 'rr1---sn-other.googlevideo.com'):
+            self.assertFalse(resolver.is_blocked_asn('192.0.2.1', hostname))
+
+    def test_unrestricted_rule_remains_unrestricted_in_either_order(self):
+        for lines in (
+            'AS15169\nAS15169 domain:googlevideo.com\n',
+            'AS15169 domain:googlevideo.com\nAS15169\n',
+            'Google\nAS15169 domain:googlevideo.com\n',
+        ):
+            with self.subTest(lines=lines):
+                resolver = self.load_rules(lines)
+                self.assertTrue(resolver.is_blocked_asn('192.0.2.1', 'gmail.com'))
+
+    def test_invalid_conditions_preserve_previous_rules_on_reload(self):
+        resolver = self.load_rules('AS15169 domain:googlevideo.com\n')
+        old_rules = resolver.asn_match_rules
+        for condition in ('domain:', 'regexp:', 'regexp:[', 'regex:foo',
+                          'domain:googlevideo.com domain:youtube.com', 'unknown:value'):
+            with self.subTest(condition=condition):
+                self.asn_file.write_text('AS15169 ' + condition, encoding='utf-8')
+                with self.assertRaises((ValueError, dnsmap.re.error)):
+                    resolver.reload_asn_list()
+                self.assertIs(resolver.asn_match_rules, old_rules)
+
+    def filter_asn_rules(self, source, exclusions):
+        scripts = Path(dnsmap.__file__).parent / 'scripts'
+
+        def sanitize(text):
+            return subprocess.run(
+                ['awk', '-f', str(scripts / 'sanitize-asn-lists.awk')],
+                input=text, text=True, capture_output=True, check=True,
+            ).stdout
+
+        excluded = Path(self.temp_directory.name) / 'exclude-asn.txt'
+        excluded.write_text(sanitize(exclusions), encoding='utf-8')
+        result = subprocess.run(
+            ['grep', '-v', '-i', '-F', '-w', '-f', str(excluded)],
+            input=sanitize(source), text=True, capture_output=True,
+        )
+        self.assertIn(result.returncode, (0, 1))
+        return result.stdout.splitlines()
+
+    def test_bare_asn_exclusion_removes_conditions_with_word_boundaries(self):
+        source = ('AS15169 # Google\r\n'
+                  'as15169\tdomain:googlevideo.com\n'
+                  'AS15169 regexp:^rr[0-9]{1,3}\\.example$\n'
+                  'AS151690 domain:googlevideo.com\nAS21395\nGoogle\n')
+        for exclusion in (' AS15169 # excluded\r\n', 'as15169\n'):
+            with self.subTest(exclusion=exclusion):
+                self.assertEqual(self.filter_asn_rules(source, exclusion), [
+                    'AS151690 domain:googlevideo.com', 'AS21395', 'Google',
+                ])
+
+    def test_asn_exclusions_use_the_written_number_format(self):
+        source = 'AS15169 domain:googlevideo.com\n15169 domain:googlevideo.com\n'
+        self.assertEqual(self.filter_asn_rules(source, 'AS15169\n'),
+                         ['15169 domain:googlevideo.com'])
+        self.assertEqual(self.filter_asn_rules(source, '15169\n'),
+                         ['AS15169 domain:googlevideo.com'])
+
+    def test_conditions_and_organizations_use_literal_word_matching(self):
+        source = ('AS15169\nAS15169 domain:googlevideo.com\n'
+                  'AS15169 domain:youtube.com\n'
+                  'AS15169 regexp:^rr[0-9]{1,3}\\.example$\n'
+                  '/cdn77|datacamp/\nCloudflare\nCloudflare Inc.\nNotCloudflare\n')
+        self.assertEqual(self.filter_asn_rules(
+            source,
+            'as15169 DOMAIN:googlevideo.com # only this domain\n'
+            'AS15169 regexp:^rr[0-9]{1,3}\\.example$\n'
+            '/cdn77|datacamp/\ncloudflare\n',
+        ), ['AS15169', 'AS15169 domain:youtube.com', 'NotCloudflare'])
+
+    def test_empty_exclusions_preserve_all_rules(self):
+        self.assertEqual(self.filter_asn_rules(
+            'AS15169\nAS15169 domain:googlevideo.com\n', ' # comment\n\n',
+        ), ['AS15169', 'AS15169 domain:googlevideo.com'])
+
+    def test_sanitized_rules_reach_dns_resolution_without_widening(self):
+        script = Path(dnsmap.__file__).parent / 'scripts/sanitize-asn-lists.awk'
+        source = (' # comment\r\n AS15169 domain:googlevideo.com # Google\r\n'
+                  'AS15169 regexp:^rr[0-9]{1,3}\\.example$\n'
+                  'Telegram Messenger, Inc. # legacy name\n')
+        sanitized = subprocess.run(['awk', '-f', str(script)], input=source,
+                                   text=True, capture_output=True, check=True).stdout
+        self.assertIn('Telegram Messenger, Inc.\n', sanitized)
+        resolver = self.load_rules(sanitized)
+        self.assertEqual(resolver.asn_match_rules.asn_rules, {})
+        self.assertEqual(len(resolver.asn_match_rules.domain_rules), 2)
+        for hostname, should_map in (('rr1.googlevideo.com', True), ('gmail.com', False)):
+            with self.subTest(hostname=hostname):
+                request = DNSRecord.question(hostname, 'A')
+                filtered_reply = dns_reply(request, rcode=RCODE.SERVFAIL)
+                resolved_reply = dns_reply(request, ['192.0.2.1'])
+                # Match the original query name, even when its address belongs to a CNAME target.
+                resolved_reply.rr[0].rname = 'cdn.example.net'
+                resolver.query_doh = Mock(side_effect=[filtered_reply, resolved_reply])
+                reply = resolver.resolve(request, Mock())
+                if should_map:
+                    self.assertEqual(str(reply.rr[0].rdata), '14.16.0.2')
+                    self.assertEqual(str(reply.rr[0].rname), hostname + '.')
+                else:
+                    self.assertIs(reply, filtered_reply)
 
 
 class MappingTests(ResolverTestCase):

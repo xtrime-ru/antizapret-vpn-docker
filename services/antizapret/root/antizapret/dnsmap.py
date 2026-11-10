@@ -15,7 +15,9 @@ from dnslib import DNSRecord, RCODE, QTYPE, A
 from dnslib.server import DNSServer, DNSHandler, BaseResolver, DNSLogger
 
 
-AsnMatchRules = namedtuple('AsnMatchRules', ('asn_rules', 'substring_rules', 'regex_rules'))
+AsnMatchRules = namedtuple('AsnMatchRules', (
+    'asn_rules', 'substring_rules', 'regex_rules', 'domain_rules'
+), defaults=((),))
 MappingRequest = namedtuple('MappingRequest', ('real_addr', 'fake_addr', 'event'))
 
 
@@ -125,12 +127,30 @@ class ProxyResolver(BaseResolver):
         asn_rules = {}
         substring_rules = []
         regex_rules = []
+        domain_rules = []
         paths = [item.strip() for item in str(path).split(';') if item.strip()]
         for asn_path in paths:
             with open(asn_path, encoding='utf-8') as asn_list:
                 for raw_line in asn_list:
                     line = raw_line.split('#', 1)[0].strip()
                     if not line:
+                        continue
+                    parts = line.split(None, 1)
+                    if len(parts) == 2 and re.fullmatch(r'(?:AS)?[0-9]+', parts[0], re.IGNORECASE):
+                        asn = int(re.sub(r'^AS', '', parts[0], flags=re.IGNORECASE))
+                        kind, separator, value = parts[1].partition(':')
+                        if not separator or not value:
+                            raise ValueError('Invalid ASN domain rule: {}'.format(line))
+                        if kind == 'domain':
+                            value = value.rstrip('.').lower()
+                            if not re.fullmatch(r'[a-z0-9_-]+(?:\.[a-z0-9_-]+)*', value):
+                                raise ValueError('Invalid ASN domain rule: {}'.format(line))
+                            matcher = value
+                        elif kind == 'regexp':
+                            matcher = re.compile(value, re.IGNORECASE)
+                        else:
+                            raise ValueError('Unknown ASN domain matcher: {}'.format(line))
+                        domain_rules.append((asn, line, kind, matcher))
                         continue
                     normalized_asn = line.upper()
                     if normalized_asn.startswith('AS') and normalized_asn[2:].isdigit():
@@ -143,13 +163,14 @@ class ProxyResolver(BaseResolver):
                         regex_rules.append(cls.organization_regex_rule(line))
                     else:
                         substring_rules.append(cls.organization_substring_rule(line))
-        return AsnMatchRules(asn_rules, substring_rules, regex_rules)
+        return AsnMatchRules(asn_rules, substring_rules, regex_rules, domain_rules)
 
     def reload_asn_list(self):
         with self.asn_list_lock:
             rules = self.load_asn_list(self.asn_file)
             self.asn_match_rules = rules
-            return len(rules.asn_rules), len(rules.substring_rules) + len(rules.regex_rules)
+            return (len(rules.asn_rules) + len(rules.domain_rules),
+                    len(rules.substring_rules) + len(rules.regex_rules))
 
     def request_asn_reload(self, signum, frame):
         try:
@@ -248,7 +269,7 @@ class ProxyResolver(BaseResolver):
         print('DNS request processing failed: {}{}'.format(error, suffix))
         traceback.print_exc()
 
-    def is_blocked_asn(self, address):
+    def is_blocked_asn(self, address, hostname=''):
         if not address or address == '0.0.0.0':
             return False
         record = self.asn_database.get(address)
@@ -273,6 +294,15 @@ class ProxyResolver(BaseResolver):
                     if matcher.search(raw_organization):
                         rule = rule_line
                         break
+        if not rule and hostname:
+            hostname = hostname.rstrip('.').lower()
+            for rule_asn, rule_line, kind, matcher in rules.domain_rules:
+                if asn != rule_asn:
+                    continue
+                if ((kind == 'domain' and (hostname == matcher or hostname.endswith('.' + matcher)))
+                        or (kind == 'regexp' and matcher.search(hostname))):
+                    rule = rule_line
+                    break
         if rule:
             print('ASN match for {}: rule: {}'.format(address, rule))
             return True
@@ -463,7 +493,8 @@ class ProxyResolver(BaseResolver):
                         for record in resolved_reply.rr
                         if record.rtype == QTYPE.A
                     ]
-                    if not any(self.is_blocked_asn(address) for address in real_addresses):
+                    if not any(self.is_blocked_asn(address, str(request.q.qname))
+                               for address in real_addresses):
                         return filtered_reply
                     reply = resolved_reply
 
