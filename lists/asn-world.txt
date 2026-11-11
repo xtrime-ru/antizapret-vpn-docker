@@ -13,6 +13,7 @@ Scaleway
 OVH
 Akamai
 /cdn77|datacamp/
+Fastly
 
 Apple
 
