@@ -541,12 +541,6 @@ discordstatus.com
 mee6.xyz
 rythm.fm
 
-# CDN
-contentful.com
-ctfassets.net
-cdn.tagdeliver.com
-fastly.com
-
 # shopping
 shein.com
 ltwebstatic.com
