@@ -18,6 +18,7 @@ services:
     environment:
       - AZ_SUBNET=14.16.0.0/15
       - ASN_FILES=/root/antizapret/result/asn.txt
+      - ZAPRET_ENABLED=1
 
   az-world:
     hostname: az-world.antizapret
