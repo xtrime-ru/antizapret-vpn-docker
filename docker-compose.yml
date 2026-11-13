@@ -28,6 +28,7 @@ services:
       - CLIENT=az-local
       - AZ_SUBNET=14.16.0.0/15
       - ASN_FILES=/root/antizapret/result/asn.txt;/root/antizapret/result/asn-world.txt
+      - ZAPRET_ENABLED=1
   adguard:
     extends:
       file: services/adguard/docker-compose.yml
