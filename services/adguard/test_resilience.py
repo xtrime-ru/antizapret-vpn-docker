@@ -43,8 +43,10 @@ class DependencyWaitTests(unittest.TestCase):
         self.assertNotIn("expired", result.stderr)
 
     def test_missing_dependency_keeps_available_addresses(self):
+        # Leave enough time for all three subprocess probes; the separate stuck
+        # resolver test exercises the one-second deadline.
         result, _ = self.run_wait('[[ "$2" != az-world.antizapret ]] || exit 2\n'
-                                  'echo "172.20.0.4 $2"\n', seconds=1)
+                                  'echo "172.20.0.4 $2"\n', seconds=2)
         self.assertEqual(result.stdout, "172.20.0.4||172.20.0.4")
         self.assertIn("expired", result.stderr)
 
