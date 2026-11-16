@@ -2,7 +2,7 @@ services:
   adguard:
     entrypoint: ["/usr/local/lib/docktinel/entrypoint"]
     command: ["/root/entrypoint.sh", "--no-check-update", "-c", "/opt/adguardhome/conf/AdGuardHome.yaml", "-w", "/opt/adguardhome/work"]
-    image: xtrime/antizapret-vpn-adguard:6.12.1
+    image: xtrime/antizapret-vpn-adguard:6.12.2
     build:
       context: .
       args:

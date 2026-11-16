@@ -1,0 +1,4 @@
+#!/bin/sh
+# BusyBox nslookup returns nonzero for DNS errors, so no output parsing is needed.
+exec busybox nslookup -type=a -port="${DNS_PROBE_PORT:-53}" -retry=1 -timeout=12 \
+    "${DNS_PROBE_NAME:-example.org}" "${1:-127.0.0.1}" >/dev/null
