@@ -1,4 +1,9 @@
 ARG CADDY_VERSION="2.11.7"
+ARG DOCKTINEL_IMAGE=ghcr.io/xtrime-ru/docktinel:0.2.0
+
+FROM ${DOCKTINEL_IMAGE} AS docktinel
+
+FROM xtrime/antizapret-vpn:6.12.1 AS antizapret
 
 FROM caddy:${CADDY_VERSION}-builder AS builder
 
@@ -13,4 +18,12 @@ COPY --from=builder /usr/bin/caddy /usr/bin/caddy
 RUN apk add -U --no-cache curl idn2-utils openssl
 COPY --chmod=0755 files/entrypoint.sh /entrypoint.sh
 COPY --chmod=0755 files/init.sh /init.sh
-ENTRYPOINT [ "/entrypoint.sh" ]
+CMD []
+COPY files/certificates.sh /certificates.sh
+COPY --chmod=0755 files/sync-certificate.sh /sync-certificate.sh
+
+COPY --from=docktinel /usr/local/bin/docktinel /usr/local/bin/docktinel
+COPY --from=antizapret --chmod=0755 /usr/local/lib/docktinel/ /usr/local/lib/docktinel/
+COPY --chmod=0755 docktinel.sh /etc/docktinel/tasks.sh
+ENTRYPOINT []
+HEALTHCHECK NONE

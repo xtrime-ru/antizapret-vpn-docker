@@ -1,9 +1,22 @@
 services:
   https:
+    entrypoint: ["/usr/local/lib/docktinel/entrypoint"]
+    command: ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
+    init: true
     restart: unless-stopped
-    image: xtrime/antizapret-vpn-https:6.10.0
+    image: xtrime/antizapret-vpn-https:6.12.1
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD", "docktinel", "healthcheck", "--startup-grace", "10m"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10m
+      start_interval: 1s
+      retries: 3
     build: 
       context: .
+      args:
+        DOCKTINEL_IMAGE: ${DOCKTINEL_IMAGE:-ghcr.io/xtrime-ru/docktinel:0.2.0}
       x-bake:
         platforms:
           - linux/amd64
@@ -20,6 +33,8 @@ services:
       - "8143:8143"
       - "8243:8243"
     environment:
+      - TINI_KILL_PROCESS_GROUP=1
+      - DOCKTINEL_STARTUP_TIMEOUT=10m
       # Optional domain for HTTPS services. Public IPv4 is used when empty.
       - PROXY_DOMAIN=
       # Optional Let's Encrypt account email.
