@@ -84,12 +84,9 @@ antigravity.google
 apis.google.com
 appcatalyst.pa.googleapis.com
 assistant-s3-pa.googleapis.com
-clients4.google.com
-clientservices.googleapis.com
 cloud.google.com
 colab.research.google.com
 content-aisandbox-pa.googleapis.com
-content-autofill.googleapis.com
 content-people.googleapis.com
 developerprofiles-pa.googleapis.com
 gemini.google.com
