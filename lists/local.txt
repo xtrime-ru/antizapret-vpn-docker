@@ -51,8 +51,6 @@ youtubei.googleapis.com
 youtubekids.com
 
 # google meet
-clients2.google.com
-clients6.google.com
 www.gstatic.com
 lh3.googleusercontent.com
 meetings.clients6.google.com
