@@ -1,8 +1,23 @@
+ARG DOCKTINEL_IMAGE=ghcr.io/xtrime-ru/docktinel:0.2.0
+
+FROM ${DOCKTINEL_IMAGE} AS docktinel
+
+FROM xtrime/antizapret-vpn:6.12.1 AS antizapret
+
 FROM d3vilh/openvpn-ui:0.9.5.6
 
-RUN apk add -U --no-cache grep moreutils sqlite ipcalc
+RUN apk add -U --no-cache grep moreutils sqlite ipcalc curl
 
 COPY easy-rsa.vars /usr/share/easy-rsa/var
 COPY files-ui/init.db /opt/openvpn-ui/init.db
 COPY files-ui/ui-start.sh /opt/start.sh
 COPY files-ui/restart.sh /opt/scripts/restart.sh
+COPY --chmod=0755 files-ui/run.sh /opt/run.sh
+COPY --chmod=0755 files-ui/healthcheck.sh /opt/healthcheck.sh
+CMD []
+
+COPY --from=docktinel /usr/local/bin/docktinel /usr/local/bin/docktinel
+COPY --from=antizapret --chmod=0755 /usr/local/lib/docktinel/ /usr/local/lib/docktinel/
+COPY --chmod=0755 docktinel-ui.sh /etc/docktinel/tasks.sh
+ENTRYPOINT []
+HEALTHCHECK NONE
