@@ -3,7 +3,7 @@
     {
       "name": "adguard",
       "repository": "antizapret-vpn-adguard",
-      "version": "6.12.0",
+      "version": "6.12.1",
       "source": "services/adguard",
       "compose": "docker-compose.yml",
       "target": "adguard",
@@ -13,7 +13,7 @@
       "name": "antizapret",
       "repository": "antizapret-vpn",
       "ghcr_repository": "antizapret-vpn-docker",
-      "version": "6.12.0",
+      "version": "6.12.1",
       "source": "services/antizapret",
       "compose": "docker-compose.yml",
       "target": "antizapret",
@@ -31,7 +31,7 @@
     {
       "name": "coredns",
       "repository": "antizapret-vpn-coredns",
-      "version": "6.12.0",
+      "version": "6.12.1",
       "source": "services/coredns",
       "compose": "docker-compose.yml",
       "target": "coredns",
@@ -49,7 +49,7 @@
     {
       "name": "filebrowser",
       "repository": "antizapret-vpn-filebrowser",
-      "version": "6.12.0",
+      "version": "6.12.1",
       "source": "services/filebrowser",
       "compose": "docker-compose.yml",
       "target": "filebrowser",
@@ -76,7 +76,7 @@
     {
       "name": "ocserv",
       "repository": "antizapret-vpn-ocserv",
-      "version": "6.12.0",
+      "version": "6.12.1",
       "source": "services/ocserv",
       "compose": "compose.yml",
       "target": "ocserv",
@@ -85,7 +85,7 @@
     {
       "name": "openvpn",
       "repository": "antizapret-vpn-openvpn",
-      "version": "6.12.0",
+      "version": "6.12.1",
       "source": "services/openvpn",
       "compose": "docker-compose.yml",
       "target": "openvpn",
@@ -112,7 +112,7 @@
     {
       "name": "wireguard",
       "repository": "antizapret-vpn-wireguard",
-      "version": "6.12.0",
+      "version": "6.12.1",
       "source": "services/wireguard",
       "compose": "docker-compose.base.yml",
       "target": "base",

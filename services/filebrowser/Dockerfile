@@ -2,7 +2,7 @@ ARG DOCKTINEL_IMAGE=ghcr.io/xtrime-ru/docktinel:0.2.0
 
 FROM ${DOCKTINEL_IMAGE} AS docktinel
 
-FROM xtrime/antizapret-vpn:6.12.0 AS antizapret
+FROM xtrime/antizapret-vpn:6.12.1 AS antizapret
 
 FROM filebrowser/filebrowser:v2.63.23
 # Keep access to the existing root-owned bind mount and update hook.

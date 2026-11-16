@@ -2,7 +2,7 @@ services:
   antizapret:
     entrypoint: ["/usr/local/lib/docktinel/entrypoint"]
     command: ["/init.sh"]
-    image: xtrime/antizapret-vpn:6.12.0
+    image: xtrime/antizapret-vpn:6.12.1
     restart: unless-stopped
     init: true
     cap_add:
