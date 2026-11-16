@@ -5,13 +5,7 @@ set -eu
 ACME_CA="${PROXY_ACME_CA:-https://acme-v02.api.letsencrypt.org/directory}"
 CERT_MODE="${PROXY_CERT_MODE:-auto}"
 HTTPS_PORT="${PROXY_HTTPS_PORT:-444}"
-OCSERV_CERT_DIR="/data/ocserv"
-CERT_CRT="$OCSERV_CERT_DIR/certificate.crt"
-CERT_KEY="$OCSERV_CERT_DIR/certificate.key"
-FALLBACK_CRT="$OCSERV_CERT_DIR/fallback.crt"
-FALLBACK_KEY="$OCSERV_CERT_DIR/fallback.key"
-CERT_IDENTITY_FILE="$OCSERV_CERT_DIR/identity"
-CERT_TYPE_FILE="$OCSERV_CERT_DIR/identity.type"
+. /certificates.sh
 CONFIG_FILE="/etc/caddy/Caddyfile"
 SITES_ENABLED_DIR="/config/sites-enabled"
 REACHABLE_SERVICES=""
@@ -85,27 +79,6 @@ resolve_certificate_identity() {
     fi
 
     PROXY_HOST="$CERT_IDENTITY"
-}
-
-generate_fallback_certificate() {
-    mkdir -p "$OCSERV_CERT_DIR"
-    old_identity=$(cat "$CERT_IDENTITY_FILE" 2>/dev/null || true)
-    if [ "$old_identity" != "$CERT_IDENTITY" ] \
-        || ! openssl x509 -in "$FALLBACK_CRT" -noout -checkend 86400 >/dev/null 2>&1 \
-        || [ ! -s "$FALLBACK_KEY" ]; then
-        [ "$CERT_TYPE" = "ip" ] && san="IP:$CERT_IDENTITY" || san="DNS:$CERT_IDENTITY"
-        echo "[INFO] Generating fallback certificate for $CERT_TYPE:$CERT_IDENTITY"
-        openssl req -x509 -newkey rsa:2048 -sha256 -nodes -days 365 \
-            -subj "/CN=$CERT_IDENTITY" -addext "subjectAltName=$san" \
-            -keyout "$FALLBACK_KEY.tmp" -out "$FALLBACK_CRT.tmp" >/dev/null 2>&1
-        chmod 600 "$FALLBACK_KEY.tmp"
-        mv -f "$FALLBACK_KEY.tmp" "$FALLBACK_KEY"
-        mv -f "$FALLBACK_CRT.tmp" "$FALLBACK_CRT"
-    fi
-    printf '%s\n' "$CERT_IDENTITY" > "$CERT_IDENTITY_FILE.tmp"
-    printf '%s\n' "$CERT_TYPE" > "$CERT_TYPE_FILE.tmp"
-    mv -f "$CERT_IDENTITY_FILE.tmp" "$CERT_IDENTITY_FILE"
-    mv -f "$CERT_TYPE_FILE.tmp" "$CERT_TYPE_FILE"
 }
 
 get_services() {
@@ -196,6 +169,8 @@ generate_global_config() {
   }
   servers :80 {
   }
+  servers 127.0.0.1:2018 {
+  }
 EOF
     if [ -n "${PROXY_EMAIL:-}" ]; then
         printf '  email %s\n' "$PROXY_EMAIL" >> "$CONFIG_FILE"
@@ -282,6 +257,13 @@ main() {
     add_http_redirect
     add_services_to_config
     add_ocserv_certificate_site
+    cat <<'EOF' >>"$CONFIG_FILE"
+
+# Container liveness; never exposed through the public listeners.
+http://127.0.0.1:2018 {
+  respond /healthz "ok" 200
+}
+EOF
 
     cat <<EOF >>"$CONFIG_FILE"
 
