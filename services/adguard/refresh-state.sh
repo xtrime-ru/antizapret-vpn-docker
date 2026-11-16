@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -e
+set -eo pipefail
 
 INIT_FILE="/dev/shm/.inited"
 [ ! -f "$INIT_FILE" ] && exit 0;
@@ -22,11 +22,13 @@ adguard_api() {
 # resolve domain address to ip address
 function resolve () {
     # $1 domain/ip address, $2 fallback ip address
-    res="$(timeout 2 getent hosts "$1.antizapret" | head -n1 | awk '{print $1}')"
-    if [[ "$res" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
-        echo "$res"
+    local output address
+    output=$(timeout 2 getent hosts "$1.antizapret") || true
+    read -r address _ <<< "$output" || true
+    if [[ "$address" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+        printf '%s\n' "$address"
     else
-        echo "$2"
+        printf '%s\n' "$2"
     fi
 }
 
@@ -35,48 +37,36 @@ if [ "$AZ_WORLD_ENABLED" = "1" ]; then
     NEW_WORLD=$(resolve 'az-world' '')
 fi
 
-CLIENTS=$(adguard_api /control/clients)
-printf '%s' "$CLIENTS" | jq -e '.clients | type == "array"' >/dev/null
-
-update_client() {
-    client_name=$1
-    new_ip=$2
-    client_id=${3:-}
-    client_updated=0
-
-    [ -z "$new_ip" ] && return
-
-    FULL_CLIENT=$(echo "$CLIENTS" | jq --arg name "$client_name" '.clients[] | select(.name==$name)' || echo "error response: $CLIENTS")
-    if [ -n "$FULL_CLIENT" ] && [ "$FULL_CLIENT" != "null" ]; then
-        CURRENT_IDS=$(echo "$FULL_CLIENT" | jq -c '.ids // []')
-        DESIRED_IDS=$(jq -nc --arg id "$client_id" --arg ip "$new_ip" '[$id, $ip] | map(select(. != ""))')
-        CURRENT_IDS_NORMALIZED=$(echo "$CURRENT_IDS" | jq -c 'sort | unique')
-        DESIRED_IDS_NORMALIZED=$(echo "$DESIRED_IDS" | jq -c 'sort | unique')
-
-        if [ "$CURRENT_IDS_NORMALIZED" != "$DESIRED_IDS_NORMALIZED" ]; then
-            UPDATED_CLIENT=$(echo "$FULL_CLIENT" | jq --argjson ids "$DESIRED_IDS" '.ids = $ids')
-            UPDATE_BODY=$(printf '{"name":"%s","data":%s}' "$client_name" "$(echo "$UPDATED_CLIENT" | jq -c .)")
-            echo "Updating $client_name ids to $DESIRED_IDS"
-            adguard_api /control/clients/update -X POST -H 'Content-Type: application/json' --data "$UPDATE_BODY"
-            client_updated=1
-        fi
-    fi
-
-    if [ "$client_updated" = "1" ]; then
-        echo "Reset adguard DNS cache"
-        adguard_api /control/cache_clear -X POST
-    fi
-}
-
 NEW_LOCAL=$(resolve 'az-local' '')
 NEW_COREDNS=$(resolve 'coredns' '')
 
 # Repair DNS caches before contacting dependency HTTP endpoints.
 reload_dns_on_dependency_change "$NEW_LOCAL" "$NEW_WORLD" "$NEW_COREDNS"
 
-update_client "az-local" "$NEW_LOCAL" "az-local"
-update_client "az-world" "$NEW_WORLD" "az-world"
-update_client "coredns" "$NEW_COREDNS" "coredns"
+updates=$(adguard_api /control/clients | jq -c \
+    --arg local "$NEW_LOCAL" --arg world "$NEW_WORLD" --arg core "$NEW_COREDNS" '
+    if (.clients | type) != "array" then error("invalid clients response") else .clients end as $clients |
+    [ {name:"az-local", ip:$local}, {name:"az-world", ip:$world}, {name:"coredns", ip:$core} ] as $desired |
+    [ $desired[] as $d | $clients[] | select(.name == $d.name) |
+      ([$d.name, $d.ip] | map(select(. != ""))) as $ids |
+      select((.ids | sort) != ($ids | sort)) |
+      {client: ., ids: $ids} ] as $changes |
+    # Release old addresses first so another client can claim a recycled IP.
+    ($changes[] | select(.client.ids != [.client.name]) |
+        {name:.client.name, data:(.client | .ids = [.name])}),
+    ($changes[] | select(.ids | length > 1) |
+        {name:.client.name, data:(.client + {ids:.ids})})')
+# Remember dirty caches across partial client updates or failed cache_clear calls.
+if [[ -n "$updates" ]]; then
+    touch /dev/shm/.clients_cache_dirty
+    while IFS= read -r body; do
+        adguard_api /control/clients/update -X POST -H 'Content-Type: application/json' --data "$body"
+    done <<< "$updates"
+fi
+if [[ -f /dev/shm/.clients_cache_dirty ]]; then
+    adguard_api /control/cache_clear -X POST
+    rm -f /dev/shm/.clients_cache_dirty
+fi
 
 CONFIG_LOCAL=$(curl -fsS --connect-timeout 2 --max-time 5 "http://az-local.antizapret/config-md5/" || echo "")
 [ -n "$CONFIG_LOCAL" ] || exit 1
