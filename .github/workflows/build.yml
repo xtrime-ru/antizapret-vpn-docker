@@ -73,6 +73,18 @@ jobs:
         run: |
           printf 'services:\n  %s:\n    image: %s\n' "$SERVICE" "$IMAGE" > "${{ matrix.source }}/release-compose.yml"
 
+      - name: Use shared runtime from this checkout
+        if: matrix.name != 'antizapret' && matrix.name != 'cloak'
+        env:
+          SERVICE: ${{ matrix.target }}
+        run: |
+          platforms=$(docker buildx bake -f "${{ matrix.source }}/${{ matrix.compose }}" --print "$SERVICE" |
+            jq -c --arg service "$SERVICE" '.target[$service].platforms')
+          jq -n --arg service "$SERVICE" --argjson platforms "$platforms" '{target: {
+            "shared-runtime": {context: "../antizapret", target: "service-runtime", platforms: $platforms},
+            ($service): {contexts: {antizapret: "target:shared-runtime"}}
+          }}' > "${{ matrix.source }}/runtime-bake.json"
+
       - uses: docker/login-action@v4
         if: env.PUBLISH_IMAGES == 'true'
         with:
@@ -92,7 +104,9 @@ jobs:
           files: |
             ${{ matrix.compose }}
             release-compose.yml
+            ${{ matrix.name != 'antizapret' && matrix.name != 'cloak' && 'runtime-bake.json' || '' }}
           targets: ${{ matrix.target }}
+          allow: fs.read=../antizapret
           set: |
             ${{ matrix.set_tags }}
             ${{ matrix.target }}.cache-from=type=gha,scope=${{ matrix.name }}

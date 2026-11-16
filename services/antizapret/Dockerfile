@@ -24,6 +24,11 @@ COPY ./routes .
 RUN go test ./... && \
     CGO_ENABLED=0 GOOS=linux go build -a -tags netgo -ldflags '-w -s -extldflags "-static"' -o routes
 
+# Small shared build target for dependent services; no exit-node packages.
+FROM scratch AS service-runtime
+COPY --from=builder-routes /app/routes /usr/bin/routes
+COPY --chmod=0755 common/docktinel/ /usr/local/lib/docktinel/
+
 FROM ubuntu:24.04 AS runtime-base
 
 WORKDIR /root
