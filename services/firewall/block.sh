@@ -1,5 +1,5 @@
 #!/bin/bash
-set -ex
+set -euo pipefail
 
 
 SET_V4="az_firewall_v4"
@@ -40,7 +40,7 @@ ipset create "$NEXT_V6" hash:net family inet6 hashsize 4096 maxelem 200000
 
 # --- Populate IPv4 set ---
 if [[ -f "$V4_FILE" ]]; then
-    while read -r subnet; do
+    while IFS= read -r subnet || [[ -n "$subnet" ]]; do
         [[ -z "$subnet" ]] && continue
         ipset add "$NEXT_V4" "$subnet"
     done < "$V4_FILE"
@@ -48,15 +48,11 @@ fi
 
 # --- Populate IPv6 set ---
 if [[ -f "$V6_FILE" ]]; then
-    while read -r subnet; do
+    while IFS= read -r subnet || [[ -n "$subnet" ]]; do
         [[ -z "$subnet" ]] && continue
         ipset add "$NEXT_V6" "$subnet"
     done < "$V6_FILE"
 fi
-
-# --- Atomically replace each active set after both lists are loaded ---
-ipset swap "$NEXT_V4" "$SET_V4"
-ipset swap "$NEXT_V6" "$SET_V6"
 
 # --- Install rules once; updates keep referencing the active sets ---
 iptables -C DOCKER-USER -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT 2>/dev/null || \
@@ -67,3 +63,10 @@ ip6tables -C DOCKER-USER -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT 2>
     ip6tables -I DOCKER-USER -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
 ip6tables -C DOCKER-USER -m set --match-set "$SET_V6" src -j DROP 2>/dev/null || \
     ip6tables -A DOCKER-USER -m set --match-set "$SET_V6" src -j DROP
+
+# Both sets are ready and their rules are installed. Roll IPv4 back if IPv6 fails.
+ipset swap "$NEXT_V4" "$SET_V4"
+if ! ipset swap "$NEXT_V6" "$SET_V6"; then
+    ipset swap "$NEXT_V4" "$SET_V4"
+    exit 1
+fi

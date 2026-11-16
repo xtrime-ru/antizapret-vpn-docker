@@ -1,10 +1,26 @@
+volumes:
+  firewall-lists:
+    driver: local
+
 services:
   firewall:
+    entrypoint: ["/usr/local/lib/docktinel/entrypoint"]
+    command: ["/root/entrypoint.sh"]
     restart: unless-stopped
     image: xtrime/antizapret-vpn-firewall:6.9.0
     init: true
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD", "docktinel", "healthcheck", "--startup-grace", "10m"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10m
+      start_interval: 1s
+      retries: 3
     build:
       context: .
+      args:
+        DOCKTINEL_IMAGE: ${DOCKTINEL_IMAGE:-ghcr.io/xtrime-ru/docktinel:0.2.0}
       x-bake:
         platforms:
           - linux/amd64
@@ -22,10 +38,12 @@ services:
       - NET_ADMIN
       - SYS_MODULE
     working_dir: /root
-    entrypoint: /root/entrypoint.sh
     volumes:
       - /etc/localtime:/etc/localtime:ro
+      - firewall-lists:/var/lib/antizapret-firewall
     environment:
+      - TINI_KILL_PROCESS_GROUP=1
+      - DOCKTINEL_STARTUP_TIMEOUT=10m
       - INTERVAL=3h
       - V4_URL=https://raw.githubusercontent.com/C24Be/AS_Network_List/refs/heads/main/blacklists/blacklist-v4.txt
       - V4_FILE=blacklist-v4.txt

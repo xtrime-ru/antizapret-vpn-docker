@@ -1,4 +1,3 @@
 #!/bin/bash
-set -ex
-
-curl --max-time 60 -f "$1" -g -o "$2"
+set -euo pipefail
+curl --connect-timeout 5 --max-time 60 -fsS "$1" -g -o "$2"

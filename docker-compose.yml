@@ -5,6 +5,10 @@ networks:
       config:
         - subnet: 10.200.0.0/24
 
+volumes:
+  firewall-lists:
+    driver: local
+
 services:
   az-local:
     hostname: az-local.antizapret
