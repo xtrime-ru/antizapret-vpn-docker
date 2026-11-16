@@ -3,6 +3,7 @@
 set -e
 
 # Directory where OpenVPN configuration files are stored
+cd /opt/
 OPENVPN_DIR=$(grep -E "^OpenVpnPath\s*=" openvpn-ui/conf/app.conf | cut -d= -f2 | tr -d '"' | tr -d '[:space:]')
 echo "Init. OVPN path: $OPENVPN_DIR"
 
@@ -16,7 +17,7 @@ cd /opt/openvpn-ui
 mkdir -p db
 
 cat << EOF | sponge /etc/environment
-OPENVPN_EXTERNAL_IP='${OPENVPN_EXTERNAL_IP:-$(curl -4 icanhazip.com)}'
+OPENVPN_EXTERNAL_IP='${OPENVPN_EXTERNAL_IP:-$(curl -4 -fsS --connect-timeout 2 --max-time 10 https://icanhazip.com)}'
 OPENVPN_LOCAL_IP_RANGE='${OPENVPN_LOCAL_IP_RANGE:-"10.1.165.0"}'
 AZ_SUBNET=${AZ_SUBNET:-"14.16.0.0"}
 DOCKER_SUBNET=${DOCKER_SUBNET}
@@ -25,6 +26,7 @@ NIC='$(ip -4 route | grep default | grep -Po '(?<=dev )(\S+)' | head -1)'
 OVDIR='${OVDIR:-"/etc/openvpn"}'
 EOF
 source /etc/environment
+[ -n "$OPENVPN_EXTERNAL_IP" ] || { echo "Cannot determine public IP; set OPENVPN_EXTERNAL_IP" >&2; exit 1; }
 
 ln -sf /etc/environment /etc/profile.d/environment.sh
 
@@ -65,7 +67,7 @@ sqlite3 /opt/openvpn-ui/db/data.db <<EOS
     where profile = 'default' and (select value from missing) is not null;
 EOS
 [ $? -gt 0 ] && echo "SQLite migration failed" && exit 1
+echo "OpenVPN UI configuration prepared"
 
-# Start the OpenVPN GUI
-echo "Starting OpenVPN UI!"
-exec ./openvpn-ui
+port=$(awk -F= '/^[[:space:]]*httpport[[:space:]]*=/ {gsub(/[[:space:]"\r]/, "", $2); print $2; exit}' conf/app.conf)
+printf 'http://127.0.0.1:%s/login\n' "${port:-8080}" > "${DOCKTINEL_RUNTIME_DIR:-/run/docktinel}/ui-health-url"
