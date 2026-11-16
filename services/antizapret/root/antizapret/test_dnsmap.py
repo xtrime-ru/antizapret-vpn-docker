@@ -98,6 +98,31 @@ class ResolverTestCase(unittest.TestCase):
         return resolver
 
 
+class HealthcheckTests(ResolverTestCase):
+    def test_local_probe_is_answered_without_upstream(self):
+        resolver = self.make_resolver()
+        resolver.query_doh = Mock(side_effect=OSError('upstream unavailable'))
+        request = DNSRecord.question('HEALTHCHECK.invalid.', 'A')
+        handler = Mock(client_address=('127.0.0.1', 12345))
+
+        reply = resolver.resolve(request, handler)
+
+        self.assertEqual(reply.header.rcode, RCODE.NOERROR)
+        self.assertEqual([str(answer.rdata) for answer in reply.rr], ['127.0.0.1'])
+        resolver.query_doh.assert_not_called()
+
+    def test_remote_probe_follows_normal_resolution(self):
+        resolver = self.make_resolver()
+        request = DNSRecord.question('healthcheck.invalid.', 'A')
+        resolver.query_doh = Mock(return_value=dns_reply(request, rcode=RCODE.NXDOMAIN))
+        handler = Mock(client_address=('192.0.2.1', 12345))
+
+        reply = resolver.resolve(request, handler)
+
+        self.assertEqual(reply.header.rcode, RCODE.NXDOMAIN)
+        resolver.query_doh.assert_called_once_with(request, 'az-local')
+
+
 class DoHClientTests(ResolverTestCase):
     def test_request_contains_client_id_and_connection_is_reused(self):
         resolver = self.make_resolver()

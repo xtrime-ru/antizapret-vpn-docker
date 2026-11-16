@@ -3,11 +3,6 @@
 set -e
 set -x
 
-# run commands after start
-function postrun () {
-    nohup bash -c "$@" &
-}
-
 WARP_PROTOCOL=${WARP_PROTOCOL:-WireGuard}
 WARP_PORT=${WARP_PORT:-500}
 
@@ -36,7 +31,6 @@ EOF
 source /etc/default/antizapret
 # autoload vars when logging in into shell with 'bash -l'
 ln -sf /etc/default/antizapret /etc/profile.d/antizapret.sh
-
 
 # creating custom hosts files if they have not yet been initialized
 for file in $(echo {exclude,include}-{hosts,ips,ips-world,asn,asn-world}-custom.txt); do
@@ -85,7 +79,8 @@ function generated_lists_available () {
 configure_doall_owner
 trap cleanup_doall_owner EXIT HUP INT QUIT PIPE TERM
 
-( cat /root/antizapret/result/* /root/antizapret/config/custom/* 2>/dev/null | md5sum ) > /dev/shm/.config_md5
+. /usr/local/lib/docktinel/state.sh
+checksum_files /root/antizapret/result/* /root/antizapret/config/custom/* > /dev/shm/.config_md5
 
 # Prepare iptables for dnsmap.py
 CHAIN=dnsmap
@@ -160,8 +155,6 @@ if [ "$ZAPRET_ENABLED" = "1" ]; then
     ZAPRET_STARTED=1
 fi
 
-routes &
-
 if [ "$WARP_ENABLED" = "1" ]; then
     mkdir -p /dev/net /run/dbus /var/lib/cloudflare-warp
     [ -e /dev/net/tun ] || mknod /dev/net/tun c 10 200
@@ -218,8 +211,7 @@ if ! timeout --kill-after=5s 5m /usr/bin/doall; then
     fi
 fi
 
-postrun 'while true; do /opt/api/app; done'
-postrun 'while true; do sleep 6h; timeout --kill-after=5s 10m /usr/bin/doall; done'
-postrun 'while true; do /usr/bin/iperf3 -s -1; done'
-
-/usr/bin/dnsmap -a 0.0.0.0 --iprange "$AZ_SUBNET" --asn-file "$ASN_FILES"
+/usr/bin/dnsmap -a 0.0.0.0 --iprange "$AZ_SUBNET" --asn-file "$ASN_FILES" &
+DNSMAP_PID=$!
+trap 'stop_services; kill -TERM "$DNSMAP_PID" 2>/dev/null || true; exit 0' HUP INT QUIT PIPE TERM
+wait "$DNSMAP_PID"

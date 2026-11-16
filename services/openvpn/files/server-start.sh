@@ -1,4 +1,5 @@
 #!/bin/bash
+. /usr/local/lib/docktinel/state.sh
 set -e
 
 #Variables
@@ -8,7 +9,7 @@ echo "EasyRSA path: $EASY_RSA OVPN path: $OPENVPN_DIR"
 
 INIT_FILE="/dev/shm/.inited"
 CONFIG_FILE="/opt/antizapret/result/openvpn-blocked-ranges.txt"
-cat $CONFIG_FILE 2>/dev/null | md5sum | cut -d' ' -f1 > /dev/shm/.config_md5
+config_checksum /opt/antizapret/result/.openvpn-md5 "$CONFIG_FILE" > /dev/shm/.config_md5
 touch $OPENVPN_DIR/openvpn-blocked-ranges.txt
 if [ -f $CONFIG_FILE ]; then
     cp -f $CONFIG_FILE $OPENVPN_DIR/openvpn-blocked-ranges.txt
@@ -89,20 +90,8 @@ mkdir -p $OPENVPN_DIR/staticclients
 
 echo 'Start openvpn process...'
 mkdir -p $OPENVPN_DIR/log
-while true; do
-    logrotate --state "$OPENVPN_DIR/log/.logrotate.status" /etc/logrotate.d/openvpn \
-        || echo 'OpenVPN log rotation failed' >&2
-    sleep 86400
-done &
-while true; do tail -f "$OPENVPN_DIR"/log/*.log || true; sleep 1; done &
-
 touch "$INIT_FILE"
-
-/opt/app/update-crl.sh || kill -TERM 1
-while true; do
-    sleep 86400;
-    echo "Update crl";
-    /opt/app/update-crl.sh || kill -TERM 1
-done &
+/opt/app/update-crl.sh
+rm -f /dev/shm/.crl_renewed
 
 exec /usr/local/sbin/openvpn --cd $OPENVPN_DIR --script-security 2 --config $OPENVPN_DIR/server.conf

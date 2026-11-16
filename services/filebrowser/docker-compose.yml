@@ -1,14 +1,30 @@
 services:
   filebrowser:
+    entrypoint: ["/usr/local/lib/docktinel/entrypoint"]
+    command: ["/init.sh"]
+    init: true
+    environment:
+      - TINI_KILL_PROCESS_GROUP=1
+      - DOCKTINEL_STARTUP_TIMEOUT=10m
     hostname: filebrowser.antizapret
     restart: unless-stopped
-    image: xtrime/antizapret-vpn-filebrowser:6.11.0
+    image: xtrime/antizapret-vpn-filebrowser:6.12.0
     build: 
       context: .
+      args:
+        DOCKTINEL_IMAGE: ${DOCKTINEL_IMAGE:-ghcr.io/xtrime-ru/docktinel:0.2.0}
       x-bake:
         platforms:
           - linux/amd64
           - linux/arm64
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD", "docktinel", "healthcheck", "--startup-grace", "10m"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10m
+      start_interval: 1s
+      retries: 3
     logging:
       driver: json-file
       options:

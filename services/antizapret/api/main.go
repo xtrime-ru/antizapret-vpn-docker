@@ -4,12 +4,9 @@ import (
 	"bufio"
 	"compress/gzip"
 	"context"
-	"crypto/md5"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -535,56 +532,12 @@ func update(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("Failed to update exclude lists: %v", error), http.StatusInternalServerError)
 		return
 	}
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprintln(w, "ok")
-}
-
-func configMd5Handler(w http.ResponseWriter, r *http.Request) {
-	configPaths := []string{"/root/antizapret/config/", "/root/antizapret/result/"}
-	md5s := []string{}
-
-	for _, configPath := range configPaths {
-		err := filepath.WalkDir(configPath, func(path string, d fs.DirEntry, err error) error {
-			if err != nil {
-				return err
-			}
-			if d.IsDir() {
-				return nil
-			}
-
-			f, err := os.Open(path)
-			if err != nil {
-				return err
-			}
-			defer f.Close()
-
-			h := md5.New()
-			if _, err := io.Copy(h, f); err != nil {
-				return err
-			}
-
-			md5s = append(md5s, hex.EncodeToString(h.Sum(nil)))
-			return nil
-		})
-
-		if err != nil && !os.IsNotExist(err) {
-			http.Error(w, fmt.Sprintf("Failed to calculate md5 for %s: %v", configPath, err), http.StatusInternalServerError)
-			return
-		}
-	}
-
-	if len(md5s) == 0 {
-		http.Error(w, "No config or result files found", http.StatusNotFound)
+	if err := publishConfigMD5(); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to publish configuration checksum: %v", err), http.StatusInternalServerError)
 		return
 	}
-
-	finalMd5 := md5.New()
-	for _, md5 := range md5s {
-		io.WriteString(finalMd5, md5)
-	}
-
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprintln(w, hex.EncodeToString(finalMd5.Sum(nil)))
+	fmt.Fprintln(w, "ok")
 }
 
 // responseWriterWrapper captures the status code and bytes written
@@ -644,6 +597,12 @@ func loggingMiddleware(next http.Handler) http.Handler {
 }
 
 func main() {
+	if len(os.Args) == 2 && os.Args[1] == "--publish-config-md5" {
+		if err := publishConfigMD5(); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
 	DefaultClient = os.Getenv("CLIENT")
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
@@ -651,6 +610,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize regex filters: %v", err)
 		panic(err)
+	}
+	if err := publishConfigMD5(); err != nil {
+		log.Fatalf("Failed to publish configuration checksum: %v", err)
 	}
 	defer func() {
 		if excludeMatcherDist != nil {

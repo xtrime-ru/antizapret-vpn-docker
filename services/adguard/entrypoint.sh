@@ -19,42 +19,17 @@ fi
 
 iptables -t nat -A PREROUTING -d "$ADGUARD_ADDRESS" -j DNAT --to-destination 127.0.0.1
 
-routes &
+source /root/dependencies.sh
+echo "Waiting up to 60s for dependency DNS registration..."
+wait_for_dependencies 60
 
-function resolve () {
-    # $1 domain/ip address, $2 fallback ip address
-    res="$(getent hosts "$1" | head -n1 | awk '{print $1}')"
-    if [[ "$res" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
-        echo "$res"
-    else
-        echo "$2"
-    fi
-}
-
-if [ "$AZ_WORLD_ENABLED" = "1" ]; then
-    WAITING_MESSAGE="Waiting for az-local and az-world containers to register in DNS..."
-else
-    WAITING_MESSAGE="Waiting for az-local container to register in DNS..."
-fi
-
-while :; do
-    AZ_LOCAL_HOST=$(resolve az-local '')
-    AZ_WORLD_HOST=$(resolve az-world '')
-    COREDNS_HOST=$(resolve coredns '169.0.0.3')
-    if [ -n "${AZ_LOCAL_HOST}" ] && [ -n "${COREDNS_HOST}" ] && { [ "$AZ_WORLD_ENABLED" != "1" ] || [ -n "${AZ_WORLD_HOST}" ]; }; then
-        break
-    fi
-    sleep 1;
-    echo "$WAITING_MESSAGE"
-done;
-
-CONFIG_LOCAL=$(curl -s "http://az-local.antizapret/config-md5/" || echo "")
+CONFIG_LOCAL=$(curl -fsS --connect-timeout 2 --max-time 5 "http://az-local.antizapret/config-md5/" || echo "")
 CONFIG_MD5="$CONFIG_LOCAL"
 AZ_WORLD_CLIENT_IDS='["az-world"]'
 if [ "$AZ_WORLD_ENABLED" = "1" ]; then
-    CONFIG_WORLD=$(curl -s "http://az-world.antizapret/config-md5/" || echo "")
+    CONFIG_WORLD=$(curl -fsS --connect-timeout 2 --max-time 5 "http://az-world.antizapret/config-md5/" || echo "")
     CONFIG_MD5="$CONFIG_LOCAL $CONFIG_WORLD"
-    AZ_WORLD_CLIENT_IDS='["az-world", "'$AZ_WORLD_HOST'"]'
+    AZ_WORLD_CLIENT_IDS=$(jq -nc --arg ip "$AZ_WORLD_HOST" '["az-world", $ip] | map(select(. != ""))')
 fi
 echo "$CONFIG_MD5" > /dev/shm/.config_md5
 
@@ -90,7 +65,7 @@ function migrate_filter () {
     FILTER_OLD="$old_url" FILTER_NEW="$new_url" yq -i '
         (.filters[] | select(.url == strenv(FILTER_OLD)) | .url) = strenv(FILTER_NEW)
     ' /opt/adguardhome/conf/AdGuardHome.yaml || exit 1
-    # Let the healthcheck refresh cached rules and clear DNS cache after startup.
+    # Let the maintenance job refresh cached rules and clear DNS cache after startup.
     : > /dev/shm/.config_md5
 }
 
@@ -121,15 +96,19 @@ AZ_WORLD_CLIENT_IDS="$AZ_WORLD_CLIENT_IDS" \
 COREDNS_HOST="$COREDNS_HOST" \
 yq -i '
     (.dns.upstream_dns[] | select(. == "coredns")) = "coredns.antizapret" |
+    .dns.upstream_timeout = "5s" |
+    .dns.fallback_dns = (.dns.fallback_dns // []) |
+    (.dns.fallback_dns | select(length == 0)) = ["https://1.1.1.1/dns-query", "https://8.8.8.8/dns-query"] |
+    .dns.fallback_dns = ((.dns.fallback_dns + ["[/*.antizapret/]127.0.0.11"]) | unique) |
     .http.address = "0.0.0.0:" + strenv(ADGUARDHOME_PORT) |
     .http.doh.insecure_enabled=true |
     .dns.use_private_ptr_resolvers=false |
     .dns.local_ptr_upstreams=[] |
     .users[0].name=strenv(ADGUARDHOME_USERNAME) |
     .users[0].password=strenv(ADGUARDHOME_PASSWORD_HASH) |
-    (.clients.persistent[] | select(.name == "az-local") | .ids) = ["az-local", strenv(AZ_LOCAL_HOST)] |
+    (.clients.persistent[] | select(.name == "az-local") | .ids) = (["az-local", strenv(AZ_LOCAL_HOST)] | map(select(. != ""))) |
     (.clients.persistent[] | select(.name == "az-world") | .ids) = env(AZ_WORLD_CLIENT_IDS) |
-    (.clients.persistent[] | select(.name == "coredns") | .ids) = [strenv(COREDNS_HOST)]
+    (.clients.persistent[] | select(.name == "coredns") | .ids) = (["coredns", strenv(COREDNS_HOST)] | map(select(. != "")))
     ' /opt/adguardhome/conf/AdGuardHome.yaml || exit 1
 
 if ! yq -e '.clients.persistent[] | select(.name == "az-resolver")' /opt/adguardhome/conf/AdGuardHome.yaml >/dev/null; then
@@ -148,5 +127,7 @@ fi
 
 sed -i 's/antizapret-vpn-docker\/v5/antizapret-vpn-docker\/v6/g' /opt/adguardhome/conf/AdGuardHome.yaml
 
+source /root/dns-reload.sh
+dependency_snapshot "$AZ_LOCAL_HOST" "$AZ_WORLD_HOST" "$COREDNS_HOST" > /dev/shm/.dns_dependencies
 touch "$INIT_FILE"
 exec /opt/adguardhome/AdGuardHome "$@"

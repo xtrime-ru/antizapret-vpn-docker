@@ -44,7 +44,7 @@ update_crl() {
 need_update=false
 
 if [[ ! -f "$CRL_PATH" ]]; then
-    echo "$(date '+%Y-%m-%d %H:%M:%S') CRL file missing. This should not happened. Restarting container."
+    echo "$(date '+%Y-%m-%d %H:%M:%S') CRL file missing."
     exit 1
 fi
 
@@ -70,5 +70,5 @@ fi
 if [[ $need_update == true ]]; then
     update_crl
     echo "CRL updated. Restarting openvpn server."
-    exit 1
+    touch /dev/shm/.crl_renewed
 fi

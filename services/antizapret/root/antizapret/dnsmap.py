@@ -12,7 +12,7 @@ from ipaddress import IPv4Network
 import idna
 import maxminddb
 
-from dnslib import DNSRecord, RCODE, QTYPE, A
+from dnslib import DNSRecord, RCODE, QTYPE, A, RR
 from dnslib.server import DNSServer, DNSHandler, BaseResolver, DNSLogger
 
 
@@ -465,6 +465,13 @@ class ProxyResolver(BaseResolver):
 
     def resolve(self,request,handler):
         try:
+            if (request.q.qtype == QTYPE.A
+                    and str(request.q.qname).lower() == 'healthcheck.invalid.'
+                    and handler.client_address[0] == '127.0.0.1'):
+                reply = request.reply()
+                reply.add_answer(RR(request.q.qname, QTYPE.A, rdata=A('127.0.0.1')))
+                return reply
+
             reply = self.query_doh(request, self.client_id)
 
             if request.q.qtype == QTYPE.AAAA or request.q.qtype == QTYPE.HTTPS:

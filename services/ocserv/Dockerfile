@@ -1,9 +1,14 @@
+ARG DOCKTINEL_IMAGE=ghcr.io/xtrime-ru/docktinel:0.2.0
+
+FROM ${DOCKTINEL_IMAGE} AS docktinel
+
+FROM xtrime/antizapret-vpn:6.12.0 AS antizapret
+
 # ========STAGE 1: BUILD========
 
 FROM ubuntu:24.04 AS builder
 
 ARG OCSERV_VERSION="1.6.0"
-ENV OCSERV_VERSION="${OCSERV_VERSION}"
 
 LABEL maintainer="Ivan Cherniy <kar-kar@r4ven.me>"
 
@@ -38,12 +43,7 @@ RUN apt-get update && \
 
 FROM ubuntu:24.04
 
-ARG OCSERV_VERSION="1.6.0"
-ENV OCSERV_VERSION="${OCSERV_VERSION}"
-
 LABEL maintainer="Ivan Cherniy <kar-kar@r4ven.me>"
-
-STOPSIGNAL SIGTERM
 
 COPY --from=builder /opt/ocserv/ /
 
@@ -85,13 +85,14 @@ RUN apt-get update && \
         iptables \
         iproute2 \
         iputils-ping \
+        dnsutils \
         less \
         ca-certificates && \
     apt-get autoremove --yes && \
     apt-get clean --yes && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 
-COPY --from=xtrime/antizapret-vpn:6.10.0  /usr/bin/routes /usr/bin/routes
+COPY --from=antizapret /usr/bin/routes /usr/bin/routes
 
 COPY --chmod=0755 ./ocserv.sh /
 COPY ./certificate.sh /
@@ -99,4 +100,10 @@ COPY ./ocserv.tmpl /
 COPY ./az.tmpl /
 COPY --chmod=0755 ./healthcheck.sh /
 
-ENTRYPOINT ["/ocserv.sh", "/usr/sbin/ocserv", "--config", "/run/ocserv/ocserv.conf", "--foreground", "--log-stderr"]
+ENTRYPOINT []
+CMD []
+
+COPY --from=docktinel /usr/local/bin/docktinel /usr/local/bin/docktinel
+COPY --from=antizapret --chmod=0755 /usr/local/lib/docktinel/ /usr/local/lib/docktinel/
+COPY --chmod=0755 docktinel.sh /etc/docktinel/tasks.sh
+HEALTHCHECK NONE

@@ -1,13 +1,15 @@
 .:53 {
     log
     errors
+    health :8080
 
     # Forward plugin with strict failover
     forward . ${AZ_FORWARD_HOSTS} {
         policy sequential
         prefer_udp
         failover SERVFAIL
-        max_fails 0
+        max_fails 1
+        health_check 1s
     }
 
     reload 2s
