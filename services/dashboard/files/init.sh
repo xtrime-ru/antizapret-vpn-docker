@@ -1,4 +1,5 @@
 #!/bin/sh
+set -eu
 
 if [ -z "${SERVER_ROOT:-}" ]; then
     echo "[ERROR] SERVER_ROOT is not defined. Set SERVER_ROOT environment variable."
@@ -95,6 +96,7 @@ create_services_json() {
         '{services: $services, internalHostname: $internalHostname}')
 
     echo "$config" > "$CONFIG_JSON"
+    jq -e '.services | type == "array"' "$CONFIG_JSON" >/dev/null
     echo "[INFO] JSON file has been successfully created at: $CONFIG_JSON"
 }
 
