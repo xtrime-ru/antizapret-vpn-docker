@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# dig exits zero even for SERVFAIL. Require an actual successful DNS response.
+# Use the service name, not a remembered container IP, on every attempt.
+reply=$(dig @"${1:-127.0.0.1}" -p "${DNS_PROBE_PORT:-53}" "${DNS_PROBE_NAME:-example.org}" A \
+    +time=12 +tries=1 +noall +comments)
+grep -q '^;; ->>HEADER<<- .*status: NOERROR,' <<< "$reply"

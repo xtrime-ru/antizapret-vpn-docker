@@ -1,11 +1,18 @@
 services:
   coredns:
+    entrypoint: ["/usr/local/lib/docktinel/entrypoint"]
+    command: ["/root/entrypoint.sh"]
     image: xtrime/antizapret-vpn-coredns:6.11.0
     hostname: coredns.antizapret
     restart: unless-stopped
     init: true
+    environment:
+      - TINI_KILL_PROCESS_GROUP=1
+      - DOCKTINEL_STARTUP_TIMEOUT=10m
     build: 
       context: .
+      args:
+        DOCKTINEL_IMAGE: ${DOCKTINEL_IMAGE:-ghcr.io/xtrime-ru/docktinel:0.2.0}
       x-bake:
         platforms:
           - linux/amd64
@@ -17,12 +24,14 @@ services:
         max-file: 3
     volumes:
       - /etc/localtime:/etc/localtime:ro
+    stop_grace_period: 30s
     healthcheck:
-      test: (/root/healthcheck.sh || kill -TERM 1) 2>&1 | tee /proc/1/fd/1
+      test: ["CMD", "docktinel", "healthcheck", "--startup-grace", "10m"]
       interval: 10s
-      timeout: 1m
-      start_period: 5s
+      timeout: 5s
+      start_period: 10m
       start_interval: 1s
+      retries: 3
     deploy:
       mode: replicated
       replicas: 1

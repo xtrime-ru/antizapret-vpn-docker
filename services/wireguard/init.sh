@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
+. /usr/local/lib/docktinel/state.sh
 
 CONFIG_FILES="/opt/antizapret/result/ips*"
-cat $CONFIG_FILES 2>/dev/null | md5sum | cut -d' ' -f1 > /dev/shm/.config_md5
+config_checksum /opt/antizapret/result/.ips-md5 $CONFIG_FILES > /dev/shm/.config_md5 || exit 1
 
 is_ipv4() {
     local octet='(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])'
@@ -55,8 +56,6 @@ if [ -z "$WG_ALLOWED_IPS" ]; then
         WG_ALLOWED_IPS="${WG_ALLOWED_IPS},${blocked_ranges}"
     fi
 fi
-
-routes --vpn &
 
 # Escape single quotes in values for SQLite
 sql_escape() { printf "%s" "$1" | sed "s/'/''/g"; }
@@ -269,13 +268,13 @@ else
         while [ ! -f "$DB_FILE" ]; do sleep 1; done
         sleep 3
         update_db
-        kill -TERM 1
+        docktinel restart --reason "WireGuard database initialized"
     ) &
 fi
 
 if [[ "${BGP_ENABLE:-false}" == "true" ]]; then
   envsubst < /bird.conf.template  > /etc/bird.conf
   /usr/sbin/bird -p
-  /usr/sbin/bird -d &
 fi
-exec /usr/bin/dumb-init node server/index.mjs
+touch /dev/shm/.wireguard_started
+exec node server/index.mjs

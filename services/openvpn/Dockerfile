@@ -1,6 +1,12 @@
+ARG DOCKTINEL_IMAGE=ghcr.io/xtrime-ru/docktinel:0.2.0
+
+FROM ${DOCKTINEL_IMAGE} AS docktinel
+
+FROM xtrime/antizapret-vpn:6.12.2 AS antizapret
+
 FROM d3vilh/openvpn-server:0.5.5
 
-RUN apk add -U --no-cache ipcalc grep moreutils logrotate && apk del openvpn
+RUN apk add -U --no-cache ipcalc grep moreutils logrotate bind-tools && apk del openvpn
 
 ARG OPENVPN_VER=2.7.8
 ADD files/socket.patch /socket.patch
@@ -25,7 +31,7 @@ RUN <<-"EOT" bash -ex
     apk del $LIBS_TEMP
 EOT
 
-COPY --from=xtrime/antizapret-vpn:6.10.0  /usr/bin/routes /usr/bin/routes
+COPY --from=antizapret /usr/bin/routes /usr/bin/routes
 
 COPY easy-rsa.vars /opt/app
 COPY files/fw-rules.sh /opt/app
@@ -33,4 +39,13 @@ COPY files/checkpsw.sh /opt/app
 COPY files/server-start.sh /opt/app/docker-entrypoint.sh
 COPY files/healthcheck.sh /opt/app/healthcheck.sh
 COPY files/update-crl.sh /opt/app/update-crl.sh
+COPY --chmod=0755 files/renew-crl.sh /opt/app/renew-crl.sh
+COPY --chmod=0755 files/follow-logs.sh /opt/app/follow-logs.sh
 COPY files/logrotate-openvpn /etc/logrotate.d/openvpn
+
+COPY --from=docktinel /usr/local/bin/docktinel /usr/local/bin/docktinel
+COPY --from=antizapret --chmod=0755 /usr/local/lib/docktinel/ /usr/local/lib/docktinel/
+COPY --chmod=0755 docktinel.sh /etc/docktinel/tasks.sh
+HEALTHCHECK NONE
+ENTRYPOINT []
+CMD []

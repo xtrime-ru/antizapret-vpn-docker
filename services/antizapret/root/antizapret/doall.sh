@@ -27,6 +27,7 @@ RESULT_OWNER="$(cat "$RESULT_OWNER_FILE" 2>/dev/null || true)"
 
 if [ -n "$DOALL_DISABLED" ] || { [ -n "$RESULT_OWNER" ] && [ "$LOCAL_OWNER" != "$RESULT_OWNER" ]; }; then
     echo "DoAll disabled or owner mismatch. Reloading dnsmap only..."
+    /opt/api/app --publish-config-md5
     reload_dnsmap
     exit 0
 fi
@@ -49,6 +50,8 @@ if [ "$download_failed" = true ] && ! cached_downloads_available; then
   exit 1
 fi
 echo "run parse.sh" && ./parse.sh || exit 2
+
+/opt/api/app --publish-config-md5
 
 # dnsmap applies the new ASN list on the next lookup without a restart.
 reload_dnsmap

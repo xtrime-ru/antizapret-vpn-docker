@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-exec > >(tee /proc/1/fd/1) 2>&1
 
 set -Eeuo pipefail
 shopt -s nullglob
@@ -7,31 +6,14 @@ shopt -s nullglob
 FLAG_FILE="/dev/shm/.ocserv_started"
 CONFIG_FILES=(/opt/antizapret/result/ips*)
 . /certificate.sh
+. /usr/local/lib/docktinel/state.sh
 
-cleanup() {
-    local exit_code=$?
-    trap - EXIT
-
-    if ((exit_code != 0)); then
-        echo "healthcheck failed. Killing pid 1."
-        kill -TERM 1
-        sleep 10
-        kill -KILL 1
-    fi
-}
-
-if [[ -f "$FLAG_FILE" ]]; then
-    trap cleanup EXIT HUP INT QUIT PIPE TERM
-else
-    echo "healthcheck: waiting for ocserv initialization"
+if [[ ! -f "$FLAG_FILE" ]]; then
+    echo "Waiting for ocserv initialization" >&2
     exit 1
 fi
 
-if ((${#CONFIG_FILES[@]})); then
-    NEW_MD5=$(cat "${CONFIG_FILES[@]}" | md5sum | cut -d' ' -f1)
-else
-    NEW_MD5=$(md5sum </dev/null | cut -d' ' -f1)
-fi
+NEW_MD5=$(config_checksum /opt/antizapret/result/.ips-md5 "${CONFIG_FILES[@]}")
 OLD_MD5=$(cat /dev/shm/.config_md5 2>/dev/null || true)
 
 if [ "$NEW_MD5" != "$OLD_MD5" ]; then

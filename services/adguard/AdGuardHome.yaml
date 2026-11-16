@@ -35,7 +35,10 @@ dns:
   upstream_dns_file: ""
   bootstrap_dns:
     - 127.0.0.11
-  fallback_dns: []
+  fallback_dns:
+    - https://1.1.1.1/dns-query
+    - https://8.8.8.8/dns-query
+    - '[/*.antizapret/]127.0.0.11'
   upstream_mode: load_balance
   fastest_timeout: 1s
   allowed_clients: []
@@ -66,7 +69,7 @@ dns:
   ipset: []
   ipset_file: ""
   bootstrap_prefer_ipv6: false
-  upstream_timeout: 1s
+  upstream_timeout: 5s
   private_networks: []
   use_private_ptr_resolvers: false
   local_ptr_upstreams: []
@@ -261,7 +264,8 @@ clients:
       use_global_settings: true
       use_global_blocked_services: true
     - name: coredns
-      ids: []
+      ids:
+        - coredns
       tags: [ ]
       upstreams:
         - https://cloudflare-dns.com/dns-query

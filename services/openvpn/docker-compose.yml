@@ -1,5 +1,7 @@
 services:
   openvpn:
+    entrypoint: ["/usr/local/lib/docktinel/entrypoint"]
+    command: ["/opt/app/docker-entrypoint.sh"]
     hostname: openvpn.antizapret
     restart: unless-stopped
     cap_add:
@@ -13,17 +15,21 @@ services:
     image: xtrime/antizapret-vpn-openvpn:6.10.0
     build:
       context: .
+      args:
+        DOCKTINEL_IMAGE: ${DOCKTINEL_IMAGE:-ghcr.io/xtrime-ru/docktinel:0.2.0}
       x-bake:
         platforms:
           - linux/amd64
           - linux/arm64
     init: true
+    stop_grace_period: 30s
     healthcheck:
-      test: (/opt/app/healthcheck.sh || kill -TERM 1) 2>&1 | tee /proc/1/fd/1
+      test: ["CMD", "docktinel", "healthcheck", "--startup-grace", "10m"]
       interval: 10s
-      timeout: 1s
-      start_period: 5s
+      timeout: 5s
+      start_period: 10m
       start_interval: 1s
+      retries: 3
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - $PWD/config/openvpn:/etc/openvpn
@@ -41,6 +47,8 @@ services:
       placement:
         constraints: [ node.labels.location == local ]
     environment:
+      - TINI_KILL_PROCESS_GROUP=1
+      - DOCKTINEL_STARTUP_TIMEOUT=10m
       - OBFUSCATE_TYPE=1
       - |
         ROUTES=

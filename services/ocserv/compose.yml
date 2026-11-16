@@ -1,11 +1,15 @@
 services:
   ocserv:
+    entrypoint: ["/usr/local/lib/docktinel/entrypoint"]
+    command: ["/ocserv.sh", "/usr/sbin/ocserv", "--config", "/run/ocserv/ocserv.conf", "--foreground", "--log-stderr"]
     init: true
     restart: unless-stopped
     image: xtrime/antizapret-vpn-ocserv:6.10.0
     hostname: ocserv.antizapret
     build:
       context: .
+      args:
+        DOCKTINEL_IMAGE: ${DOCKTINEL_IMAGE:-ghcr.io/xtrime-ru/docktinel:0.2.0}
       x-bake:
         platforms:
           - linux/amd64
@@ -15,12 +19,14 @@ services:
       options:
         max-size: 1m
         max-file: 3
+    stop_grace_period: 30s
     healthcheck:
-      test: /healthcheck.sh
+      test: ["CMD", "docktinel", "healthcheck", "--startup-grace", "10m"]
       interval: 10s
-      timeout: 15s
-      start_period: 3m
-      start_interval: 5s
+      timeout: 5s
+      start_period: 10m
+      start_interval: 1s
+      retries: 3
     cap_add:
       - NET_ADMIN
       - SYS_MODULE
@@ -42,6 +48,8 @@ services:
         limits:
           memory: 200M
     environment:
+      - TINI_KILL_PROCESS_GROUP=1
+      - DOCKTINEL_STARTUP_TIMEOUT=10m
       - OC_DEFAULT_ADDRESS=10.1.164.x
       - OC_PORT=443
       - OC_USER=admin

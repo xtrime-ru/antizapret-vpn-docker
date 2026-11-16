@@ -25,4 +25,6 @@ set -x
 
 (GLOBIGNORE="temp/.*"; mv -f temp/* result)
 
+./scripts/publish-state.sh
+
 exit 0

@@ -1,0 +1,9 @@
+#!/bin/sh
+set -eu
+
+# Start the sentinel before application initialization. All registrations finish
+# before startup; helper processes stay in the foreground under Docktinel.
+docktinel daemon &
+. /usr/local/lib/docktinel/tasks.sh
+. /etc/docktinel/tasks.sh
+exec docktinel startup -- "$@"

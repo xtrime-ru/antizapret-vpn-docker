@@ -1,3 +1,7 @@
+ARG DOCKTINEL_IMAGE=ghcr.io/xtrime-ru/docktinel:0.2.0
+
+FROM ${DOCKTINEL_IMAGE} AS docktinel
+
 FROM golang:1.27 AS builder-api
 WORKDIR /app
 COPY ./api/go.* .
@@ -69,7 +73,7 @@ RUN python3 -B -m unittest discover -v
 
 FROM test-dnsmap AS runtime-files
 COPY ./root /runtime/root
-COPY ./init.sh ./healthcheck.sh /runtime/
+COPY ./init.sh ./healthcheck.sh ./refresh-state.sh /runtime/
 
 RUN <<-"EOF" bash -ex
     for list in /runtime/root/antizapret/config/*-custom.txt; do rm -f $list; done
@@ -96,4 +100,10 @@ RUN <<-"EOF" bash -ex
     rm -frv /tmp/*
 EOF
 
-CMD ["/init.sh"]
+CMD []
+
+COPY --from=docktinel /usr/local/bin/docktinel /usr/local/bin/docktinel
+COPY --chmod=0755 common/docktinel/ /usr/local/lib/docktinel/
+COPY --chmod=0755 docktinel.sh /etc/docktinel/tasks.sh
+HEALTHCHECK NONE
+ENTRYPOINT []
