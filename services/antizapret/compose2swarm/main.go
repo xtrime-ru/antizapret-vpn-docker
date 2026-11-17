@@ -82,8 +82,8 @@ func main() {
 		service.DependsOn = nil // Swarm ignores depends_on
 		service.Devices = nil   // Swarm does not support devices
 
-		// Convert restart to deploy.restart_policy
-		if service.Restart != "" {
+		// Convert restart only when no Swarm restart policy was supplied.
+		if service.Restart != "" && (service.Deploy == nil || service.Deploy.RestartPolicy == nil) {
 			var condition string
 			switch service.Restart {
 			case "no":
@@ -96,20 +96,16 @@ func main() {
 				fmt.Fprintf(os.Stderr, "Unknown restart value: %s in service %s\n", service.Restart, service.Name)
 				os.Exit(1)
 			}
-			service.Restart = "" // clear old field
 			if service.Deploy == nil {
 				service.Deploy = &types.DeployConfig{}
 			}
-			var maxAttempts uint64 = 10
 			var delay types.Duration = types.Duration(1 * time.Second)
-			var window types.Duration = types.Duration(5 * time.Second)
 			service.Deploy.RestartPolicy = &types.RestartPolicy{
-				Condition:   condition,
-				MaxAttempts: &maxAttempts,
-				Delay:       &delay,
-				Window:      &window,
+				Condition: condition,
+				Delay:     &delay,
 			}
 		}
+		service.Restart = ""
 
 		if service.NetworkMode == "host" {
 			service.NetworkMode = ""
