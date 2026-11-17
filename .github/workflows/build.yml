@@ -1,19 +1,12 @@
-name: Build images
+name: Build and test images
 
 on:
   pull_request:
-    branches: [v6]
-    paths:
-      - versions.json
-      - scripts/image-matrix.sh
-      - .github/workflows/build.yml
+    branches: [dev, v6]
+    paths: [versions.json]
   push:
     branches: [dev, v6]
-    paths:
-      - versions.json
-      - scripts/image-matrix.sh
-      - .github/workflows/build.yml
-  workflow_dispatch:
+    paths: [versions.json]
 
 permissions:
   contents: read
@@ -24,14 +17,18 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  PUBLISH_IMAGES: ${{ github.ref == 'refs/heads/v6' && github.event_name != 'pull_request' }}
+  BUILD_CACHE_REPO: ghcr.io/${{ github.repository_owner }}/antizapret-buildcache
+  CACHE_WRITE_BRANCH: ${{ github.event_name != 'pull_request' && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/v6') && github.ref_name || '' }}
+  PUBLISH_IMAGES: ${{ github.event_name == 'push' }}
 
 jobs:
   prepare:
+    name: Detect version changes
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.matrix.outputs.matrix }}
+      releases: ${{ steps.matrix.outputs.releases }}
       count: ${{ steps.matrix.outputs.count }}
+      bake_target: ${{ steps.matrix.outputs.bake_target }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -42,73 +39,102 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
           old_versions=$(mktemp)
-          if [ -n "${BASE_SHA:-}" ] && git show "$BASE_SHA:versions.json" > "$old_versions" 2>/dev/null; then
-            :
+          if [[ "$BASE_SHA" =~ ^0+$ ]]; then
+            # Creating a branch alone does not change any image version.
+            cp versions.json "$old_versions"
           else
-            printf '{"images":[]}\n' > "$old_versions"
+            # The previous tip may be outside the checkout after a force-push.
+            git cat-file -e "$BASE_SHA^{commit}" || git fetch --no-tags origin "$BASE_SHA"
+            if git cat-file -e "$BASE_SHA:versions.json" 2>/dev/null; then
+              git show "$BASE_SHA:versions.json" > "$old_versions"
+            else
+              printf '{"images":[]}\n' > "$old_versions"
+            fi
           fi
-          matrix=$(scripts/image-matrix.sh "$old_versions" versions.json)
-          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
-          echo "count=$(jq '.include | length' <<< "$matrix")" >> "$GITHUB_OUTPUT"
+          jq -e '(.images | type == "array") and all(.images[];
+            all(.name,.repository,.version,.source,.compose,.target; type == "string" and length > 0)
+            and (.aliases | type == "array" and all(.[]; type == "string")))' versions.json >/dev/null
+          releases=$(jq -c --arg branch "$GITHUB_REF_NAME" --slurpfile old "$old_versions" '
+            ($old[0].images | INDEX(.name)) as $previous |
+            [.images[] | select(.version != $previous[.name].version) |
+              . as $image | {name, tags: [
+                (.version, (.aliases[] | select($branch == "v6"))) as $tag |
+                "xtrime/\($image.repository):\($tag)",
+                "ghcr.io/xtrime-ru/\($image.ghcr_repository // $image.repository):\($tag)"
+              ]}]' versions.json)
+          bake_target=$(jq -r 'if map(.name) == ["antizapret"] then "antizapret" else "default" end' <<< "$releases")
+          echo "bake_target=$bake_target" >> "$GITHUB_OUTPUT"
+          echo "releases=$releases" >> "$GITHUB_OUTPUT"
+          echo "count=$(jq length <<< "$releases")" >> "$GITHUB_OUTPUT"
 
-  build:
+  build-test-publish:
+    name: Build, test and publish
     needs: prepare
     if: needs.prepare.outputs.count != '0'
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
-    name: ${{ matrix.name }}:${{ matrix.version }}
     steps:
       - uses: actions/checkout@v6
-
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: tests/integration/go.mod
+          cache-dependency-path: tests/integration/go.sum
+      - id: docker
+        uses: docker/setup-docker-action@v5
+        with:
+          daemon-config: '{"features":{"containerd-snapshotter":true}}'
       - uses: docker/setup-qemu-action@v4
-
       - uses: docker/setup-buildx-action@v4
-
-      - name: Set release image tag
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Prepare image targets
+        run: scripts/ci-bake.sh > ci-bake.json
+      - uses: docker/bake-action@v7
+        with:
+          source: .
+          files: ci-bake.json
+          targets: ${{ needs.prepare.outputs.bake_target }}
+          load: true
+      - name: Run integration tests
         env:
-          SERVICE: ${{ matrix.target }}
-          IMAGE: xtrime/${{ matrix.repository }}:${{ matrix.version }}
+          BAKE_TARGET: ${{ needs.prepare.outputs.bake_target }}
+          DOCKER_SOCKET: ${{ steps.docker.outputs.sock }}
         run: |
-          printf 'services:\n  %s:\n    image: %s\n' "$SERVICE" "$IMAGE" > "${{ matrix.source }}/release-compose.yml"
-
-      - name: Use shared runtime from this checkout
-        if: matrix.name != 'antizapret' && matrix.name != 'cloak'
-        env:
-          SERVICE: ${{ matrix.target }}
+          CGO_ENABLED=0 go -C tests/integration test -c -o "$RUNNER_TEMP/integration.test"
+          # DNS probe tests use the BusyBox shipped in the AdGuard image.
+          test_image=antizapret-adguard:ci
+          args=(-test.v -test.timeout=10m)
+          if [[ "$BAKE_TARGET" == antizapret ]]; then
+            test_image=antizapret-antizapret:ci
+            args+=('-test.run=^(TestAntizapret.*|TestServiceLaunchPolicy)$/^antizapret$')
+          fi
+          docker run --rm \
+            -v "${DOCKER_SOCKET#unix://}:/var/run/docker.sock" \
+            -v "$PWD:/repo:ro" -w /repo/tests/integration \
+            -v "$RUNNER_TEMP/integration.test:/integration.test:ro" \
+            "$test_image" /integration.test "${args[@]}"
+      - name: Test AdGuard migration and CoreDNS failover
+        if: needs.prepare.outputs.bake_target == 'default'
         run: |
-          platforms=$(docker buildx bake -f "${{ matrix.source }}/${{ matrix.compose }}" --print "$SERVICE" |
-            jq -c --arg service "$SERVICE" '.target[$service].platforms')
-          jq -n --arg service "$SERVICE" --argjson platforms "$platforms" '{target: {
-            "shared-runtime": {context: "../antizapret", target: "service-runtime", platforms: $platforms},
-            ($service): {contexts: {antizapret: "target:shared-runtime"}}
-          }}' > "${{ matrix.source }}/runtime-bake.json"
-
+          YQ=yq python3 -B -m unittest discover -s services/adguard -v
+          docker run --rm antizapret-coredns:ci cat /coredns > "$RUNNER_TEMP/coredns"
+          chmod +x "$RUNNER_TEMP/coredns"
+          COREDNS="$RUNNER_TEMP/coredns" python3 -B services/coredns/test_failover.py -v
       - uses: docker/login-action@v4
         if: env.PUBLISH_IMAGES == 'true'
         with:
           username: xtrime
           password: ${{ secrets.DOCKER_TOKEN }}
-
-      - uses: docker/login-action@v4
+      - name: Publish tested images
+        shell: bash
         if: env.PUBLISH_IMAGES == 'true'
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - uses: docker/bake-action@v7
-        with:
-          source: ./${{ matrix.source }}
-          files: |
-            ${{ matrix.compose }}
-            release-compose.yml
-            ${{ matrix.name != 'antizapret' && matrix.name != 'cloak' && 'runtime-bake.json' || '' }}
-          targets: ${{ matrix.target }}
-          allow: fs.read=../antizapret
-          set: |
-            ${{ matrix.set_tags }}
-            ${{ matrix.target }}.cache-from=type=gha,scope=${{ matrix.name }}
-            ${{ matrix.target }}.cache-to=type=gha,mode=max,scope=${{ matrix.name }}
-          push: ${{ env.PUBLISH_IMAGES == 'true' }}
+        env:
+          RELEASES: ${{ needs.prepare.outputs.releases }}
+        run: |
+          jq -r '.[] | .name as $name | .tags[] | [$name, .] | @tsv' <<< "$RELEASES" |
+            while IFS=$'\t' read -r service tag; do
+              docker image tag "antizapret-$service:ci" "$tag"
+              docker image push "$tag"
+            done
