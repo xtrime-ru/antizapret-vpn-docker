@@ -1,74 +1,33 @@
 #!/usr/bin/env bash
 set -euo pipefail
+cd "$(dirname "$0")/.."
 
-# Default versions array
-VERSIONS=()
-# Default services array
-SERVICES=()
-
-# Parse command-line arguments
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    -v|--version)
-      VERSIONS+=("$2")
-      shift 2
-      ;;
-    -s|--services)
-      SERVICES+=("$2")
-      shift 2
-      ;;
-    *)
-      echo "Unknown argument: $1"
-      exit 1
-      ;;
-  esac
+versions=()
+services=()
+while (($#)); do
+    case "$1" in
+        -v|--version) versions+=("${2:?Missing version}");;
+        -s|--services) services+=("${2:?Missing service}");;
+        *) echo "Unknown argument: $1" >&2; exit 1;;
+    esac
+    shift 2
 done
 
-# If no versions specified, default to "latest"
-if [ ${#VERSIONS[@]} -eq 0 ]; then
-  VERSIONS=("latest")
+if [[ -z "${versions[0]:-}" ]]; then
+    versions=(latest)
+fi
+if [[ -z "${services[0]:-}" ]]; then
+    while IFS= read -r name; do services+=("$name"); done < <(jq -r '.images[].name' versions.json)
 fi
 
-# If no versions specified, default to "latest"
-if [ ${#SERVICES[@]} -eq 0 ]; then
-  SERVICES=(antizapret adguard coredns wireguard openvpn openvpn-ui https firewall proxy cloak filebrowser dashboard)
-fi
-
-# Build each service for all versions at once
-for service in "${SERVICES[@]}"; do
-
-  DIR="$service"
-  if [[ "$service" =~ ^wireguard- ]]; then
-    DIR="wireguard"
-  elif [[ "$service" =~ ^openvpn- ]]; then
-    DIR="openvpn"
-  fi
-
-  SERVICE_POSTFIX=""
-  if [[ "$service" != "antizapret" ]]; then
-    SERVICE_POSTFIX="-$service"
-  fi
-
-  SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && cd ../services/"$DIR" && pwd )"
-
-
-
-  echo ""
-  echo "==============================="
-  echo "Building service: $service"
-  echo "==============================="
-
-  # Create dynamic tag setters
-  SET_ARGS=()
-
-  for version in "${VERSIONS[@]}"; do
-    IMAGE_TAG="xtrime/antizapret-vpn${SERVICE_POSTFIX}:${version}"
-    SET_ARGS+=(--set "${service}.tags=${IMAGE_TAG}")
-  done
-
-  echo "Running command:"
-  echo "(cd $SCRIPT_DIR; docker buildx bake $service ${SET_ARGS[@]} --push)"
-
-  # Execute bake for this service
-  (cd "$SCRIPT_DIR"; docker buildx bake "$service" "${SET_ARGS[@]}" --push)
+for name in "${services[@]}"; do
+    image=$(jq -er --arg name "$name" '
+        .images[] | select(.name == $name) | [.source,.compose,.target,.repository] | @tsv
+    ' versions.json) || { echo "Unknown service: $name" >&2; exit 1; }
+    IFS=$'\t' read -r source compose target repository <<< "$image"
+    tags=()
+    for version in "${versions[@]}"; do
+        tags+=(--set "$target.tags=xtrime/$repository:$version")
+    done
+    (cd "$source" && docker buildx bake -f "$compose" "${tags[@]}" --push "$target")
 done
