@@ -30,7 +30,6 @@ jobs:
       releases: ${{ steps.plan.outputs.releases }}
       services: ${{ steps.plan.outputs.services }}
       dependencies: ${{ steps.dependencies.outputs.images }}
-      integration_artifacts: ${{ steps.dependencies.outputs.artifacts }}
       cache_branch: ${{ steps.plan.outputs.cache_branch }}
     steps:
       - uses: actions/checkout@v6
@@ -46,46 +45,48 @@ jobs:
           fi
 
           previous='{"images":[]}'
-          if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch ]]; then
-            : # Select all versions.
-          elif [[ "$BASE_SHA" =~ ^0+$ ]]; then
-            previous=$(cat versions.json)
-          else
-            git cat-file -e "$BASE_SHA^{commit}" || git fetch --depth=1 --no-tags origin "$BASE_SHA"
-            if git cat-file -e "$BASE_SHA:versions.json" 2>/dev/null; then
-              previous=$(git show "$BASE_SHA:versions.json")
+          if [[ "$GITHUB_EVENT_NAME" != workflow_dispatch ]]; then
+            if [[ "$BASE_SHA" =~ ^0+$ ]]; then
+              previous=$(cat versions.json)
+            else
+              git cat-file -e "$BASE_SHA^{commit}" || git fetch --depth=1 --no-tags origin "$BASE_SHA"
+              previous=$(git show "$BASE_SHA:versions.json" 2>/dev/null || echo "$previous")
             fi
           fi
-          images=$(jq -c --argjson old "$previous" '
+
+          plan=$(jq -c --argjson old "$previous" --arg branch "$cache_branch" --arg publish "$PUBLISH_REQUESTED" '
+            def repositories:
+              ["ghcr.io/xtrime-ru/" + (.ghcr_repository // .repository), "xtrime/" + .repository];
             if (.images | type != "array") or any(.images[];
               any(.name,.repository,.version,.source,.compose,.target; type != "string" or length == 0)
               or (.aliases | type != "array" or any(.[]; type != "string"))
               or (.name | test("^[a-z0-9][a-z0-9-]*$") | not))
-            then error("Invalid versions.json") else
-              ($old.images | INDEX(.name)) as $previous |
-              [.images[] | select(.version != $previous[.name].version)]
-            end' versions.json)
-          releases='[]'
-          if [[ -n "$cache_branch" && "$PUBLISH_REQUESTED" == true ]]; then
-            releases=$(jq -c --arg branch "$cache_branch" '
-              map(. as $image | {name, tags: [
-                (.version, (.aliases[] | select($branch != "dev"))) as $tag |
-                "xtrime/\($image.repository):\($tag)",
-                "ghcr.io/xtrime-ru/\($image.ghcr_repository // $image.repository):\($tag)"
-              ]})' <<< "$images")
-          fi
-          services=$(jq -c 'map(.name)' <<< "$images")
-          printf 'services=%s\ncache_branch=%s\nreleases=%s\n' \
-            "$services" "$cache_branch" "$releases" >> "$GITHUB_OUTPUT"
+            then error("Invalid versions.json") else .images end |
+            if (map(.name) | unique | length) != length then error("Duplicate image name") else . end |
+            ($old.images | INDEX(.name)) as $previous |
+            map(select(.version != $previous[.name].version)) as $built |
+            {
+              changes: ($built | map({name, version})),
+              services: ($built | map(.name)),
+              releases: (if $branch != "" and $publish == "true" then $built | map(
+                (repositories | reverse) as $repos |
+                {name, tags: [(.version, (.aliases[] | select($branch != "dev"))) as $tag |
+                  $repos[] + ":" + $tag]}) else [] end),
+              pins: [ .[] | select(.name | IN("antizapret", "adguard", "coredns")) |
+                . as $image | select(all($built[]; .name != $image.name)) |
+                {name, candidates: (repositories | map(. + ":" + $image.version))} ]
+            }' versions.json)
+          jq -r 'del(.changes) | to_entries[] | "\(.key)=\(.value | tojson)"' <<< "$plan" >> "$GITHUB_OUTPUT"
+          echo "cache_branch=$cache_branch" >> "$GITHUB_OUTPUT"
           {
             echo '### Build and test on amd64 and arm64'
-            jq -r 'if length == 0 then "No image versions changed." else .[] | "- " + .name + ":" + .version end' <<< "$images"
+            jq -r '.changes | if length == 0 then "No image versions changed." else .[] | "- " + .name + ":" + .version end' <<< "$plan"
             echo
             echo '### Publication'
-            jq -r 'if length == 0 then "Publication disabled." else .[].tags[] | "- " + . end' <<< "$releases"
+            jq -r '.releases | if length == 0 then "Publication disabled." else .[].tags[] | "- " + . end' <<< "$plan"
           } >> "$GITHUB_STEP_SUMMARY"
       - uses: docker/login-action@v4
-        if: steps.plan.outputs.services != '[]'
+        if: steps.plan.outputs.services != '[]' && steps.plan.outputs.pins != '[]'
         with: &ghcr_login
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -93,43 +94,31 @@ jobs:
       - id: dependencies
         if: steps.plan.outputs.services != '[]'
         env:
-          SERVICES: ${{ steps.plan.outputs.services }}
+          PINS: ${{ steps.plan.outputs.pins }}
         shell: bash
         run: |
-          dependencies=$(jq -er --argjson built "$SERVICES" '
-            .images[] | select(.name == "antizapret" or .name == "adguard" or .name == "coredns") |
-            . as $image | [.name, .version, (if ($built | index($image.name)) then "build" else "pull" end),
-              "ghcr.io/xtrime-ru/" + (.ghcr_repository // .repository), "xtrime/" + .repository] | @tsv
-          ' versions.json)
-          images=$(while IFS=$'\t' read -r name version source ghcr hub; do
-            if [[ "$source" == build ]]; then
-              jq -cn --arg name "$name" '{name:$name}'
-              continue
-            fi
-            ref=
-            for repo in "$ghcr" "$hub"; do
-              if digest=$(docker buildx imagetools inspect "$repo:$version" --format '{{.Manifest.Digest}}') &&
-                 [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]; then
-                ref="$repo@$digest"
-                break
+          images=$(jq -r '.[] | [.name, .candidates[]] | @tsv' <<< "$PINS" |
+            while IFS=$'\t' read -r name ghcr hub; do
+              ref=
+              for candidate in "$ghcr" "$hub"; do
+                if digest=$(docker buildx imagetools inspect "$candidate" --format '{{.Manifest.Digest}}') &&
+                   [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]; then
+                  ref="${candidate%:*}@$digest"
+                  break
+                fi
+              done
+              if [[ -z "$ref" ]]; then
+                echo "::error::Cannot resolve a digest for $name ($ghcr or $hub)" >&2
+                exit 1
               fi
-            done
-            if [[ -z "$ref" ]]; then
-              echo "::error::Cannot resolve a digest for integration dependency $name:$version" >&2
-              exit 1
-            fi
-            jq -cn --arg name "$name" --arg ref "$ref" '{name:$name,ref:$ref}'
-          done <<< "$dependencies" | jq -sc '.')
-          artifacts=$(jq -r 'map(select(.ref == null).name) | join("|")' <<< "$images")
-          printf 'images=%s\nartifacts=%s\n' "$images" "$artifacts" >> "$GITHUB_OUTPUT"
-          {
-            echo
-            echo '### Integration images'
-            jq -r '.[] | "- " + .name + ": " + (.ref // "OCI artifact from this run")' <<< "$images"
-          } >> "$GITHUB_STEP_SUMMARY"
+              printf '%s\t%s\n' "$name" "$ref"
+            done | jq -Rnc '[inputs | split("\t") | {name: .[0], ref: .[1]}]')
+          echo "images=$images" >> "$GITHUB_OUTPUT"
+          jq -r 'select(length > 0) | "\n### Pinned DNS integration images", (.[] | "- " + .name + ": " + .ref)' \
+            <<< "$images" >> "$GITHUB_STEP_SUMMARY"
 
-  service:
-    name: ${{ matrix.service }} / ${{ matrix.arch }}
+  build:
+    name: Build / ${{ matrix.service }} / ${{ matrix.arch }}
     needs: plan
     if: needs.plan.outputs.services != '[]'
     permissions:
@@ -140,50 +129,88 @@ jobs:
       matrix:
         service: ${{ fromJSON(needs.plan.outputs.services) }}
         arch: [amd64, arm64]
-    uses: ./.github/workflows/service.yml
-    with:
-      service: ${{ matrix.service }}
-      arch: ${{ matrix.arch }}
-      cache_branch: ${{ needs.plan.outputs.cache_branch }}
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    env:
+      SERVICE: ${{ matrix.service }}
+      BUILD_ARCH: ${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with: *ghcr_login
+      - name: Prepare Bake target
+        env:
+          BUILD_CACHE_REPO: ghcr.io/${{ github.repository_owner }}/antizapret-buildcache
+          CACHE_BASE_BRANCH: ${{ github.base_ref || github.event.repository.default_branch }}
+          CACHE_WRITE_BRANCH: ${{ needs.plan.outputs.cache_branch }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/oci"
+          OCI_DIR="$RUNNER_TEMP/oci" scripts/ci-bake.sh > ci-bake.json
+      - uses: docker/bake-action@v7
+        with:
+          source: .
+          files: ci-bake.json
+          targets: ${{ matrix.service }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: oci-${{ matrix.service }}_${{ matrix.arch }}
+          path: ${{ runner.temp }}/oci/${{ matrix.service }}-${{ matrix.arch }}.tar
+          compression-level: 0
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 7
 
   integration:
     name: Integration / ${{ matrix.arch }}
-    needs: [plan, service]
+    needs: [plan, build]
     strategy:
       fail-fast: false
       matrix:
         arch: [amd64, arm64]
     runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    env:
+      BUILD_ARCH: ${{ matrix.arch }}
+      TEST_SERVICES: ${{ join(fromJSON(needs.plan.outputs.services), ' ') }}
     steps:
       - uses: actions/checkout@v6
       - uses: docker/setup-docker-action@v5
+        id: docker
         with:
           daemon-config: '{"features":{"containerd-snapshotter":true}}'
       - uses: actions/download-artifact@v7
-        if: needs.plan.outputs.integration_artifacts != ''
         with:
-          pattern: oci-@(${{ needs.plan.outputs.integration_artifacts }})_${{ matrix.arch }}
+          pattern: oci-*_${{ matrix.arch }}
           path: ${{ runner.temp }}/images
           merge-multiple: true
       - uses: docker/login-action@v4
+        if: needs.plan.outputs.dependencies != '[]'
         with: *ghcr_login
-      - name: Load tested images and pinned dependencies
+      - name: Load built images and pinned dependencies
         env:
-          ARCH: ${{ matrix.arch }}
           DEPENDENCIES: ${{ needs.plan.outputs.dependencies }}
         shell: bash
         run: |
+          read -r -a services <<< "$TEST_SERVICES"
+          for name in "${services[@]}"; do
+            archive="$RUNNER_TEMP/images/$name-$BUILD_ARCH.tar"
+            docker image load --input "$archive"
+            rm "$archive"
+          done
           jq -r '.[] | [.name, .ref] | @tsv' <<< "$DEPENDENCIES" |
           while IFS=$'\t' read -r name ref; do
-            if [[ -z "$ref" ]]; then
-              docker image load --input "$RUNNER_TEMP/images/$name-$ARCH.tar"
-            else
-              docker pull --platform "linux/$ARCH" "$ref"
-              docker image tag "$ref" "antizapret-$name:ci"
-            fi
+            docker pull --platform "linux/$BUILD_ARCH" "$ref"
+            docker image tag "$ref" "antizapret-$name:ci"
           done
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: tests/integration/go.mod
+          cache-dependency-path: tests/integration/go.sum
+      - name: Test built images
+        env:
+          DOCKER_HOST: ${{ steps.docker.outputs.sock }}
+        run: go -C tests/integration test -count=1 -v ./...
       - name: Test DNS across CoreDNS, dnsmap and AdGuard
-        run: scripts/ci-integration.sh
+        run: tests/integration/dns.sh
 
   publish:
     name: Publish / ${{ matrix.name }}

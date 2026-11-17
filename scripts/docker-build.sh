@@ -16,18 +16,21 @@ done
 if [[ -z "${versions[0]:-}" ]]; then
     versions=(latest)
 fi
-if [[ -z "${services[0]:-}" ]]; then
-    while IFS= read -r name; do services+=("$name"); done < <(jq -r '.images[].name' versions.json)
+manifest_args=(versions.json --args --)
+if [[ -n "${services[0]:-}" ]]; then
+    manifest_args+=("${services[@]}")
 fi
+images=$(jq -er '
+    if $ARGS.positional == [] then .images[] else
+        INDEX(.images[]; .name) as $images |
+        $ARGS.positional[] | $images[.] // error("Unknown service: " + .)
+    end | [.source,.compose,.target,.repository] | @tsv
+' "${manifest_args[@]}")
 
-for name in "${services[@]}"; do
-    image=$(jq -er --arg name "$name" '
-        .images[] | select(.name == $name) | [.source,.compose,.target,.repository] | @tsv
-    ' versions.json) || { echo "Unknown service: $name" >&2; exit 1; }
-    IFS=$'\t' read -r source compose target repository <<< "$image"
+while IFS=$'\t' read -r source compose target repository; do
     tags=()
     for version in "${versions[@]}"; do
         tags+=(--set "$target.tags=xtrime/$repository:$version")
     done
     (cd "$source" && docker buildx bake -f "$compose" "${tags[@]}" --push "$target")
-done
+done <<< "$images"

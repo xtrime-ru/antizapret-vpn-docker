@@ -4,8 +4,10 @@ import json
 import os
 from pathlib import Path
 import shutil
+import socket
 import subprocess
 import tempfile
+import threading
 import time
 import unittest
 
@@ -13,15 +15,57 @@ import unittest
 ROOT = Path(__file__).resolve().parent
 
 
+@unittest.skipUnless(shutil.which("busybox"), "BusyBox required")
+class DNSProbeTests(unittest.TestCase):
+    def probe(self, rcode=0, delay=0, reply=True):
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as resolver:
+            resolver.bind(("127.0.0.1", 0))
+            resolver.settimeout(3)
+
+            def respond():
+                try:
+                    packet, peer = resolver.recvfrom(4096)
+                except TimeoutError:
+                    return
+                time.sleep(delay)
+                resolver.sendto(packet[:2] + bytes((0x81, 0x80 | rcode)) + packet[4:], peer)
+
+            thread = None
+            if reply:
+                thread = threading.Thread(target=respond)
+                thread.start()
+            try:
+                return subprocess.run(
+                    ["sh", str(ROOT / "check-dns")],
+                    env={**os.environ, "DNS_PROBE_PORT": str(resolver.getsockname()[1])},
+                    capture_output=True, timeout=20,
+                ).returncode
+            finally:
+                if thread is not None:
+                    thread.join()
+
+    def test_requires_successful_response(self):
+        for name, rcode in (("NOERROR", 0), ("SERVFAIL", 2), ("REFUSED", 5), ("NXDOMAIN", 3)):
+            with self.subTest(status=name):
+                self.assertEqual(self.probe(rcode) == 0, rcode == 0)
+
+    def test_allows_delayed_fallback_response(self):
+        self.assertEqual(self.probe(delay=5.5), 0)
+
+    def test_timeout_fails(self):
+        self.assertNotEqual(self.probe(reply=False), 0)
+
+
 class DependencyWaitTests(unittest.TestCase):
-    def run_wait(self, getent, seconds=2, world="1"):
+    def run_wait(self, getent, seconds=2, world="1", expire_after_poll=False):
         with tempfile.TemporaryDirectory() as tmp:
             mock = Path(tmp, "getent")
             mock.write_text("#!/usr/bin/env bash\n" + getent)
             mock.chmod(0o755)
+            setup = "sleep() { SECONDS=$deadline; }; " if expire_after_poll else ""
             started = time.monotonic()
             result = subprocess.run(
-                ["bash", "-c", 'source "$1"; wait_for_dependencies "$2"; '
+                ["bash", "-c", setup + 'source "$1"; wait_for_dependencies "$2"; '
                  'printf "%s|%s|%s" "$AZ_LOCAL_HOST" "$AZ_WORLD_HOST" "$COREDNS_HOST"',
                  "test", str(ROOT / "dependencies.sh"), str(seconds)],
                 env={**os.environ, "PATH": tmp + os.pathsep + os.environ["PATH"],
@@ -43,15 +87,15 @@ class DependencyWaitTests(unittest.TestCase):
         self.assertNotIn("expired", result.stderr)
 
     def test_missing_dependency_keeps_available_addresses(self):
-        # Leave enough time for all three subprocess probes; the separate stuck
-        # resolver test exercises the one-second deadline.
+        # Expire between polls so this checks the retained addresses. The stuck
+        # resolver test separately exercises the real one-second deadline.
         result, _ = self.run_wait('[[ "$2" != az-world.antizapret ]] || exit 2\n'
-                                  'echo "172.20.0.4 $2"\n', seconds=2)
+                                  'echo "172.20.0.4 $2"\n', seconds=4, expire_after_poll=True)
         self.assertEqual(result.stdout, "172.20.0.4||172.20.0.4")
         self.assertIn("expired", result.stderr)
 
     def test_stuck_resolution_is_bounded(self):
-        result, elapsed = self.run_wait("sleep 5\n", seconds=1)
+        result, elapsed = self.run_wait("exec sleep 5\n", seconds=1)
         self.assertEqual(result.stdout, "||")
         self.assertIn("expired", result.stderr)
         self.assertLess(elapsed, 2.5)
