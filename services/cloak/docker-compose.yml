@@ -1,7 +1,10 @@
 services:
   cloak:
+    entrypoint: []
+    command: ["/init.sh"]
+    init: true
     restart: unless-stopped
-    image: xtrime/antizapret-vpn-cloak:6.10.0
+    image: xtrime/antizapret-vpn-cloak:6.12.2
     build: 
       context: .
       x-bake:

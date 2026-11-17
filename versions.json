@@ -22,7 +22,7 @@
     {
       "name": "cloak",
       "repository": "antizapret-vpn-cloak",
-      "version": "6.10.0",
+      "version": "6.12.2",
       "source": "services/cloak",
       "compose": "docker-compose.yml",
       "target": "cloak",
