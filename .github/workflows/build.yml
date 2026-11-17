@@ -1,4 +1,4 @@
-name: Build and test images
+name: CI
 
 on:
   pull_request:
@@ -16,24 +16,21 @@ on:
 
 permissions:
   contents: read
-  packages: write
+  packages: read
 
 concurrency:
   group: build-images-${{ github.ref }}
   cancel-in-progress: false
 
-env:
-  BUILD_CACHE_REPO: ghcr.io/${{ github.repository_owner }}/antizapret-buildcache
-  CACHE_BASE_BRANCH: ${{ github.base_ref || github.event.repository.default_branch }}
-
 jobs:
-  prepare:
-    name: Select images to build
+  plan:
+    name: Plan
     runs-on: ubuntu-latest
     outputs:
       releases: ${{ steps.plan.outputs.releases }}
-      targets: ${{ steps.plan.outputs.targets }}
-      suite: ${{ steps.plan.outputs.suite }}
+      services: ${{ steps.plan.outputs.services }}
+      dependencies: ${{ steps.dependencies.outputs.images }}
+      integration_artifacts: ${{ steps.dependencies.outputs.artifacts }}
       cache_branch: ${{ steps.plan.outputs.cache_branch }}
     steps:
       - uses: actions/checkout@v6
@@ -41,6 +38,7 @@ jobs:
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
           PUBLISH_REQUESTED: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish) }}
+        shell: bash
         run: |
           cache_branch=
           if [[ "$GITHUB_EVENT_NAME" != pull_request && "$GITHUB_REF_TYPE" == branch && "$GITHUB_REF_NAME" =~ ^(dev|v[0-9]+)$ ]]; then
@@ -61,20 +59,12 @@ jobs:
           images=$(jq -c --argjson old "$previous" '
             if (.images | type != "array") or any(.images[];
               any(.name,.repository,.version,.source,.compose,.target; type != "string" or length == 0)
-              or (.aliases | type != "array" or any(.[]; type != "string")))
+              or (.aliases | type != "array" or any(.[]; type != "string"))
+              or (.name | test("^[a-z0-9][a-z0-9-]*$") | not))
             then error("Invalid versions.json") else
               ($old.images | INDEX(.name)) as $previous |
               [.images[] | select(.version != $previous[.name].version)]
             end' versions.json)
-          targets=$(jq -r 'map(.name) | join(",")' <<< "$images")
-          suite=
-          if [[ -n "$targets" && -f tests/integration/go.mod ]]; then
-            suite=antizapret
-            if [[ "$targets" != antizapret ]]; then
-              suite=full
-              targets=default
-            fi
-          fi
           releases='[]'
           if [[ -n "$cache_branch" && "$PUBLISH_REQUESTED" == true ]]; then
             releases=$(jq -c --arg branch "$cache_branch" '
@@ -84,81 +74,149 @@ jobs:
                 "ghcr.io/xtrime-ru/\($image.ghcr_repository // $image.repository):\($tag)"
               ]})' <<< "$images")
           fi
-          printf 'targets=%s\nsuite=%s\ncache_branch=%s\nreleases=%s\n' \
-            "$targets" "$suite" "$cache_branch" "$releases" >> "$GITHUB_OUTPUT"
-
-  build-test-publish:
-    name: Build, test and publish
-    needs: prepare
-    if: needs.prepare.outputs.targets != ''
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-go@v7
-        if: needs.prepare.outputs.suite != ''
-        with:
-          go-version-file: tests/integration/go.mod
-          cache-dependency-path: tests/integration/go.sum
-      - id: docker
-        uses: docker/setup-docker-action@v5
-        with:
-          daemon-config: '{"features":{"containerd-snapshotter":true}}'
-      - uses: docker/setup-qemu-action@v4
-      - uses: docker/setup-buildx-action@v4
+          services=$(jq -c 'map(.name)' <<< "$images")
+          printf 'services=%s\ncache_branch=%s\nreleases=%s\n' \
+            "$services" "$cache_branch" "$releases" >> "$GITHUB_OUTPUT"
+          {
+            echo '### Build and test on amd64 and arm64'
+            jq -r 'if length == 0 then "No image versions changed." else .[] | "- " + .name + ":" + .version end' <<< "$images"
+            echo
+            echo '### Publication'
+            jq -r 'if length == 0 then "Publication disabled." else .[].tags[] | "- " + . end' <<< "$releases"
+          } >> "$GITHUB_STEP_SUMMARY"
       - uses: docker/login-action@v4
-        with:
+        if: steps.plan.outputs.services != '[]'
+        with: &ghcr_login
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Prepare image targets
+      - id: dependencies
+        if: steps.plan.outputs.services != '[]'
         env:
-          CACHE_WRITE_BRANCH: ${{ needs.prepare.outputs.cache_branch }}
-        run: scripts/ci-bake.sh > ci-bake.json
-      - uses: docker/bake-action@v7
+          SERVICES: ${{ steps.plan.outputs.services }}
+        shell: bash
+        run: |
+          dependencies=$(jq -er --argjson built "$SERVICES" '
+            .images[] | select(.name == "antizapret" or .name == "adguard" or .name == "coredns") |
+            . as $image | [.name, .version, (if ($built | index($image.name)) then "build" else "pull" end),
+              "ghcr.io/xtrime-ru/" + (.ghcr_repository // .repository), "xtrime/" + .repository] | @tsv
+          ' versions.json)
+          images=$(while IFS=$'\t' read -r name version source ghcr hub; do
+            if [[ "$source" == build ]]; then
+              jq -cn --arg name "$name" '{name:$name}'
+              continue
+            fi
+            ref=
+            for repo in "$ghcr" "$hub"; do
+              if digest=$(docker buildx imagetools inspect "$repo:$version" --format '{{.Manifest.Digest}}') &&
+                 [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]; then
+                ref="$repo@$digest"
+                break
+              fi
+            done
+            if [[ -z "$ref" ]]; then
+              echo "::error::Cannot resolve a digest for integration dependency $name:$version" >&2
+              exit 1
+            fi
+            jq -cn --arg name "$name" --arg ref "$ref" '{name:$name,ref:$ref}'
+          done <<< "$dependencies" | jq -sc '.')
+          artifacts=$(jq -r 'map(select(.ref == null).name) | join("|")' <<< "$images")
+          printf 'images=%s\nartifacts=%s\n' "$images" "$artifacts" >> "$GITHUB_OUTPUT"
+          {
+            echo
+            echo '### Integration images'
+            jq -r '.[] | "- " + .name + ": " + (.ref // "OCI artifact from this run")' <<< "$images"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  service:
+    name: ${{ matrix.service }} / ${{ matrix.arch }}
+    needs: plan
+    if: needs.plan.outputs.services != '[]'
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJSON(needs.plan.outputs.services) }}
+        arch: [amd64, arm64]
+    uses: ./.github/workflows/service.yml
+    with:
+      service: ${{ matrix.service }}
+      arch: ${{ matrix.arch }}
+      cache_branch: ${{ needs.plan.outputs.cache_branch }}
+
+  integration:
+    name: Integration / ${{ matrix.arch }}
+    needs: [plan, service]
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [amd64, arm64]
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: docker/setup-docker-action@v5
         with:
-          source: .
-          files: ci-bake.json
-          targets: ${{ needs.prepare.outputs.targets }}
-          load: true
-      - name: Run integration tests
-        if: needs.prepare.outputs.suite != ''
-        env:
-          TEST_SUITE: ${{ needs.prepare.outputs.suite }}
-          DOCKER_SOCKET: ${{ steps.docker.outputs.sock }}
-        run: |
-          CGO_ENABLED=0 go -C tests/integration test -c -o "$RUNNER_TEMP/integration.test"
-          # DNS probe tests use the BusyBox shipped in the AdGuard image.
-          test_image=antizapret-adguard:ci
-          args=(-test.v -test.timeout=10m)
-          if [[ "$TEST_SUITE" == antizapret ]]; then
-            test_image=antizapret-antizapret:ci
-            args+=('-test.run=^(TestAntizapret.*|TestServiceLaunchPolicy)$/^antizapret$')
-          fi
-          docker run --rm \
-            -v "${DOCKER_SOCKET#unix://}:/var/run/docker.sock" \
-            -v "$PWD:/repo:ro" -w /repo/tests/integration \
-            -v "$RUNNER_TEMP/integration.test:/integration.test:ro" \
-            "$test_image" /integration.test "${args[@]}"
-      - name: Test AdGuard migration and CoreDNS failover
-        if: needs.prepare.outputs.suite == 'full'
-        run: |
-          YQ=yq python3 -B -m unittest discover -s services/adguard -v
-          docker run --rm antizapret-coredns:ci cat /coredns > "$RUNNER_TEMP/coredns"
-          chmod +x "$RUNNER_TEMP/coredns"
-          COREDNS="$RUNNER_TEMP/coredns" python3 -B services/coredns/test_failover.py -v
+          daemon-config: '{"features":{"containerd-snapshotter":true}}'
+      - uses: actions/download-artifact@v7
+        if: needs.plan.outputs.integration_artifacts != ''
+        with:
+          pattern: oci-@(${{ needs.plan.outputs.integration_artifacts }})_${{ matrix.arch }}
+          path: ${{ runner.temp }}/images
+          merge-multiple: true
       - uses: docker/login-action@v4
-        if: needs.prepare.outputs.releases != '[]'
+        with: *ghcr_login
+      - name: Load tested images and pinned dependencies
+        env:
+          ARCH: ${{ matrix.arch }}
+          DEPENDENCIES: ${{ needs.plan.outputs.dependencies }}
+        shell: bash
+        run: |
+          jq -r '.[] | [.name, .ref] | @tsv' <<< "$DEPENDENCIES" |
+          while IFS=$'\t' read -r name ref; do
+            if [[ -z "$ref" ]]; then
+              docker image load --input "$RUNNER_TEMP/images/$name-$ARCH.tar"
+            else
+              docker pull --platform "linux/$ARCH" "$ref"
+              docker image tag "$ref" "antizapret-$name:ci"
+            fi
+          done
+      - name: Test DNS across CoreDNS, dnsmap and AdGuard
+        run: scripts/ci-integration.sh
+
+  publish:
+    name: Publish / ${{ matrix.name }}
+    needs: [plan, integration]
+    if: needs.plan.outputs.releases != '[]'
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.releases) }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: oci-${{ matrix.name }}_@(amd64|arm64)
+          path: ${{ runner.temp }}/images
+          merge-multiple: true
+      - name: Install regctl
+        run: |
+          curl -fsSL https://github.com/regclient/regclient/releases/download/v0.11.6/regctl-linux-amd64 -o "$RUNNER_TEMP/regctl"
+          chmod +x "$RUNNER_TEMP/regctl"
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+      - uses: docker/login-action@v4
+        with: *ghcr_login
+      - uses: docker/login-action@v4
         with:
           username: xtrime
           password: ${{ secrets.DOCKER_TOKEN }}
       - name: Publish tested images
-        shell: bash
-        if: needs.prepare.outputs.releases != '[]'
         env:
-          RELEASES: ${{ needs.prepare.outputs.releases }}
-        run: |
-          jq -r '.[] | .name as $name | .tags[] | [$name, .] | @tsv' <<< "$RELEASES" |
-            while IFS=$'\t' read -r service tag; do
-              docker image tag "antizapret-$service:ci" "$tag"
-              docker image push "$tag"
-            done
+          SERVICE: ${{ matrix.name }}
+          TAGS: ${{ toJSON(matrix.tags) }}
+        run: scripts/ci-publish.sh "$RUNNER_TEMP/images"

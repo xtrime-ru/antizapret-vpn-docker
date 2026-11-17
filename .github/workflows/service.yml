@@ -1,0 +1,79 @@
+name: Service
+
+on:
+  workflow_call:
+    inputs:
+      service:
+        type: string
+        required: true
+      arch:
+        type: string
+        required: true
+      cache_branch:
+        type: string
+
+env:
+  SERVICE: ${{ inputs.service }}
+  BUILD_ARCH: ${{ inputs.arch }}
+
+jobs:
+  build:
+    name: Build
+    runs-on: ${{ inputs.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Prepare Bake target
+        env:
+          BUILD_CACHE_REPO: ghcr.io/${{ github.repository_owner }}/antizapret-buildcache
+          CACHE_BASE_BRANCH: ${{ github.base_ref || github.event.repository.default_branch }}
+          CACHE_WRITE_BRANCH: ${{ inputs.cache_branch }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/oci"
+          OCI_DIR="$RUNNER_TEMP/oci" scripts/ci-bake.sh > ci-bake.json
+      - uses: docker/bake-action@v7
+        with:
+          source: .
+          files: ci-bake.json
+          targets: ${{ inputs.service }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: oci-${{ inputs.service }}_${{ inputs.arch }}
+          path: ${{ runner.temp }}/oci/${{ inputs.service }}-${{ inputs.arch }}.tar
+          compression-level: 0
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 7
+
+  test:
+    name: Test
+    needs: build
+    runs-on: ${{ inputs.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - uses: docker/setup-docker-action@v5
+        id: docker
+        with:
+          daemon-config: '{"features":{"containerd-snapshotter":true}}'
+      - uses: actions/download-artifact@v7
+        with:
+          name: oci-${{ inputs.service }}_${{ inputs.arch }}
+          path: ${{ runner.temp }}/oci
+      - uses: actions/setup-go@v7
+        if: hashFiles('tests/integration/go.mod') != '' && inputs.service != 'cloak'
+        with:
+          go-version-file: tests/integration/go.mod
+          cache-dependency-path: tests/integration/go.sum
+      - name: Test archived image
+        env:
+          DOCKER_SOCKET: ${{ steps.docker.outputs.sock }}
+        run: |
+          docker image load --input "$RUNNER_TEMP/oci/$SERVICE-$BUILD_ARCH.tar"
+          scripts/ci-test-service.sh
