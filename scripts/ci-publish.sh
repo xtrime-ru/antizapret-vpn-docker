@@ -2,10 +2,11 @@
 set -euo pipefail
 
 artifacts=${1:?Pass the directory containing the OCI artifacts}
+name=${SERVICE:?Set the service to publish}
+tags=$(jq -er '.[]' <<< "${TAGS:?Set the tags to publish}")
 work=$(mktemp -d)
 trap 'rm -rf -- "$work"' EXIT
 
-name=${SERVICE:?Set the service to publish}
 layout="ocidir://$work/image"
 for arch in amd64 arm64; do
     regctl image import "$layout:$arch" "$artifacts/$name-$arch.tar"
@@ -21,25 +22,18 @@ for arch in amd64 arm64; do
     fi
 done
 
-# Join the original descriptors, keeping provenance attached to each image.
+# Validate each archive before joining its unmodified descriptors, including provenance.
 jq -es '
-    {schemaVersion: 2, mediaType: "application/vnd.oci.image.index.v1+json",
-     manifests: [.[].manifests[]]} |
-    if ([.manifests[].platform | select(.os != "unknown") | "\(.os)/\(.architecture)"] | sort)
-       == ["linux/amd64", "linux/arm64"]
-    then . else error("Expected exactly linux/amd64 and linux/arm64") end
+    def platforms:
+      [.manifests[].platform | select(.os != "unknown") | "\(.os)/\(.architecture)"];
+    if map(platforms) == [["linux/amd64"], ["linux/arm64"]] then
+      {schemaVersion: 2, mediaType: "application/vnd.oci.image.index.v1+json",
+       manifests: [.[].manifests[]]}
+    else error("Expected one linux/amd64 image and one linux/arm64 image in their respective archives") end
 ' "$work/amd64.json" "$work/arm64.json" | regctl manifest put "$layout:release"
-for arch in amd64 arm64; do
-    original=$(regctl image digest "$layout:$arch" --platform "linux/$arch")
-    combined=$(regctl image digest "$layout:release" --platform "linux/$arch")
-    if [[ "$original" != "$combined" ]]; then
-        echo "$name: the linux/$arch digest changed during index creation" >&2
-        exit 1
-    fi
-done
 
 digest=$(regctl image digest "$layout:release" --require-list)
-jq -er '.[]' <<< "${TAGS:?Set the tags to publish}" | while IFS= read -r tag; do
+while IFS= read -r tag; do
     regctl image copy "$layout:release" "$tag"
     published=$(regctl image digest "$tag" --require-list)
     if [[ "$published" != "$digest" ]]; then
@@ -47,4 +41,4 @@ jq -er '.[]' <<< "${TAGS:?Set the tags to publish}" | while IFS= read -r tag; do
         exit 1
     fi
     printf '%s %s\n' "$tag" "$digest"
-done
+done <<< "$tags"

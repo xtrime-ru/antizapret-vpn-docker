@@ -6,7 +6,7 @@ FROM xtrime/antizapret-vpn:6.12.1 AS antizapret
 
 FROM coredns/coredns:1.15.0 AS coredns
 
-FROM ubuntu:24.04
+FROM ubuntu:24.04 AS runtime-base
 
 RUN apt update -y \
     && apt install -y gettext-base dnsutils curl \
@@ -17,7 +17,17 @@ WORKDIR /
 COPY --from=coredns /etc/ssl/certs/ /etc/ssl/certs/
 COPY --from=coredns /coredns /coredns
 
-COPY . /root/
+COPY Corefile.template config.sh docktinel.sh entrypoint.sh /root/
+
+FROM runtime-base AS test
+
+RUN apt-get update && apt-get install -y --no-install-recommends python3
+COPY test_failover.py /root/
+RUN --network=none COREDNS=/coredns python3 -B /root/test_failover.py -v && touch /test-passed
+
+FROM runtime-base AS runtime
+
+RUN --mount=from=test,source=/test-passed,target=/tmp/test-passed test -f /tmp/test-passed
 
 ENTRYPOINT []
 CMD []

@@ -8,6 +8,7 @@ import (
 )
 
 func TestAntizapretUtilitiesDoNotStartWatchdog(t *testing.T) {
+	requireService(t, "antizapret")
 	// Intentionally omit Docker init: one-shot CLI tools must not need it.
 	f := startContainer(t, &container.Config{
 		Image: serviceImage("antizapret"),

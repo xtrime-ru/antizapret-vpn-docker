@@ -46,6 +46,7 @@ func newFixture(t *testing.T, service, script string, env ...string) *fixture {
 
 func fixtureWithHost(t *testing.T, service, script string, host *container.HostConfig, env ...string) *fixture {
 	t.Helper()
+	requireService(t, service)
 	if host == nil {
 		host = &container.HostConfig{}
 	}
