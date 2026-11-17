@@ -6,7 +6,7 @@
 [![wg-easy 15.5.0](https://img.shields.io/badge/wg--easy-15.5.0-88171A?style=flat-square&logo=wireguard&logoColor=white)](https://github.com/wg-easy/wg-easy/releases/tag/v15.5.0)
 [![OpenVPN 2.7.8](https://img.shields.io/badge/OpenVPN-2.7.8-EA7E20?style=flat-square&logo=openvpn&logoColor=white)](services/openvpn/Dockerfile)
 [![AmneziaWG tools 3.1.20260812](docs/badges/amneziawg.svg)](https://github.com/amnezia-vpn/amneziawg-tools/releases/tag/v3.1.20260812)
-[![zapret2 1.0.5](https://img.shields.io/badge/zapret2-1.0.5-2563EB?style=flat-square)](services/antizapret/Dockerfile)
+[![zapret2 1.0.7](https://img.shields.io/badge/zapret2-1.0.7-2563EB?style=flat-square)](services/antizapret/Dockerfile)
 [![CoreDNS 1.15.0](docs/badges/coredns.svg)](services/coredns/Dockerfile)
 
 [![Caddy 2.11.7](https://img.shields.io/badge/Caddy-2.11.7-1F88C0?style=flat-square&logo=caddy&logoColor=white)](services/https/Dockerfile)
@@ -91,6 +91,8 @@ This repo is based on idea from original [AntiZapret LXD image](https://bitbucke
     - [Wireguard/Wireguard Amnezia](#wireguardwireguard-amnezia)
     - [SOCKS5 Proxy (deprecated, use proxy below)](#socks5-proxy-deprecated-use-proxy-below)
     - [Proxy (http + socks5)](#proxy-http--socks5)
+  - [Container health](#container-health)
+    - [Checks and jobs by service](#checks-and-jobs-by-service)
   - [DNS](#dns)
     - [Adguard Upstream DNS](#adguard-upstream-dns)
     - [CDN + ECS](#cdn--ecs)
@@ -635,7 +637,7 @@ If only `coredns:53` times out while external upstreams such as Google and Cloud
 Do not confuse the upstream server with the AdGuard client. An external upstream timing out:
 
 ```text
-[error] dnsproxy: response received upstream_type=custom client_name=coredns addr=https://dns.google:443/dns-query proto=tcp status="… Client.Timeout exceeded while awaiting headers"
+[error] dnsproxy: response received upstream_type=custom client_name=coredns addr=https://8.8.8.8:443/dns-query proto=tcp status="… Client.Timeout exceeded while awaiting headers"
 ```
 
 Here `client_name=coredns` identifies the client; **Google DNS** timed out. Also check external DNS connectivity, outbound HTTPS and upstream errors in this case. Compare errors within the same time window, preferably for the same domain. Requests and responses are also available in the [AdGuard query log](http://adguard.antizapret:3000/#logs).
@@ -699,9 +701,9 @@ To test each DNS server separately, run these commands on the **host running the
 
 ```shell
 ADGUARD_ID=$(docker ps -q --filter label=com.docker.swarm.service.name=antizapret_adguard --filter status=running | head -n 1)
-docker exec "$ADGUARD_ID" dig @coredns.antizapret example.com A +time=5 +tries=1 +noall +comments +answer
-docker exec "$ADGUARD_ID" dig @az-world.antizapret example.com A +time=5 +tries=1 +noall +comments +answer
-docker exec "$ADGUARD_ID" dig @az-local.antizapret example.com A +time=5 +tries=1 +noall +comments +answer
+docker exec "$ADGUARD_ID" busybox nslookup -type=a -retry=1 -timeout=5 example.com coredns.antizapret
+docker exec "$ADGUARD_ID" busybox nslookup -type=a -retry=1 -timeout=5 example.com az-world.antizapret
+docker exec "$ADGUARD_ID" busybox nslookup -type=a -retry=1 -timeout=5 example.com az-local.antizapret
 ```
 
 ```text
@@ -826,7 +828,9 @@ flowchart TB
     class localip mapped
 ```
 
-In Swarm, CoreDNS uses `az-world`, then `az-local`, then a direct query to AdGuard. It proceeds to the next upstream only on `SERVFAIL`. The final AdGuard request uses the `coredns` client, whose upstreams are ordinary external resolvers, so it does not loop back into CoreDNS.
+In Swarm, CoreDNS uses `az-world`, then `az-local`, then a direct query to AdGuard. It proceeds to the next upstream on a network error, timeout, or `SERVFAIL`. The final AdGuard request uses the `coredns` client, whose upstreams are ordinary external resolvers, so it does not loop back into CoreDNS.
+
+On a network error, CoreDNS starts background upstream probes with a 1-second interval between failed attempts. After one failed probe the upstream is temporarily skipped; the first DNS response restores its original position in `sequential` order. A `SERVFAIL` response causes failover for the current query without excluding the upstream.
 
 In single-server Compose, `az-local` also owns the aliases `az-world` and `az-world.antizapret`. CoreDNS detects the shared address and queries the exit container once, then falls back to AdGuard. Both local and world domain lists use the `az-local` ClientID, and `ASN_FILES` includes both generated ASN lists.
 
@@ -1010,17 +1014,17 @@ The VPN client also needs routes for these real addresses. OpenVPN generates pus
 
 ### Direct DNS resolution for domains on VPN-listed CDN networks
 
-The bundled **Direct Access Rules** filter loads `lists/exclude.txt` using `format=v2fly&exclude=1`. Steam, PlayStation and Rockstar use direct resolution even on VPN-listed CDN ASNs. On startup, the updated AdGuard container adds this filter when missing and migrates the standard **Excluded Custom Local/World Rules** URLs to `exclude=1&regex=1`, preserving filter IDs and enabled states. The next healthcheck refreshes cached filters and clears AdGuard's DNS cache. User rules and Custom include filters are preserved. The old bundled Steam/Rockstar upstream entry is removed.
+The bundled **Direct Access Rules** filter loads `lists/exclude.txt` using `format=v2fly&exclude=1`. Steam, PlayStation and Rockstar use direct resolution even on VPN-listed CDN ASNs. On startup, the updated AdGuard container adds this filter when missing and migrates the standard **Excluded Custom Local/World Rules** URLs to `exclude=1&regex=1`, preserving filter IDs and enabled states. The next Docktinel maintenance run refreshes cached filters and clears AdGuard's DNS cache. User rules and Custom include filters are preserved. The old bundled Steam/Rockstar upstream entry is removed.
 
 The separate **Direct Access Rules - IP Checkers** filter loads the v2fly `category-ip-geo-detect` list directly. It keeps IP-checking services direct and can be disabled independently of the gaming exclusions.
 
 For your own exceptions, add a regular expression to `exclude-hosts-custom.txt`. This filters domain list entries and prevents ASN fallback for matching names. Important exclusions also override ordinary include rules covering a broader parent domain. Independent IP routes can still route traffic through VPN.
 
-A domain-specific upstream remains an option for bypassing the complete exit chain: add `[/example.com/]https://cloudflare-dns.com/dns-query` under **Settings → DNS settings → Upstream DNS servers**, keeping `coredns` and the other upstreams. Clear DNS caches after changing rules.
+A domain-specific upstream remains an option for bypassing the complete exit chain: add `[/example.com/]https://1.1.1.1/dns-query` under **Settings → DNS settings → Upstream DNS servers**, keeping `coredns` and the other upstreams. Clear DNS caches after changing rules.
 
 ### Updating and checking rules
 
-Exit containers check custom files every 10 seconds. Rebuilding lists may take longer while remote lists are being downloaded. AdGuard detects configuration changes, refreshes its filters and clears its DNS cache. Edit files on the correct exit host in Swarm mode.
+Exit containers check file metadata every 30 seconds and recalculate checksums only after changes. Rebuilding lists may take longer while remote lists are being downloaded. AdGuard detects configuration changes, refreshes its filters and clears its DNS cache. Edit files on the correct exit host in Swarm mode.
 
 After an update, inspect the generated filter in AdGuard, clear the device's DNS cache and repeat the lookup. Addresses in `14.16.0.0/15` indicate the local VPN node; `14.18.0.0/15` indicate the world node. If an exclusion does not work, check the query log for both the original domain and its CNAME targets, the client (`az-local`, `az-world` or `az-resolver`), and the matching rule. ASN matches are also logged by `dnsmap`.
 
@@ -1032,7 +1036,7 @@ You can also check blocked ASNs from a Docker host using DPI Detector. Run this 
 docker run --rm -it --pull=always ghcr.io/runnin4ik/dpi-detector:latest --tests 3
 ```
 
-Rebuild IP and ASN lists manually: `docker exec $(docker ps -q --filter=name=az | head -n1) doall`. Domain exclusion matchers and AdGuard filters are refreshed by the healthchecks described above.
+Rebuild IP and ASN lists manually with `docker exec $(docker ps -q --filter=name=az | head -n1) doall`. Docktinel maintenance jobs refresh domain exclusion matchers and AdGuard filters. [Container health](#container-health)
 
 ## Adding Domains
 For custom include/exclude files, see [Routing rules: include, exclude and ASN](#routing-rules-include-exclude-and-asn). The following sections explain manual AdGuard rules, external domain lists and routing for a specific client.
@@ -1097,7 +1101,7 @@ To route a specific website through VPN for only one client:
    ```
 3. Open the AdGuard Home DNS settings: http://adguard.antizapret:3000/#dns and add an upstream for the required domain:
    ```text
-   [/example.com/]1.1.1.1
+   [/example.com/]https://1.1.1.1/dns-query
    ```
 4. Add `example.com` to `include-hosts-custom.txt`, or add the following rule on the custom filtering rules page: http://adguard.antizapret:3000/#custom_rules
    ```text
@@ -1320,7 +1324,7 @@ You can define these variables in docker-compose.override.yml file for your need
 - `ZAPRET_CONFIG=/opt/zapret2/config/zapret.conf` - path inside the container to the zapret2 configuration file. The default config is created automatically on first start and is persisted at `./config/antizapret/zapret2/zapret.conf`.
 
 ### Adguard: 
-- `ROUTES` - container names and their routed addresses/subnets. The route updater provides reachability to VPN clients and exit nodes; ClientIDs and client IPs are configured separately by the AdGuard entrypoint and healthcheck.
+- `ROUTES` - container names and their routed addresses/subnets. The route updater provides reachability to VPN clients and exit nodes; ClientIDs and client IPs are configured separately by the AdGuard entrypoint and Docktinel maintenance job.
 - `AZ_WORLD_ENABLED=` - enables the separate `az-world` client, IP tracking, and world configuration checksum. Set automatically to `1` by `compose.swarm.yml`; leave unset in single-server Compose mode.
 - `ADGUARDHOME_PORT=3000`
 - `ADGUARDHOME_USERNAME=admin`
@@ -1394,8 +1398,48 @@ You can define these variables in docker-compose.override.yml file for your need
 - `EXTRA_ACCOUNTS` - Additional login:password pairs. Example: `login:password;login2:password2`
 - `EXTRA_CONFIG` - Raw 3proxy config lines injected before proxy/socks directives (empty by default)
 
+## Container health
+
+Each supervised container runs a Docktinel daemon. The daemon runs the registered startup and runtime checks, schedules maintenance jobs, and supervises helper processes. It launches their commands as child processes and publishes the results in a local state file.
+
+- **Docker health.** Docker runs `docktinel healthcheck` separately. It reads the daemon's state file and checks that the daemon is alive and still updating it. A fresh `degraded` state passes. Three consecutive counted failures set `unhealthy`. The healthcheck can also stop the application if the daemon exits, its heartbeat expires, or a critical deadline is missed. [Docker healthcheck reference](https://docs.docker.com/reference/dockerfile/#healthcheck)
+- **Restart.** Docktinel stops the application when a required startup task misses its deadline or a runtime check reaches its failure threshold. Compose restarts the container after exit under `restart: unless-stopped`. Swarm can also replace an unhealthy task. The generated Swarm policy retries indefinitely with a 1s delay. An explicit `deploy.restart_policy` takes precedence. [Swarm task replacement](https://docs.docker.com/engine/swarm/how-swarm-mode-works/services/)
+- **Background work.** Docktinel restarts supervised helpers on exit. Failed periodic jobs report `degraded` and retry with backoff.
+- **Route updates.** Where configured, `routes` starts with the container and runs continuously, refreshing routes every 10s by default. If it fails to start or exits, Docktinel retries the helper and the container keeps running.
+
+### Checks and jobs by service
+
+| Service | Startup checks and deadlines | Runtime checks and restart triggers | Background processes and jobs |
+| --- | --- | --- | --- |
+| `az-local`, `az-world` | <ul><li>Wait up to 8m for the dnsmap initialization marker.</li></ul> | <ul><li>Once a minute, `nslookup` must get `127.0.0.1` for `healthcheck.invalid.` from local dnsmap.</li><li>If WARP is enabled, check that it is connected once a minute.</li><li>Three failures in either check trigger a restart.</li><li>dnsmap exit also stops the main process.</li></ul> | <ul><li>`routes`</li><li>API</li><li>iperf3</li><li>dnsmap, started by the startup script.</li><li>`warp-svc`, when WARP is enabled.</li><li>zapret2, when enabled.</li><li>Check for configuration and list changes every 30s.</li><li>Run `doall` every 6h, starting after 6h.</li></ul> |
+| AdGuard | <ul><li>Wait up to 60s for dependency DNS registration, then start with the addresses available.</li><li>Wait up to 5m for initialization.</li><li>Wait up to 5m for a successful DNS probe, within the overall startup budget.</li></ul> | <ul><li>BusyBox `nslookup` queries local AdGuard once a minute using `example.org` by default.</li><li>Three failures trigger a restart, including when upstream and fallback resolvers are unavailable and the probe cannot resolve.</li></ul> | <ul><li>`routes`.</li><li>Maintenance every 10s.<ul><li>Reconcile client addresses.</li><li>Reinitialize DNS when dependencies change.</li><li>Refresh filters when their configuration changes.</li></ul></li></ul> |
+| CoreDNS | <ul><li>Generate a Corefile from available upstream addresses within 1m.</li><li>Check local HTTP `/health` on port 8080 within 30s.</li></ul> | <ul><li>Check `/health` every 5s.</li><li>Three failures trigger a restart.</li><li>The forwarder checks failing upstreams every 1s.</li><li>Recovered upstreams regain their priority automatically.</li></ul> | <ul><li>Rediscover upstream addresses every 5s.</li><li>Keep the previous Corefile if all addresses are missing.</li><li>Reload when the Corefile changes.</li></ul> |
+| HTTPS | <ul><li>Configure Caddy within 2m.</li><li>Check local HTTP `/healthz` on port 2018 within 30s.</li></ul> | <ul><li>Check `/healthz` every 5s.</li><li>Three failures trigger a restart.</li></ul> | <ul><li>Synchronize the ocserv certificate every 10s.</li><li>Use a fallback certificate when needed.</li><li>Retry after failed Caddy reloads.</li></ul> |
+| WireGuard and AmneziaWG | <ul><li>Wait up to 8m for the initialization marker.</li><li>First-time database setup requests a restart to load the generated settings.</li></ul> | <ul><li>Check the IP-list checksum every 10s.</li><li>One failed check triggers a restart to apply the new routes.</li></ul> | <ul><li>`routes --vpn`.</li><li>Supervise BIRD when `BGP_ENABLE=true`.</li></ul> |
+| OpenVPN | <ul><li>Wait up to 8m for the initialization marker.</li></ul> | <ul><li>Check the blocked-ranges checksum every 10s.</li><li>One failed check triggers a restart to apply the new routes.</li><li>A renewed CRL also requests a restart.</li></ul> | <ul><li>`routes --vpn`</li><li>OpenVPN log follower.</li><li>Rotate logs every 24h.</li><li>Check for CRL renewal every 24h.</li></ul> |
+| OpenConnect (`ocserv`) | <ul><li>Wait for the shared HTTPS certificate, up to 180s by default.</li><li>Wait up to 8m for the initialization marker.</li></ul> | <ul><li>Check the IP-list checksum every 10s.</li><li>Check the active certificate and server identity every 10s.</li><li>One failure triggers a restart, including a changed or unavailable certificate.</li></ul> | <ul><li>`routes --vpn`.</li></ul> |
+| OpenVPN UI | <ul><li>Configure SQLite and the UI within 2m.</li><li>Check the local login page within 30s.</li></ul> | <ul><li>Check the login page every 5s.</li><li>Three failures trigger a restart.</li></ul> | — |
+| HTTP/SOCKS proxy (`proxy-local`, `proxy-world`) | <ul><li>Check the local HTTP proxy listener within 30s.</li><li>Check the local SOCKS listener within the same deadline.</li></ul> | <ul><li>Check the HTTP proxy listener every 5s.</li><li>Check the SOCKS listener on the same run.</li><li>Three failures trigger a restart.</li></ul> | <ul><li>`routes --vpn`.</li></ul> |
+| Dashboard | <ul><li>Generate the configuration and set up authentication within 30s.</li><li>Check authenticated local HTTP access to `/config.json` within 30s.</li></ul> | <ul><li>Check `/config.json` every 5s.</li><li>Three failures trigger a restart.</li></ul> | — |
+| File Browser | <ul><li>Check local HTTP `/health` on port 80 within 30s.</li></ul> | <ul><li>Check `/health` every 5s.</li><li>Three failures trigger a restart.</li></ul> | — |
+| Firewall | <ul><li>Restore the last applied IPv4 and IPv6 lists from the node's `firewall-lists` volume or download them within 3m.</li><li>Verify the active ipsets and rules within 30s.</li></ul> | <ul><li>Check the ipset headers every 5s.</li><li>Check the required IPv4/IPv6 rules on the same run.</li><li>Three failures trigger a restart.</li></ul> | <ul><li>Refresh both lists every `INTERVAL` (default `3h`, plain numbers are seconds).</li><li>Save the pair together after applying both lists successfully.</li><li>Failed updates keep the working rules.</li><li>Stopping the main process removes the rules.</li></ul> |
+| Cloak | <ul><li>Start `ck-server` under Docker init.</li></ul> | <ul><li>Docker applies the restart policy if the server exits.</li><li>No Docker healthcheck or Docktinel probes are configured.</li></ul> | — |
+
+Inspect Docktinel tasks with `docker exec CONTAINER docktinel status` and Docker probe results with `docker inspect --format '{{json .State.Health}}' CONTAINER`.
+
 ## DNS
+
+See [Container health](#container-health) for DNS probes and restart conditions. VPN containers start and keep running independently of AdGuard availability. DNS recovery uses AdGuard fallback servers, DNS cache reinitialization on dependency changes, and CoreDNS failover. Stopping a WireGuard server does not make clients disconnect or restore ordinary internet routing.
+
 ### Adguard Upstream DNS
+
+The bundled upstream configuration uses DoH directly over IP: Cloudflare `https://1.1.1.1/dns-query`, Google `https://8.8.8.8/dns-query`, Quad9 ECS `https://9.9.9.11/dns-query` and Yandex Basic `https://77.88.8.8/dns-query`. Saved provider URLs are not automatically rewritten; regional rules also retain MSK-IX `62.76.76.62`.
+
+AdGuard's upstream timeout is 5 seconds. When `fallback_dns` is empty, the entrypoint adds the fallback DoH servers `https://1.1.1.1/dns-query` and `https://8.8.8.8/dns-query`; existing custom fallback servers are retained. Names under `*.antizapret` also use Docker DNS at `127.0.0.11` in the fallback configuration. Fallback responses contain real IPs and cannot restore an unavailable exit or previously cached synthetic addresses.
+
+Before starting AdGuard, the entrypoint waits up to 60 seconds for DNS registration of `az-local`, CoreDNS and, when `AZ_WORLD_ENABLED=1`, `az-world`. Startup continues when the deadline expires; the Docktinel maintenance job discovers addresses of recovered services. DNS registration does not establish readiness of their DNS and HTTP servers.
+
+When these dependencies disappear, recover, or change IP, the Docktinel maintenance job reinitializes DNS through `/control/dns_config` before checking for filter updates. This also recreates the HTTP downloader's internal DNS cache, which `/control/cache_clear` does not clear. The new address snapshot is committed after successful reinitialization; failed attempts are retried. Address changes alone do not trigger filter refresh or change the filter configuration MD5.
 AdGuard sends ordinary client queries through CoreDNS, except domains with a separately configured upstream. Bundled Steam/Rockstar direct access is now handled by exclusion filters rather than a dedicated upstream. The default `az-local`, `az-world`, `coredns` and `az-resolver` clients use Cloudflare, Google and Quad9, with additional domain-specific upstreams where configured. `az-resolver` is used for direct resolution before ASN checks. Existing saved client settings are retained; when adding a missing `az-resolver` client to an older configuration, the entrypoint copies the `az-local` upstreams. The generated configuration is stored in `./config/adguard/conf/AdGuardHome.yaml` and can be changed through the AdGuard Home UI.
 
 The third-party `xbox-dns.ru` resolver can be configured manually as a domain-specific upstream when Gemini incorrectly detects the country from the exit server's IP address and refuses to work because of geographic restrictions. For example:
@@ -1494,7 +1538,7 @@ openssl x509 -in ./config/https/data/ocserv/certificate.crt \
 
 OpenConnect can pin the fingerprint offered in its warning with the `--servercert` option. The pin changes when Caddy switches from the fallback to a managed certificate.
 
-The `https` service stores the fallback, active certificate, and selected identity in `./config/https/data/ocserv`; the original public certificate remains in Caddy's managed storage. Caddy copies a valid managed certificate to the active path and uses the self-signed fallback until one is available. If the managed certificate expires or disappears before renewal succeeds, Caddy switches back to the fallback and automatically activates the managed certificate when it becomes available again. ocserv reads the same active certificate, and its healthcheck restarts the container after renewal, certificate replacement, or an identity change. The fallback is retained between container restarts and regenerated only when the identity changes or it approaches expiration. If the server IP changes, restart the `https` service so it detects the new address.
+The `https` service stores the fallback, active certificate, and selected identity in `./config/https/data/ocserv`; the original public certificate remains in Caddy's managed storage. Caddy copies a valid managed certificate to the active path and uses the self-signed fallback until one is available. If the managed certificate expires or disappears before renewal succeeds, Caddy switches back to the fallback and automatically activates the managed certificate when it becomes available again. ocserv reads the same active certificate, and its Docktinel check restarts the container after renewal, certificate replacement, or an identity change. The fallback is retained between container restarts and regenerated only when the identity changes or it approaches expiration. If the server IP changes, restart the `https` service so it detects the new address.
 
 Direct IP connections are supported by [OpenConnect](https://www.infradead.org/openconnect/manual.html) and [Cisco Secure Client](https://www.cisco.com/c/en/us/td/docs/security/vpn_client/anyconnect/Cisco-Secure-Client-5/admin/guide/b-cisco-secure-client-admin-guide-5-1/configure_vpn.html). A public IP certificate avoids the manual trust or certificate pinning required by a self-signed certificate.
 
