@@ -18,6 +18,9 @@ permissions:
   contents: read
   packages: read
 
+env:
+  BUILD_CACHE_REPO: ghcr.io/${{ github.repository_owner }}/antizapret-buildcache
+
 concurrency:
   group: build-images-${{ github.ref }}
   cancel-in-progress: false
@@ -31,6 +34,7 @@ jobs:
       services: ${{ steps.plan.outputs.services }}
       dependencies: ${{ steps.dependencies.outputs.images }}
       cache_branch: ${{ steps.plan.outputs.cache_branch }}
+      cache_tags: ${{ steps.cache.outputs.tags }}
     steps:
       - uses: actions/checkout@v6
       - id: plan
@@ -86,7 +90,9 @@ jobs:
             jq -r '.releases | if length == 0 then "Publication disabled." else .[].tags[] | "- " + . end' <<< "$plan"
           } >> "$GITHUB_STEP_SUMMARY"
       - uses: docker/login-action@v4
-        if: steps.plan.outputs.services != '[]' && steps.plan.outputs.pins != '[]'
+        id: registry
+        if: steps.plan.outputs.services != '[]'
+        continue-on-error: ${{ steps.plan.outputs.pins == '[]' }}
         with: &ghcr_login
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -116,6 +122,26 @@ jobs:
           echo "images=$images" >> "$GITHUB_OUTPUT"
           jq -r 'select(length > 0) | "\n### Pinned DNS integration images", (.[] | "- " + .name + ": " + .ref)' \
             <<< "$images" >> "$GITHUB_STEP_SUMMARY"
+      - name: Install regctl
+        id: regctl
+        if: steps.registry.outcome == 'success'
+        continue-on-error: true
+        run: &install_regctl |
+          curl -fsSL --connect-timeout 5 --max-time 30 --retry 2 https://github.com/regclient/regclient/releases/download/v0.11.6/regctl-linux-amd64 -o "$RUNNER_TEMP/regctl"
+          chmod +x "$RUNNER_TEMP/regctl"
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+      - name: List registry cache tags
+        id: cache
+        if: steps.regctl.outcome == 'success'
+        shell: bash
+        run: |
+          if tags=$(timeout 15s regctl tag ls "${BUILD_CACHE_REPO,,}" --format '{{json .Tags}}') &&
+             tags=$(jq -ce 'if . == null then [] else select(type == "array" and all(.[]; type == "string")) end |
+               map(select(test("-build-(dev|v[0-9]+)-(amd64|arm64)$")))' <<< "$tags"); then
+            echo "tags=$tags" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Could not list registry cache tags; using the full cache list"
+          fi
 
   build:
     name: Build / ${{ matrix.service }} / ${{ matrix.arch }}
@@ -140,9 +166,9 @@ jobs:
         with: *ghcr_login
       - name: Prepare Bake target
         env:
-          BUILD_CACHE_REPO: ghcr.io/${{ github.repository_owner }}/antizapret-buildcache
           CACHE_BASE_BRANCH: ${{ github.base_ref || github.event.repository.default_branch }}
           CACHE_WRITE_BRANCH: ${{ needs.plan.outputs.cache_branch }}
+          CACHE_TAGS: ${{ needs.plan.outputs.cache_tags }}
         run: |
           mkdir -p "$RUNNER_TEMP/oci"
           OCI_DIR="$RUNNER_TEMP/oci" scripts/ci-bake.sh > ci-bake.json
@@ -232,10 +258,7 @@ jobs:
           path: ${{ runner.temp }}/images
           merge-multiple: true
       - name: Install regctl
-        run: |
-          curl -fsSL https://github.com/regclient/regclient/releases/download/v0.11.6/regctl-linux-amd64 -o "$RUNNER_TEMP/regctl"
-          chmod +x "$RUNNER_TEMP/regctl"
-          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+        run: *install_regctl
       - uses: docker/login-action@v4
         with: *ghcr_login
       - uses: docker/login-action@v4

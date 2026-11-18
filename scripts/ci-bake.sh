@@ -20,18 +20,22 @@ while IFS=$'\t' read -r name source compose target; do
 done <<< "$sources" |
     jq -se --arg repo "$BUILD_CACHE_REPO" --arg branch "${CACHE_WRITE_BRANCH:-}" --arg base "${CACHE_BASE_BRANCH:-}" \
         --arg arch "$BUILD_ARCH" --arg service "$SERVICE" --arg oci "$OCI_DIR" \
+        --argjson tags "${CACHE_TAGS:-null}" \
         --slurpfile manifest versions.json --argjson shared "$shared" '
         def release_branch: test("^(dev|v[0-9]+)$");
-        def cache($service; $branch): "type=registry,ref=" + ($repo | ascii_downcase) + ":" + $service + "-build-" + $branch + "-" + $arch;
+        def tag($name; $branch): $name + "-build-" + $branch + "-" + $arch;
+        def cache: "type=registry,ref=" + ($repo | ascii_downcase) + ":" + .;
         (["dev", $base, $branch] | map(select(release_branch)) | unique) as $branches |
         add | select(has($service)) |
-        [$manifest[0].images[].name as $name | $branches[] as $b | cache($name; $b)] as $imports |
+        # null means discovery failed. An empty array means no cache tags are available.
+        [$manifest[0].images[].name as $name | $branches[] | tag($name; .) |
+            . as $tag | select($tags == null or ($tags | index($tag)) != null) | cache] as $imports |
         def native: .platforms = ["linux/" + $arch] | ."cache-from" = $imports;
         . as $targets |
         {target: {($service): ($targets[$service] | native |
             .tags = ["antizapret-" + $service + ":ci"] |
             .output = ["type=oci,dest=" + $oci + "/" + $service + "-" + $arch + ".tar"] |
-            if ($branch | release_branch) then ."cache-to" = [cache($service; $branch) + ",mode=max"] else . end
+            if ($branch | release_branch) then ."cache-to" = [(tag($service; $branch) | cache) + ",mode=max"] else . end
         )}} |
         if $shared then
             .target[$service].contexts.antizapret = "target:shared-runtime" |
