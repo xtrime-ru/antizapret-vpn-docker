@@ -33,16 +33,7 @@ local function forget_ip(_, ip)
     remembered[ip] = nil
 end
 
-local function learn_retry(desync, state, ack)
-    if desync.l7payload == "tls_client_hello" then
-        state.googlevideo_hello_ack = state.googlevideo_hello_ack or ack
-        return
-    end
-    local initial_ack = state.googlevideo_hello_ack
-    if not initial_ack or not seq_after(ack, initial_ack) or desync.dis.payload:byte() == 21 then return end
-
-    -- The client has received server data and sent its next TLS flight.
-    state.googlevideo_trial = false
+local function remember_retry(desync)
     local ip = host_ip(desync)
     local ttl = tonumber(desync.arg.cache_ms) or 86400000
     if remembered[ip] or ttl <= 0 then return end
@@ -72,21 +63,60 @@ local function watch_client_hello(desync)
     return watch
 end
 
+local function retry_tls(desync, state)
+    local tcp = desync.dis.tcp
+    local restore = desync.arg.restore_window == "1" and state.googlevideo_window_factor
+    if not desync.outgoing then
+        if restore and bitand(tcp.th_flags, TH_SYN + TH_ACK) == TH_SYN + TH_ACK then
+            state.googlevideo_peer_scale = find_tcp_option(tcp.options, TCP_KIND_SCALE) ~= nil
+        end
+        return
+    end
+    if bitand(tcp.th_flags, TH_ACK) == 0 or not (restore or state.googlevideo_trial) then return end
+
+    if not state.googlevideo_tls_progress then
+        if desync.l7payload == "tls_client_hello" then
+            state.googlevideo_hello_ack = state.googlevideo_hello_ack or tcp.th_ack
+            return
+        end
+        local ack = state.googlevideo_hello_ack
+        local record = (desync.dis.payload or ""):byte()
+        if not ack or not record or record == 21 or not seq_after(tcp.th_ack, ack) then return end
+
+        -- The client acknowledged server data and sent its next TLS flight.
+        state.googlevideo_tls_progress = true
+        if state.googlevideo_trial then
+            state.googlevideo_trial = false
+            remember_retry(desync)
+        end
+    end
+
+    if restore and state.googlevideo_peer_scale then
+        local window = math.min(65535, tcp.th_win * restore)
+        if window ~= tcp.th_win then
+            tcp.th_win = window
+            return VERDICT_MODIFY
+        end
+    end
+end
+
 function googlevideo_watch_tls(_, desync)
     if not desync.track or not desync.dis.tcp then return end
     local state = desync.track.lua_state
     if state.googlevideo_watch == false then return end
     local tcp = desync.dis.tcp
-    local closed = bitand(tcp.th_flags, TH_FIN + TH_RST) ~= 0
+    if state.googlevideo_retry then
+        -- A client can still receive data after sending FIN.
+        if bitand(tcp.th_flags, TH_RST) == 0 then return retry_tls(desync, state) end
+        return
+    end
+
     local has_data = #(desync.dis.payload or "") > 0
+    local closed = bitand(tcp.th_flags, TH_FIN + TH_RST) ~= 0
     local watch = state.googlevideo_watch
-    if closed or (not desync.outgoing and has_data and not state.googlevideo_retry) then
+    if closed or (not desync.outgoing and has_data) then
         if watch then timer_del(watch.timer) end
         state.googlevideo_watch = false
-    elseif state.googlevideo_retry then
-        if state.googlevideo_trial and desync.outgoing and has_data and bitand(tcp.th_flags, TH_ACK) ~= 0 then
-            learn_retry(desync, state, tcp.th_ack)
-        end
     elseif watch then
         -- Advance the reset sequence on ACKs, including across the TCP wraparound.
         if not desync.outgoing and bitand(tcp.th_flags, TH_ACK) ~= 0
@@ -101,10 +131,21 @@ end
 function googlevideo_retry_window(ctx, desync)
     if not desync.outgoing or not desync.track or not desync.dis.tcp then return end
     local state = desync.track.lua_state
-    if state.googlevideo_retry == nil and bitand(desync.dis.tcp.th_flags, TH_SYN) ~= 0 then
+    local tcp = desync.dis.tcp
+    if state.googlevideo_retry == nil and bitand(tcp.th_flags, TH_SYN + TH_ACK) == TH_SYN then
         local ip = host_ip(desync)
         state.googlevideo_trial = not remembered[ip] and take_retry(ip)
         state.googlevideo_retry = remembered[ip] or state.googlevideo_trial
+        if state.googlevideo_retry then
+            local scale = tonumber(desync.arg.scale)
+            local option = scale and find_tcp_option(tcp.options, TCP_KIND_SCALE)
+            if option then
+                local original_scale = math.min(u8(tcp.options[option].data), 14)
+                if original_scale > scale then
+                    state.googlevideo_window_factor = 2 ^ (original_scale - scale)
+                end
+            end
+        end
     end
     if state.googlevideo_retry then return wssize(ctx, desync) end
 end

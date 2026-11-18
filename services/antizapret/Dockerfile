@@ -95,6 +95,7 @@ COPY --from=builder-routes /app/routes /usr/bin/routes
 COPY --from=vernette/ss-zapret2:v1.0.7 /opt/zapret2/ /opt/zapret2/
 COPY --from=runtime-files /runtime/ /
 COPY googlevideo-fast-reset.lua googlevideo-retry.lua /opt/zapret2/
+COPY googlevideo-nft.sh /opt/zapret2/init.d/sysv/custom.d/
 
 RUN <<-"EOF" bash -ex
     cp -a /opt/zapret2/lua.dist /opt/zapret2/lua

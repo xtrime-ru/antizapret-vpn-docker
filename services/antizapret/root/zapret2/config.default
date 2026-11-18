@@ -35,7 +35,7 @@ NFQWS2_OPT="
 --lua-init=@/opt/zapret2/googlevideo-retry.lua
 --ipcache-hostname
 --filter-tcp=443 --hostlist-domains=googlevideo.com
---in-range=a --lua-desync=googlevideo_watch_tls:timeout_ms=1200:cache_ms=86400000
+--in-range=a --lua-desync=googlevideo_watch_tls:timeout_ms=1200:cache_ms=86400000:restore_window=1
 --in-range=x --lua-desync=googlevideo_retry_window:wsize=1:scale=1
 --payload=tls_client_hello --lua-desync=multisplit:pos=10:seqovl=1 --new
 --filter-tcp=80 --filter-l7=http --payload http_req --lua-desync=http_methodeol --new
