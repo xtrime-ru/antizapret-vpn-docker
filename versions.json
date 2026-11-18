@@ -13,7 +13,7 @@
       "name": "antizapret",
       "repository": "antizapret-vpn",
       "ghcr_repository": "antizapret-vpn-docker",
-      "version": "6.12.2",
+      "version": "6.12.3",
       "source": "services/antizapret",
       "compose": "docker-compose.yml",
       "target": "antizapret",
