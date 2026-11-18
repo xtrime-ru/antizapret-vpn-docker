@@ -5,6 +5,9 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/moby/moby/api/types/container"
 )
 
 func TestCoreDNSMaintenanceFailureAndRecovery(t *testing.T) {
@@ -57,6 +60,43 @@ exec /usr/local/lib/docktinel/entrypoint sleep infinity`)
 	// Missing daemon identity is detected independently of the live HTTP API.
 	f.expectUnhealthy("--max-age", "1s", "--stop-grace", "100ms")
 	f.waitExit()
+}
+
+func TestAdGuardReadinessWithUpstreamUnavailable(t *testing.T) {
+	requireService(t, "adguard")
+	// Swarm publishes the service name after healthcheck succeeds. Keep the
+	// name absent and the DNS upstream unreachable while readiness runs.
+	f := startContainer(t, &container.Config{
+		Image: serviceImage("adguard"),
+		Env:   []string{"DOCKTINEL_CONFIG=/tmp/test-config.json"},
+		Entrypoint: []string{"bash", "-ec", `printf '%s' '{"tasks":[]}' > /tmp/test-config.json
+mkdir -p /opt/adguardhome/conf /opt/adguardhome/work
+yq '.filters = [] | .whitelist_filters = [] | .users = [] |
+    .dns.upstream_dns = ["127.0.0.1:9"] | .dns.fallback_dns = [] |
+    .dns.upstream_timeout = "1s"' /root/AdGuardHome.yaml > /opt/adguardhome/conf/AdGuardHome.yaml
+printf '#!/bin/sh\nexec sleep 600\n' > /usr/bin/routes
+chmod +x /usr/bin/routes
+touch /dev/shm/.inited
+exec /usr/local/lib/docktinel/entrypoint sh -ec '
+    until test -f /tmp/start-dns; do sleep 0.1; done
+    exec /opt/adguardhome/AdGuardHome --no-check-update -c /opt/adguardhome/conf/AdGuardHome.yaml -w /opt/adguardhome/work
+'`},
+	}, &container.HostConfig{Init: new(true), NetworkMode: "none"})
+
+	eventually(t, f.status, func(s sentinelStatus) bool {
+		return s.Phase == "after-start" && s.State == "starting"
+	})
+	f.mustExec("sh", "-ec", "! timeout 2 getent hosts adguard.antizapret")
+	f.mustExec("touch", "/tmp/start-dns")
+	f.runtime()
+
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	reply, code, err := f.exec(ctx, "busybox", "nslookup", "-type=a", "-timeout=3", "-retry=1", "example.org", "127.0.0.1")
+	if code == 0 || !strings.Contains(reply, "SERVFAIL") {
+		t.Fatalf("expected SERVFAIL from the unavailable upstream, got exit %d: %s (%v)", code, reply, err)
+	}
+	f.mustExec("docktinel", "healthcheck")
 }
 
 func TestAdGuardReinitializesDNSWithoutRestartingOnMaintenanceFailure(t *testing.T) {
