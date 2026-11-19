@@ -116,7 +116,7 @@ type fallbackTTL struct {
 func (fallbackTTL) Name() string { return name }
 
 func (f fallbackTTL) ServeDNS(ctx context.Context, w dns.ResponseWriter, req *dns.Msg) (int, error) {
-	servfails := 0
+	refused := 0
 	var lastErr error
 	writer := responseWriter{ResponseWriter: w}
 	for upstream, ok := f.next.(*forward.Forward); ok; upstream, ok = upstream.Next.(*forward.Forward) {
@@ -130,12 +130,12 @@ func (f fallbackTTL) ServeDNS(ctx context.Context, w dns.ResponseWriter, req *dn
 		isFallback := f.fallback != "" && upstream.List()[0].Addr() == f.fallback
 		_, hasNext := upstream.Next.(*forward.Forward)
 		if !isFallback && hasNext && slices.Contains(f.failover, reply.Rcode) {
-			if reply.Rcode == dns.RcodeServerFailure {
-				servfails++
+			if reply.Rcode == dns.RcodeRefused {
+				refused++
 			}
 			continue
 		}
-		if isFallback && servfails != f.expectedExits && reply.IsTsig() == nil {
+		if isFallback && refused != f.expectedExits && reply.IsTsig() == nil {
 			zeroTTL(reply)
 		}
 		return dns.RcodeSuccess, w.WriteMsg(reply)

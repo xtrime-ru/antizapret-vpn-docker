@@ -18,8 +18,8 @@ func TestListRoutingPriorities(t *testing.T) {
 		{"dist", "filter_custom=0&client=az-local", "@@||example.org^$dnsrewrite,client=az-local\n"},
 		{"custom", "filter_custom=0&client=az-local", "@@||example.org^$dnsrewrite,client=az-local\n"},
 		{"custom world", "filter_custom=0&client=az-world", "@@||example.org^$dnsrewrite,client=az-world\n"},
-		{"exclude", "exclude=1", "||example.org^$dnsrewrite=SERVFAIL,client=az-local|az-world|az-resolver,important\n"},
-		{"exclude preset", "exclude=1&client=coredns&suffix=0&allow=1", "||example.org^$dnsrewrite=SERVFAIL,client=az-local|az-world|az-resolver,important\n"},
+		{"exclude", "exclude=1", "||example.org^$dnsrewrite=REFUSED,client=az-local|az-world|az-resolver,important\n"},
+		{"exclude preset", "exclude=1&client=coredns&suffix=0&allow=1", "||example.org^$dnsrewrite=REFUSED,client=az-local|az-world|az-resolver,important\n"},
 		{"ordinary list respects custom exclusions", "", ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -39,7 +39,7 @@ func TestExcludeRegexUsesAllExitClients(t *testing.T) {
 	}
 	response := httptest.NewRecorder()
 	adaptList(response, httptest.NewRequest("GET", "/list/?exclude=1&regex=1&file="+url.QueryEscape(path), nil))
-	want := `/(^|\.)example\.org$/$dnsrewrite=SERVFAIL,client=az-local|az-world|az-resolver,important` + "\n"
+	want := `/(^|\.)example\.org$/$dnsrewrite=REFUSED,client=az-local|az-world|az-resolver,important` + "\n"
 	if response.Code != 200 || response.Body.String() != want {
 		t.Fatalf("status=%d got %q want %q", response.Code, response.Body.String(), want)
 	}

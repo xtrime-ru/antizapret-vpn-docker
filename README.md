@@ -690,12 +690,12 @@ docker service logs --since 10m --tail 200 --timestamps antizapret_az-world
 ```text
 antizapret_coredns.1.…@az-local | [INFO] 10.200.0.33:51045 - 47063 "A IN example.com. udp 52 false 1232" NOERROR qr,rd,ra,ad 94 0.071461249s
 antizapret_az-local.1.…@az-local | Request: [10.200.0.33:38244] (udp) / 'example.com.' (A)
-antizapret_az-local.1.…@az-local | Reply: [10.200.0.33:38244] (udp) / 'example.com.' (A) / SERVFAIL
+antizapret_az-local.1.…@az-local | Reply: [10.200.0.33:38244] (udp) / 'example.com.' (A) / REFUSED
 antizapret_az-world.1.…@az-world | Request: [10.200.0.33:43260] (udp) / 'example.com.' (A)
 antizapret_az-world.1.…@az-world | Reply: [10.200.0.33:43260] (udp) / 'example.com.' (A) / RRs: A,A
 ```
 
-Look for DNS `Request:` / `Reply:` lines and CoreDNS query logs, rather than just HTTP `/config-md5/` requests. DNS logging is enabled by default in this project. An exit node may intentionally return `SERVFAIL` when a domain does not match its rules, causing CoreDNS to try the next upstream. When `az-world` answers successfully, the same query need not appear at `az-local`.
+Look for DNS `Request:` / `Reply:` lines and CoreDNS query logs, rather than just HTTP `/config-md5/` requests. DNS logging is enabled by default in this project. An exit node may intentionally return `REFUSED` when a domain does not match its rules, causing CoreDNS to try the next upstream. When `az-world` answers successfully, the same query need not appear at `az-local`.
 
 To test each DNS server separately, run these commands on the **host running the AdGuard container** (usually `az-local`):
 
@@ -794,10 +794,10 @@ flowchart TB
     core --> world
     world["az-world: dnsmap<br/>domains / ASN"]
     world -->|Domain or ASN| worldip["14.18.0.0/15<br/>DNAT"]
-    world -->|SERVFAIL| local
+    world -->|REFUSED| local
     local["az-local: dnsmap<br/>domains / ASN"]
     local -->|Domain or ASN| localip["14.16.0.0/15<br/>DNAT"]
-    local -->|SERVFAIL| retry["AdGuard: client=coredns"]
+    local -->|REFUSED| retry["AdGuard: client=coredns"]
     retry -->|Ordinary upstream| external
     classDef service fill:#1e293b,stroke:#64748b,color:#f8fafc
     classDef exit fill:#312e81,stroke:#a5b4fc,color:#ffffff
@@ -818,7 +818,7 @@ flowchart TB
     core --> local
     local["az-local: dnsmap<br/>domains / ASN"]
     local -->|Domain or ASN| localip["14.16.0.0/15<br/>DNAT"]
-    local -->|SERVFAIL| retry["AdGuard: client=coredns"]
+    local -->|REFUSED| retry["AdGuard: client=coredns"]
     retry -->|Ordinary upstream| external
     classDef service fill:#1e293b,stroke:#64748b,color:#f8fafc
     classDef exit fill:#312e81,stroke:#a5b4fc,color:#ffffff
@@ -828,11 +828,13 @@ flowchart TB
     class localip mapped
 ```
 
-In Swarm, CoreDNS uses `az-world`, then `az-local`, then a direct query to AdGuard. It proceeds to the next upstream on a network error, timeout, or `SERVFAIL`. The final AdGuard request uses the `coredns` client, whose upstreams are ordinary external resolvers, so it does not loop back into CoreDNS.
+In Swarm, CoreDNS uses `az-world`, then `az-local`, then a direct query to AdGuard. It proceeds to the next upstream on a network error, timeout, `REFUSED`, or `SERVFAIL`. The final AdGuard request uses the `coredns` client, whose upstreams are ordinary external resolvers, so it does not loop back into CoreDNS.
 
-On a network error, CoreDNS starts background upstream probes with a 1-second interval between attempts. An upstream skipped by health checks regains its priority after a successful probe. A `SERVFAIL` response causes failover for the current query without excluding the upstream.
+On a network error, CoreDNS starts background upstream probes with a 1-second interval between attempts. An upstream skipped by health checks regains its priority after a successful probe. A `REFUSED` response causes failover for the current query without excluding the upstream.
 
-CoreDNS sets the TTL of fallback answers from AdGuard to zero if a configured exit is missing from discovery or fails to respond to the current query. Answers from an exit keep their original TTL, as do AdGuard answers when every configured exit replied with `SERVFAIL`. Upstream addresses and roles take effect after discovery and Corefile reload.
+CoreDNS sets the TTL of fallback answers from AdGuard to zero if a configured exit is missing from discovery, fails to respond, or returns `SERVFAIL`. Answers from an exit keep their original TTL, as do AdGuard answers when every configured exit replied with `REFUSED`. Upstream addresses and roles take effect after discovery and Corefile reload.
+
+When upgrading separately, update CoreDNS first, then AdGuard and the exit nodes. On startup, the AdGuard entrypoint updates the two bundled routing rules for `az-local` and `az-world` to `REFUSED`. AdGuard refreshes subscriptions through its regular update process. Update custom routing rules separately if they still use `SERVFAIL` to skip an exit.
 
 In single-server Compose, CoreDNS uses only `az-local` before falling back to AdGuard. Both local and world domain lists use the `az-local` ClientID, and `ASN_FILES` includes both generated ASN lists.
 
@@ -843,13 +845,13 @@ flowchart TB
     q["Original A query"] --> first["AdGuard: client=az-local / az-world"]
     first --> has{"NOERROR with A records?"}
     has -->|Yes| mapped["Virtual IPs + DNAT"]
-    has -->|SERVFAIL| direct["AdGuard: client=az-resolver"]
+    has -->|REFUSED| direct["AdGuard: client=az-resolver"]
     has -->|Other response| err["Original response / error"]
     direct --> res{"NOERROR with A records?"}
     res -->|Yes| asn{"ASN or organization match?"}
     res -->|No| err
     asn -->|Yes| mapped
-    asn -->|No| fail["SERVFAIL: next upstream"]
+    asn -->|No| fail["REFUSED: next upstream"]
     classDef service fill:#1e293b,stroke:#64748b,color:#f8fafc
     classDef exit fill:#312e81,stroke:#a5b4fc,color:#ffffff
     classDef mapped fill:#115e59,stroke:#5eead4,color:#ffffff
@@ -858,10 +860,10 @@ flowchart TB
 ```
 
 1. `dnsmap` sends the original query to AdGuard using the DoH protocol over internal HTTP at `/dns-query/<CLIENT>`, with `<CLIENT>` set to `az-local` or `az-world`. The default AdGuard DoH port is `3000`.
-2. For that client, a matching domain include cancels AdGuard's default `SERVFAIL` rewrite unless an important exclusion also matches. If the response contains IPv4 addresses, `dnsmap` maps them immediately; it does not check ASN or query `az-resolver` in this branch.
-3. If the first response is `SERVFAIL`, `dnsmap` sends the same original query with ClientID `az-resolver`. The default upstreams for this client are Cloudflare, Google and Quad9, rather than CoreDNS.
-4. A matching domain exclusion also returns `SERVFAIL` for `az-resolver`, stopping the ASN check after blocking the ordinary include at the first request. Other resolver errors are also returned without creating mappings.
-5. If direct resolution succeeds, `dnsmap` checks the returned IPv4 addresses in the MaxMind ASN database. If any address matches an ASN number, organization substring or organization regex, all IPv4 addresses in that response are mapped through this exit node. With no matching address, the original `SERVFAIL` is returned to CoreDNS.
+2. For that client, a matching domain include cancels AdGuard's default `REFUSED` rewrite unless an important exclusion also matches. If the response contains IPv4 addresses, `dnsmap` maps them immediately; it does not check ASN or query `az-resolver` in this branch.
+3. If the first response is `REFUSED`, `dnsmap` sends the same original query with ClientID `az-resolver`. The default upstreams for this client are Cloudflare, Google and Quad9, rather than CoreDNS.
+4. A matching domain exclusion also returns `REFUSED` for `az-resolver`, stopping the ASN check after blocking the ordinary include at the first request. Other resolver errors are also returned without creating mappings.
+5. If direct resolution succeeds, `dnsmap` checks the returned IPv4 addresses in the MaxMind ASN database. If any address matches an ASN number, organization substring or organization regex, all IPv4 addresses in that response are mapped through this exit node. With no matching address, the original `REFUSED` is returned to CoreDNS.
 6. When mapping addresses, `dnsmap` removes CNAME records, replaces A records with virtual addresses under the original query name, and sets their TTL to 300 seconds. It installs DNAT mappings from the virtual addresses to the real addresses.
 
 An empty answer does not create mappings. A failure to install mappings returns `SERVFAIL`. The default address pools and rule files are described in [Routing rules: include, exclude and ASN](#routing-rules-include-exclude-and-asn).
@@ -870,7 +872,7 @@ An empty answer does not create mappings. A failure to install mappings returns 
 
 CoreDNS forwards answers without re-querying each CNAME target. `dnsmap` checks the resolved IPv4 addresses against MaxMind ASN rules, so CDN routing does not require a CNAME finalizer.
 
-The bundled `lists/exclude.txt` loads Steam, PlayStation and Rockstar domain lists from v2fly. AdGuard's **Direct Access Rules** filter returns important `SERVFAIL` rewrites for `az-local`, `az-world` and `az-resolver`, overriding ordinary custom/dist includes and preventing ASN routing. CoreDNS then reaches the direct AdGuard upstream. Independent IP routes still apply. The new list supplies AdGuard rules only; it does not remove entries from include lists.
+The bundled `lists/exclude.txt` loads Steam, PlayStation and Rockstar domain lists from v2fly. AdGuard's **Direct Access Rules** filter returns important `REFUSED` rewrites for `az-local`, `az-world` and `az-resolver`, overriding ordinary custom/dist includes and preventing ASN routing. CoreDNS then reaches the direct AdGuard upstream. Independent IP routes still apply. The new list supplies AdGuard rules only; it does not remove entries from include lists.
 
 ### Reading the query log
 
@@ -878,12 +880,12 @@ When inspecting domain and ASN routing, the AdGuard log can show:
 
 | Client | Response | Meaning |
 |---|---|---|
-| `az-world` or `az-local` | `SERVFAIL` | No include matched, or an important exclusion overrode it; a resolver request follows |
+| `az-world` or `az-local` | `REFUSED` | No include matched, or an important exclusion overrode it; a resolver request follows |
 | `az-resolver` | `NOERROR`, real IPv4 addresses | Direct resolution for the subsequent ASN check |
-| `az-resolver` | `SERVFAIL` from an exclusion | Neither domain nor ASN routing is used for this query |
+| `az-resolver` | `REFUSED` from an exclusion | Neither domain nor ASN routing is used for this query |
 | Original VPN client | `NOERROR`, `14.18.*` or `14.16.*` | An exit node mapped the addresses through the VPN |
 
-A `SERVFAIL` entry for an exit ClientID alone does not prove that the exit was skipped: inspect the following `az-resolver` request and the `ASN match` messages in the exit container's logs. If all exits return `SERVFAIL`, a query from `coredns` to an ordinary upstream provides the direct answer. Caching and CNAME chains change the number of log entries per client query.
+A `REFUSED` entry for an exit ClientID alone does not prove that the exit was skipped: inspect the following `az-resolver` request and the `ASN match` messages in the exit container's logs. If all exits return `REFUSED`, a query from `coredns` to an ordinary upstream provides the direct answer. Caching and CNAME chains change the number of log entries per client query.
 
 ## Routing rules: include, exclude and ASN
 
@@ -931,9 +933,9 @@ The first pattern removes the exact `example.com` list entry; the second matches
 Domain exclusions have two effects:
 
 1. The list adapter removes matching input lines from lists with `filter_custom=1` (the default).
-2. AdGuard loads exclusions from both exit nodes as important `SERVFAIL` rewrite rules for `az-local`, `az-world` and `az-resolver`, overriding ordinary includes and stopping ASN fallback.
+2. AdGuard loads exclusions from both exit nodes as important `REFUSED` rewrite rules for `az-local`, `az-world` and `az-resolver`, overriding ordinary includes and stopping ASN fallback.
 
-The adapter filters list entries, not all hostnames covered by the resulting AdGuard rules. Excluding `subdomain.example.com` does not remove an `example.com` entry, but the generated important AdGuard exclusion still overrides that parent-domain include for matching queries. The routing order is **exclude > include > ASN**. Rules entered directly in AdGuard retain its native semantics: an explicit `@@…$dnsrewrite,important` can override an exclusion. The two default `||*^$dnsrewrite=SERVFAIL` rules stay without `important` so ordinary includes can cancel them.
+The adapter filters list entries, not all hostnames covered by the resulting AdGuard rules. Excluding `subdomain.example.com` does not remove an `example.com` entry, but the generated important AdGuard exclusion still overrides that parent-domain include for matching queries. The routing order is **exclude > include > ASN**. Rules entered directly in AdGuard retain its native semantics: an explicit `@@…$dnsrewrite,important` can override an exclusion. The two default `||*^$dnsrewrite=REFUSED` rules stay without `important` so ordinary includes can cancel them.
 
 Because both exclusion filters target all three internal clients, an exclusion loaded from either node also applies to the other node. Excluding a hostname does not remove independent IP/CIDR routes. CoreDNS no longer re-queries CNAME targets separately.
 
@@ -942,7 +944,7 @@ The bundled `lists/exclude.txt` is separate from these custom regex files: it us
 For example, an ordinary include for `example.com` can coexist with this generated exclusion:
 
 ```text
-||direct.example.com^$dnsrewrite=SERVFAIL,client=az-local|az-world|az-resolver,important
+||direct.example.com^$dnsrewrite=REFUSED,client=az-local|az-world|az-resolver,important
 ```
 
 Queries for `direct.example.com` and its subdomains bypass domain and ASN routing on both exit nodes. The final AdGuard request from `coredns` is outside the exclusion's client scope and returns the direct answer.
@@ -950,7 +952,7 @@ Queries for `direct.example.com` and its subdomains bypass domain and ASN routin
 ### Adding ASNs
 
 ASN rules route domains through a VPN node based on the network that owns their resolved IPv4
-addresses. When the regular AdGuard request for `az-local` or `az-world` returns `SERVFAIL`,
+addresses. When the regular AdGuard request for `az-local` or `az-world` returns `REFUSED`,
 `dnsmap` resolves the domain directly through the `az-resolver` client and checks A
 records in the MaxMind ASN database. If at least one address matches a rule, all IPv4 addresses
 from that DNS response are mapped through the corresponding VPN node. If there are no A records
@@ -1047,7 +1049,7 @@ For custom include/exclude files, see [Routing rules: include, exclude and ASN](
 Open adguard panel: http://adguard.antizapret:3000/#custom_rules
 Rules/syntaxes: https://adguard-dns.io/kb/general/dns-filtering-syntax/#basic-examples
 
-By default, AdGuard returns `SERVFAIL` for internal requests from `az-local` and `az-world`. A domain rule with `@@` and `$dnsrewrite` allows the exit node to resolve and map that domain through the VPN unless an important exclusion matches. If no include allows the request, `dnsmap` queries `az-resolver`; an exclusion stops this request too, otherwise ASN rules are checked. When neither path matches, CoreDNS tries the next upstream. Regular client queries keep the standard AdGuard filtering behavior.
+By default, AdGuard returns `REFUSED` for internal requests from `az-local` and `az-world`. A domain rule with `@@` and `$dnsrewrite` allows the exit node to resolve and map that domain through the VPN unless an important exclusion matches. If no include allows the request, `dnsmap` queries `az-resolver`; an exclusion stops this request too, otherwise ASN rules are checked. When neither path matches, CoreDNS tries the next upstream. Regular client queries keep the standard AdGuard filtering behavior.
 
 
 Examples:
@@ -1076,12 +1078,12 @@ Use plain domain lists, slash-delimited regex lists or JSON arrays of domain str
  - `filter_custom=1` - filter lists with rules from exclude-hosts-custom.txt.
  - `filter_dist=0` - filter lists with rules from exclude-hosts-dist.txt
  - `format=list` - `list`, `json`, or `v2fly`. JSON is detected from the response Content-Type; without `format=`, each line is processed as v2fly when it starts with `include:`, `domain:`, `full:`, `keyword:` or `regexp:` after trimming. Other lines use plain list parsing. This streams the source and its includes without buffering whole lists. Explicit `format=` takes priority; `raw=1` and `regex=1` disable automatic parsing.
- - `exclude=0` - `exclude=1` emits important `SERVFAIL` rewrites for `az-local|az-world|az-resolver`, overriding ordinary includes and disabling ASN fallback. It forces `allow=0`, `suffix=1`, `raw=0` and disables custom/dist filtering for this exclusion source.
+ - `exclude=0` - `exclude=1` emits important `REFUSED` rewrites for `az-local|az-world|az-resolver`, overriding ordinary includes and disabling ASN fallback. It forces `allow=0`, `suffix=1`, `raw=0` and disables custom/dist filtering for this exclusion source.
  - `client=az-local` - name of client to add to rules. Detected automatically.
  - `allow=1` - disable this option, to block domains from list for this exit node.
  - `raw=0` - dont modify rules
  - `suffix=1` - add "$dnsrewrite,client=xxx" to rules
- - `dnsrewrite=SERVFAIL` - set custom dnsrewrite value
+ - `dnsrewrite=REFUSED` - set custom dnsrewrite value
  - `regex=0` - use `regex=1` to wrap each input line as an AdGuard regular expression rule
 
 Incompatible modes return HTTP 400 before loading the source: `v2fly` with `raw=1` or `regex=1`, `raw=1` with `regex=1`, and `exclude=1` with `raw=1`.

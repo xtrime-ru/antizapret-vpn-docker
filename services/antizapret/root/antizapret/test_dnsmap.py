@@ -606,7 +606,7 @@ class ConditionalAsnTests(ResolverTestCase):
         for hostname, should_map in (('rr1.googlevideo.com', True), ('gmail.com', False)):
             with self.subTest(hostname=hostname):
                 request = DNSRecord.question(hostname, 'A')
-                filtered_reply = dns_reply(request, rcode=RCODE.SERVFAIL)
+                filtered_reply = dns_reply(request, rcode=RCODE.REFUSED)
                 resolved_reply = dns_reply(request, ['192.0.2.1'])
                 # Match the original query name, even when its address belongs to a CNAME target.
                 resolved_reply.rr[0].rname = 'cdn.example.net'
@@ -775,22 +775,22 @@ class ResolverContractTests(ResolverTestCase):
         self.assertEqual(str(reply.rr[0].rdata), '14.16.0.2')
         resolver.is_blocked_asn.assert_not_called()
 
-    def test_servfail_without_asn_match_is_preserved(self):
+    def test_refused_without_asn_match_is_preserved(self):
         request = DNSRecord.question('example.com', 'A')
         resolver = self.resolver_with_replies([
-            dns_reply(request, rcode=RCODE.SERVFAIL),
+            dns_reply(request, rcode=RCODE.REFUSED),
             dns_reply(request, ['192.0.2.1']),
         ])
 
         reply = resolver.resolve(request, Mock())
 
-        self.assertEqual(reply.header.rcode, RCODE.SERVFAIL)
+        self.assertEqual(reply.header.rcode, RCODE.REFUSED)
         resolver.add_mappings.assert_not_called()
 
     def test_resolver_servfail_is_returned_without_asn_lookup(self):
         request = DNSRecord.question('example.com', 'A')
         resolver = self.resolver_with_replies([
-            dns_reply(request, rcode=RCODE.SERVFAIL),
+            dns_reply(request, rcode=RCODE.REFUSED),
             dns_reply(request, ['192.0.2.1'], rcode=RCODE.SERVFAIL),
         ], asn_match=True)
 
@@ -800,9 +800,39 @@ class ResolverContractTests(ResolverTestCase):
         resolver.is_blocked_asn.assert_not_called()
         resolver.add_mappings.assert_not_called()
 
+    def test_upstream_failure_does_not_trigger_asn_lookup(self):
+        for qtype in ('A', 'HTTPS'):
+            for timeout in (False, True):
+                with self.subTest(qtype=qtype, timeout=timeout):
+                    request = DNSRecord.question('example.com', qtype)
+                    resolver = self.resolver_with_replies([
+                        TimeoutError('DoH timeout') if timeout else dns_reply(request, rcode=RCODE.SERVFAIL),
+                    ])
+                    resolver.log_processing_error = Mock()
+
+                    reply = resolver.resolve(request, Mock())
+
+                    self.assertEqual(reply.header.rcode, RCODE.SERVFAIL)
+                    resolver.query_doh.assert_called_once_with(request, 'az-local')
+                    resolver.is_blocked_asn.assert_not_called()
+
+    def test_https_asn_lookup_failure_is_preserved(self):
+        request = DNSRecord.question('example.com', 'HTTPS')
+        addresses = DNSRecord.question('example.com', 'A')
+        resolver = self.resolver_with_replies([
+            dns_reply(request, rcode=RCODE.REFUSED),
+            dns_reply(addresses, rcode=RCODE.SERVFAIL),
+        ])
+
+        reply = resolver.resolve(request, Mock())
+
+        self.assertEqual(reply.header.rcode, RCODE.SERVFAIL)
+        self.assertEqual(reply.q.qtype, QTYPE.HTTPS)
+        resolver.is_blocked_asn.assert_not_called()
+
     def test_empty_resolver_answer_preserves_filtered_reply(self):
         request = DNSRecord.question('empty.example', 'A')
-        filtered_reply = dns_reply(request, rcode=RCODE.SERVFAIL)
+        filtered_reply = dns_reply(request, rcode=RCODE.REFUSED)
         resolved_reply = dns_reply(request)
         resolver = self.resolver_with_replies([
             filtered_reply,
@@ -812,43 +842,14 @@ class ResolverContractTests(ResolverTestCase):
         reply = resolver.resolve(request, Mock())
 
         self.assertIs(reply, filtered_reply)
-        self.assertEqual(reply.header.rcode, RCODE.SERVFAIL)
-        resolver.is_blocked_asn.assert_not_called()
-        resolver.add_mappings.assert_not_called()
-
-    def test_resolver_servfail_is_returned_without_asn_lookup(self):
-        request = DNSRecord.question('example.com', 'A')
-        resolver = self.resolver_with_replies([
-            dns_reply(request, rcode=RCODE.SERVFAIL),
-            dns_reply(request, ['192.0.2.1'], rcode=RCODE.SERVFAIL),
-        ], asn_match=True)
-
-        reply = resolver.resolve(request, Mock())
-
-        self.assertEqual(reply.header.rcode, RCODE.SERVFAIL)
-        resolver.is_blocked_asn.assert_not_called()
-        resolver.add_mappings.assert_not_called()
-
-    def test_empty_resolver_answer_preserves_filtered_reply(self):
-        request = DNSRecord.question('empty.example', 'A')
-        filtered_reply = dns_reply(request, rcode=RCODE.SERVFAIL)
-        resolved_reply = dns_reply(request)
-        resolver = self.resolver_with_replies([
-            filtered_reply,
-            resolved_reply,
-        ], asn_match=True)
-
-        reply = resolver.resolve(request, Mock())
-
-        self.assertIs(reply, filtered_reply)
-        self.assertEqual(reply.header.rcode, RCODE.SERVFAIL)
+        self.assertEqual(reply.header.rcode, RCODE.REFUSED)
         resolver.is_blocked_asn.assert_not_called()
         resolver.add_mappings.assert_not_called()
 
     def test_one_asn_match_maps_all_resolved_addresses(self):
         request = DNSRecord.question('example.com', 'A')
         resolver = self.resolver_with_replies([
-            dns_reply(request, rcode=RCODE.SERVFAIL),
+            dns_reply(request, rcode=RCODE.REFUSED),
             dns_reply(request, ['192.0.2.1', '192.0.2.2']),
         ])
         resolver.is_blocked_asn.side_effect = [False, True]
@@ -955,7 +956,7 @@ class ResolverContractTests(ResolverTestCase):
             '1', '.', 'alpn=h3', 'ipv4hint=192.0.2.2',
         ])))
         resolver = self.resolver_with_replies([
-            dns_reply(request, rcode=RCODE.SERVFAIL),
+            dns_reply(request, rcode=RCODE.REFUSED),
             dns_reply(address_request, ['192.0.2.1', '192.0.2.2']),
             https_reply,
         ])
@@ -975,7 +976,7 @@ class ResolverContractTests(ResolverTestCase):
         ])
         resolver.add_mappings.assert_not_called()
 
-    def test_https_without_matching_asn_preserves_servfail(self):
+    def test_https_without_matching_asn_preserves_refused(self):
         request = DNSRecord.question('video.example', 'HTTPS')
         address_request = DNSRecord.question('video.example', 'A')
         for address_reply in (
@@ -985,13 +986,13 @@ class ResolverContractTests(ResolverTestCase):
         ):
             with self.subTest(address_reply=address_reply):
                 resolver = self.resolver_with_replies([
-                    dns_reply(request, rcode=RCODE.SERVFAIL),
+                    dns_reply(request, rcode=RCODE.REFUSED),
                     address_reply,
                 ])
 
                 reply = resolver.resolve(request, Mock())
 
-                self.assertEqual(reply.header.rcode, RCODE.SERVFAIL)
+                self.assertEqual(reply.header.rcode, RCODE.REFUSED)
                 self.assertEqual(reply.q.qtype, QTYPE.HTTPS)
                 self.assertEqual(resolver.query_doh.call_count, 2)
                 resolver.add_mappings.assert_not_called()
@@ -999,7 +1000,7 @@ class ResolverContractTests(ResolverTestCase):
     def test_mmdb_exception_returns_servfail(self):
         request = DNSRecord.question('example.com', 'A')
         resolver = self.resolver_with_replies([
-            dns_reply(request, rcode=RCODE.SERVFAIL),
+            dns_reply(request, rcode=RCODE.REFUSED),
             dns_reply(request, ['192.0.2.1']),
         ])
         resolver.is_blocked_asn.side_effect = RuntimeError('MMDB failed')

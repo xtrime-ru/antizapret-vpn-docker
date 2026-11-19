@@ -333,7 +333,7 @@ func adaptList(w http.ResponseWriter, r *http.Request) {
 		Allow:        true, // default (adds @@)
 		Suffix:       true,
 		Raw:          false,
-		DnsRewrite:   "SERVFAIL",
+		DnsRewrite:   "REFUSED",
 	}
 
 	if err := decoder.Decode(&req, r.URL.Query()); err != nil {
@@ -349,7 +349,7 @@ func adaptList(w http.ResponseWriter, r *http.Request) {
 
 	if req.Exclude {
 		req.Allow, req.Raw, req.Suffix = false, false, true
-		req.Client, req.DnsRewrite = "az-local|az-world|az-resolver", "SERVFAIL"
+		req.Client, req.DnsRewrite = "az-local|az-world|az-resolver", "REFUSED"
 		req.FilterCustom, req.FilterDist = false, false
 	}
 

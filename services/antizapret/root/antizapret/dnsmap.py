@@ -472,7 +472,13 @@ class ProxyResolver(BaseResolver):
 
         addresses = self.query_doh(address_request, self.resolver_client_id)
         if addresses.header.rcode != RCODE.NOERROR:
-            return addresses if address_request is request else filtered_reply
+            if address_request is request:
+                return addresses
+            if addresses.header.rcode == RCODE.NXDOMAIN:
+                return filtered_reply
+            reply = request.reply(aa=0)
+            reply.header.rcode = addresses.header.rcode
+            return reply
         hostname = str(request.q.qname)
         if not any(record.rtype == QTYPE.A and self.is_blocked_asn(str(record.rdata), hostname)
                    for record in addresses.rr):
@@ -522,7 +528,7 @@ class ProxyResolver(BaseResolver):
 
             if request.q.qtype == QTYPE.AAAA:
                 return request.reply()
-            if request.q.qtype in (QTYPE.A, QTYPE.HTTPS) and reply.header.rcode == RCODE.SERVFAIL:
+            if request.q.qtype in (QTYPE.A, QTYPE.HTTPS) and reply.header.rcode == RCODE.REFUSED:
                 reply = self.resolve_by_asn(request, reply)
             if request.q.qtype == QTYPE.HTTPS:
                 return self.filter_https_reply(request, reply)
@@ -669,7 +675,7 @@ if __name__ == '__main__':
     p.add_argument("--client-id", default=os.getenv('CLIENT', 'az-local'),
                    help="AdGuard client ID used for filtered requests")
     p.add_argument("--resolver-client-id", default="az-resolver",
-                   help="AdGuard client ID used to resolve SERVFAIL responses")
+                   help="AdGuard client ID used to resolve REFUSED responses")
     p.add_argument("--asn-file", default="/root/antizapret/result/asn.txt",
                    help="Semicolon-separated files with blocked ASN numbers and organization names")
     p.add_argument("--asn-database", default="/usr/share/GeoIP/GeoLite2-ASN.mmdb",
