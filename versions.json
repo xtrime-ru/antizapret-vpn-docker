@@ -31,7 +31,7 @@
     {
       "name": "coredns",
       "repository": "antizapret-vpn-coredns",
-      "version": "6.12.2",
+      "version": "6.12.3",
       "source": "services/coredns",
       "compose": "docker-compose.yml",
       "target": "coredns",

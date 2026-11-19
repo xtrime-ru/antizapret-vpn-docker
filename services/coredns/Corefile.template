@@ -2,14 +2,15 @@
     log
     errors
     health :8080
-
-    # Forward plugin with strict failover
-    forward . ${AZ_FORWARD_HOSTS} {
-        policy sequential
-        prefer_udp
-        failover SERVFAIL
-        max_fails 1
-        health_check 1s
+    fallbackttl ${AZ_EXPECTED_EXITS} ${AZ_FALLBACK_HOST} {
+        forward . ${AZ_FORWARD_HOSTS} {
+            prefer_udp
+            failover SERVFAIL
+            max_connect_attempts 1
+            max_fails 1
+            health_check 1s
+            failfast_all_unhealthy_upstreams
+        }
     }
 
     reload 2s

@@ -45,6 +45,10 @@ services:
     environment:
       - AZ_WORLD_ENABLED=1
 
+  coredns:
+    environment:
+      - AZ_WORLD_ENABLED=1
+
   firewall:
     network_mode: !reset null
     networks:

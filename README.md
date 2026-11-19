@@ -830,9 +830,11 @@ flowchart TB
 
 In Swarm, CoreDNS uses `az-world`, then `az-local`, then a direct query to AdGuard. It proceeds to the next upstream on a network error, timeout, or `SERVFAIL`. The final AdGuard request uses the `coredns` client, whose upstreams are ordinary external resolvers, so it does not loop back into CoreDNS.
 
-On a network error, CoreDNS starts background upstream probes with a 1-second interval between failed attempts. After one failed probe the upstream is temporarily skipped; the first DNS response restores its original position in `sequential` order. A `SERVFAIL` response causes failover for the current query without excluding the upstream.
+On a network error, CoreDNS starts background upstream probes with a 1-second interval between attempts. An upstream skipped by health checks regains its priority after a successful probe. A `SERVFAIL` response causes failover for the current query without excluding the upstream.
 
-In single-server Compose, `az-local` also owns the aliases `az-world` and `az-world.antizapret`. CoreDNS detects the shared address and queries the exit container once, then falls back to AdGuard. Both local and world domain lists use the `az-local` ClientID, and `ASN_FILES` includes both generated ASN lists.
+CoreDNS sets the TTL of fallback answers from AdGuard to zero if a configured exit is missing from discovery or fails to respond to the current query. Answers from an exit keep their original TTL, as do AdGuard answers when every configured exit replied with `SERVFAIL`. Upstream addresses and roles take effect after discovery and Corefile reload.
+
+In single-server Compose, CoreDNS uses only `az-local` before falling back to AdGuard. Both local and world domain lists use the `az-local` ClientID, and `ASN_FILES` includes both generated ASN lists.
 
 ### Inside an exit node: domains and ASN
 

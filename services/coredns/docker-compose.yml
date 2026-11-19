@@ -1,8 +1,8 @@
 services:
   coredns:
     entrypoint: ["/usr/local/lib/docktinel/entrypoint"]
-    command: ["/root/entrypoint.sh"]
-    image: xtrime/antizapret-vpn-coredns:6.12.2
+    command: ["/coredns", "-conf", "/Corefile"]
+    image: xtrime/antizapret-vpn-coredns:6.12.3
     hostname: coredns.antizapret
     restart: unless-stopped
     init: true
