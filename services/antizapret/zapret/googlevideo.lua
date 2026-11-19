@@ -149,3 +149,41 @@ function googlevideo_retry_window(ctx, desync)
     end
     if state.googlevideo_retry then return wssize(ctx, desync) end
 end
+
+function googlevideo_watch_quic(ctx, desync)
+    if not desync.track or not desync.dis.ip or not desync.dis.udp then return end
+    local state = desync.track.lua_state
+    local status = state.googlevideo_quic
+    local initial = desync.l7payload == "quic_initial"
+    if status == "rejected" then
+        if desync.outgoing and initial then
+            execution_plan_cancel(ctx)
+            return VERDICT_DROP
+        end
+        return
+    end
+
+    if not desync.outgoing then
+        if status then timer_del(status) end
+        state.googlevideo_quic = false
+        return
+    end
+    if status ~= nil or not initial or not replay_first(desync) then return end
+
+    local raw = raw_packet(ctx)
+    if not raw or #raw < 28 then return end
+    -- Quote the post-NAT packet for conntrack, within the 576-byte IPv4 ICMP limit.
+    local reply = {
+        ip = deepcopy(desync.dis.ip),
+        icmp = {icmp_type = 3, icmp_code = 3, icmp_data = 0},
+        payload = raw:sub(1, 576 - 20 - 8),
+    }
+    reply.ip.ip_src, reply.ip.ip_dst = reply.ip.ip_dst, reply.ip.ip_src
+    fix_ip_proto(reply)
+    local timer = desync_timer_name(desync)
+    local ifin = desync.ifin
+    state.googlevideo_quic = timer
+    timer_set(timer, function()
+        state.googlevideo_quic = rawsend_dissect(reply, {ifout = ifin}) and "rejected" or false
+    end, 1000, true)
+end

@@ -32,7 +32,8 @@ NFQWS2_TCP_PKT_IN=10
 NFQWS2_UDP_PKT_OUT=5
 NFQWS2_UDP_PKT_IN=3
 NFQWS2_OPT="
---lua-init=@/opt/zapret2/googlevideo-retry.lua
+--lua-init=@/opt/zapret2/googlevideo.lua
+--blob=quic_google:@/opt/zapret2/files/fake/quic_initial_www_google_com.bin
 --ipcache-hostname
 --filter-tcp=443 --hostlist-domains=googlevideo.com
 --in-range=a --lua-desync=googlevideo_watch_tls:timeout_ms=1200:cache_ms=86400000:restore_window=1
@@ -40,6 +41,9 @@ NFQWS2_OPT="
 --payload=tls_client_hello --lua-desync=multisplit:pos=10:seqovl=1 --new
 --filter-tcp=80 --filter-l7=http --payload http_req --lua-desync=http_methodeol --new
 --filter-tcp=443 --filter-l7=tls --payload=tls_client_hello --lua-desync=multisplit:pos=10:seqovl=1 --new
+--filter-udp=443 --filter-l7=quic --hostlist-domains=googlevideo.com
+--in-range=a --lua-desync=googlevideo_watch_quic
+--payload=quic_initial --lua-desync=fake:blob=quic_google:repeats=11 --new
 --filter-udp=443 --filter-l7=quic --payload=quic_initial --lua-desync=fake:blob=fake_default_quic:repeats=6
 "
 
