@@ -88,6 +88,7 @@ if [ "$ADGUARD_SCHEMA_VERSION" -lt 34 ]; then
     yq -i '.tls.allow_unencrypted_doh = true' /opt/adguardhome/conf/AdGuardHome.yaml || exit 1
 fi
 
+# Compare encoded rules so yq treats the asterisk literally.
 ADGUARDHOME_PORT="$ADGUARDHOME_PORT" \
 ADGUARDHOME_USERNAME="$ADGUARDHOME_USERNAME" \
 ADGUARDHOME_PASSWORD_HASH="$ADGUARDHOME_PASSWORD_HASH" \
@@ -108,7 +109,9 @@ yq -i '
     .users[0].password=strenv(ADGUARDHOME_PASSWORD_HASH) |
     (.clients.persistent[] | select(.name == "az-local") | .ids) = (["az-local", strenv(AZ_LOCAL_HOST)] | map(select(. != ""))) |
     (.clients.persistent[] | select(.name == "az-world") | .ids) = env(AZ_WORLD_CLIENT_IDS) |
-    (.clients.persistent[] | select(.name == "coredns") | .ids) = (["coredns", strenv(COREDNS_HOST)] | map(select(. != "")))
+    (.clients.persistent[] | select(.name == "coredns") | .ids) = (["coredns", strenv(COREDNS_HOST)] | map(select(. != ""))) |
+    (.user_rules[] | select(@base64 == ("||*^$dnsrewrite=SERVFAIL,client=az-local" | @base64))) = "||*^$dnsrewrite=REFUSED,client=az-local" |
+    (.user_rules[] | select(@base64 == ("||*^$dnsrewrite=SERVFAIL,client=az-world" | @base64))) = "||*^$dnsrewrite=REFUSED,client=az-world"
     ' /opt/adguardhome/conf/AdGuardHome.yaml || exit 1
 
 if ! yq -e '.clients.persistent[] | select(.name == "az-resolver")' /opt/adguardhome/conf/AdGuardHome.yaml >/dev/null; then

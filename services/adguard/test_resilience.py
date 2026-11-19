@@ -133,6 +133,25 @@ class ConfigMigrationTests(unittest.TestCase):
         config["dns"]["upstream_timeout"] = "1s"
         return config
 
+    def test_migrates_only_bundled_routing_rules(self):
+        defaults = [
+            '||*^$dnsrewrite=SERVFAIL,client=az-local',
+            '||*^$dnsrewrite=SERVFAIL,client=az-world',
+        ]
+        custom = [
+            '||*^$dnsrewrite=SERVFAIL,client=az-local,important',
+            '||example.test^$dnsrewrite=SERVFAIL,client=az-world',
+        ]
+        url = 'http://az-local.antizapret/list/?client=az-local&dnsrewrite=SERVFAIL'
+        config = self.config()
+        config["user_rules"] = defaults + custom
+        config["filters"] = [{"url": url}]
+
+        migrated = self.migrate(config)
+        self.assertEqual(migrated["user_rules"], [rule.replace("SERVFAIL", "REFUSED") for rule in defaults] + custom)
+        self.assertEqual(migrated["filters"], config["filters"])
+        self.assertEqual(self.migrate(migrated), migrated)
+
     def test_existing_install_gets_fallback_and_timeout(self):
         for fallback in (None, []):
             with self.subTest(fallback=fallback):

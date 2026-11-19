@@ -102,7 +102,7 @@ func TestAdaptListAllowsIPURLWithCredentials(t *testing.T) {
 	}
 }
 
-func TestAdaptListConvertsExcludePatternsToResolverServfailRules(t *testing.T) {
+func TestAdaptListConvertsExcludePatternsToResolverRefusedRules(t *testing.T) {
 	root := useListRoot(t)
 	listPath := filepath.Join(root, "exclude-hosts-custom.txt")
 	contents := "example\\.com\n/foo[0-9]+\\.net/\npath/segment\n# comment\n"
@@ -116,9 +116,9 @@ func TestAdaptListConvertsExcludePatternsToResolverServfailRules(t *testing.T) {
 
 	adaptList(response, request)
 
-	want := "/example\\.com/$dnsrewrite=SERVFAIL,client=az-resolver\n" +
-		"/foo[0-9]+\\.net/$dnsrewrite=SERVFAIL,client=az-resolver\n" +
-		"/path\\/segment/$dnsrewrite=SERVFAIL,client=az-resolver\n" +
+	want := "/example\\.com/$dnsrewrite=REFUSED,client=az-resolver\n" +
+		"/foo[0-9]+\\.net/$dnsrewrite=REFUSED,client=az-resolver\n" +
+		"/path\\/segment/$dnsrewrite=REFUSED,client=az-resolver\n" +
 		"# comment\n"
 	if response.Code != http.StatusOK || response.Body.String() != want {
 		t.Fatalf("status = %d, body = %q, want %q", response.Code, response.Body.String(), want)

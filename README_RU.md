@@ -682,12 +682,12 @@ docker service logs --since 10m --tail 200 --timestamps antizapret_az-world
 ```text
 antizapret_coredns.1.…@az-local | [INFO] 10.200.0.33:51045 - 47063 "A IN example.com. udp 52 false 1232" NOERROR qr,rd,ra,ad 94 0.071461249s
 antizapret_az-local.1.…@az-local | Request: [10.200.0.33:38244] (udp) / 'example.com.' (A)
-antizapret_az-local.1.…@az-local | Reply: [10.200.0.33:38244] (udp) / 'example.com.' (A) / SERVFAIL
+antizapret_az-local.1.…@az-local | Reply: [10.200.0.33:38244] (udp) / 'example.com.' (A) / REFUSED
 antizapret_az-world.1.…@az-world | Request: [10.200.0.33:43260] (udp) / 'example.com.' (A)
 antizapret_az-world.1.…@az-world | Reply: [10.200.0.33:43260] (udp) / 'example.com.' (A) / RRs: A,A
 ```
 
-Ищите DNS-строки `Request:` / `Reply:` и записи CoreDNS, а не только HTTP-запросы `/config-md5/`. В проекте логирование DNS включено по умолчанию. `SERVFAIL` от `az-local` или `az-world` может быть штатным ответом, если домен не соответствует правилам этого узла: CoreDNS переходит к следующему upstream. При успешном ответе `az-world` тот же запрос не обязан появляться у `az-local`.
+Ищите DNS-строки `Request:` / `Reply:` и записи CoreDNS, а не только HTTP-запросы `/config-md5/`. В проекте логирование DNS включено по умолчанию. `REFUSED` от `az-local` или `az-world` может быть штатным ответом, если домен не соответствует правилам этого узла: CoreDNS переходит к следующему upstream. При успешном ответе `az-world` тот же запрос не обязан появляться у `az-local`.
 
 Чтобы проверить каждый сервер отдельно, выполните на **хосте, где запущен контейнер AdGuard** (обычно `az-local`):
 
@@ -786,10 +786,10 @@ flowchart TB
     core --> world
     world["az-world: dnsmap<br/>домены / ASN"]
     world -->|Домен или ASN| worldip["14.18.0.0/15<br/>DNAT"]
-    world -->|SERVFAIL| local
+    world -->|REFUSED| local
     local["az-local: dnsmap<br/>домены / ASN"]
     local -->|Домен или ASN| localip["14.16.0.0/15<br/>DNAT"]
-    local -->|SERVFAIL| retry["AdGuard: client=coredns"]
+    local -->|REFUSED| retry["AdGuard: client=coredns"]
     retry -->|Обычный upstream| external
     classDef service fill:#1e293b,stroke:#64748b,color:#f8fafc
     classDef exit fill:#312e81,stroke:#a5b4fc,color:#ffffff
@@ -810,7 +810,7 @@ flowchart TB
     core --> local
     local["az-local: dnsmap<br/>домены / ASN"]
     local -->|Домен или ASN| localip["14.16.0.0/15<br/>DNAT"]
-    local -->|SERVFAIL| retry["AdGuard: client=coredns"]
+    local -->|REFUSED| retry["AdGuard: client=coredns"]
     retry -->|Обычный upstream| external
     classDef service fill:#1e293b,stroke:#64748b,color:#f8fafc
     classDef exit fill:#312e81,stroke:#a5b4fc,color:#ffffff
@@ -820,11 +820,13 @@ flowchart TB
     class localip mapped
 ```
 
-В Swarm CoreDNS использует `az-world`, затем `az-local`, затем прямой запрос в AdGuard. Переход к следующему upstream происходит при сетевой ошибке, таймауте или `SERVFAIL`. Последний запрос в AdGuard относится к клиенту `coredns`, для которого настроены обычные внешние DNS-серверы: запрос не возвращается обратно в CoreDNS.
+В Swarm CoreDNS использует `az-world`, затем `az-local`, затем прямой запрос в AdGuard. Переход к следующему upstream происходит при сетевой ошибке, таймауте, `REFUSED` или `SERVFAIL`. Последний запрос в AdGuard относится к клиенту `coredns`, для которого настроены обычные внешние DNS-серверы: запрос не возвращается обратно в CoreDNS.
 
-При сетевой ошибке CoreDNS запускает фоновые пробы upstream с интервалом в одну секунду. Узлу, который пропускается по результатам проверки, возвращается исходный приоритет после успешной пробы. Ответ `SERVFAIL` вызывает переход только для текущего запроса и не исключает узел.
+При сетевой ошибке CoreDNS запускает фоновые пробы upstream с интервалом в одну секунду. Узлу, который пропускается по результатам проверки, возвращается исходный приоритет после успешной пробы. Ответ `REFUSED` вызывает переход только для текущего запроса и не исключает узел.
 
-CoreDNS обнуляет TTL резервного ответа AdGuard, если адрес настроенного узла выхода отсутствует или узел не ответил на текущий запрос. Исходный TTL сохраняется у ответов от узлов выхода и у ответов AdGuard, когда все настроенные узлы вернули `SERVFAIL`. Новые адреса и роли upstream вступают в силу после обнаружения и перечитывания Corefile.
+CoreDNS обнуляет TTL резервного ответа AdGuard, если адрес настроенного узла выхода отсутствует, узел не ответил на текущий запрос или вернул `SERVFAIL`. Исходный TTL сохраняется у ответов от узлов выхода и у ответов AdGuard, когда все настроенные узлы вернули `REFUSED`. Новые адреса и роли upstream вступают в силу после обнаружения и перечитывания Corefile.
+
+При раздельном обновлении сначала обновите CoreDNS, затем AdGuard и узлы выхода. При запуске entrypoint AdGuard переводит на `REFUSED` два штатных правила для `az-local` и `az-world`. Подписки обновляются штатным механизмом AdGuard. Если пользовательское правило использует `SERVFAIL` для пропуска узла, обновите его отдельно.
 
 В односерверном Compose CoreDNS использует только `az-local` перед переходом к AdGuard. Локальные и зарубежные доменные списки применяются к ClientID `az-local`, а `ASN_FILES` включает оба итоговых ASN-списка.
 
@@ -835,13 +837,13 @@ flowchart TB
     q["Исходный A-запрос"] --> first["AdGuard: client=az-local / az-world"]
     first --> has{"NOERROR и есть A-записи?"}
     has -->|Да| mapped["Виртуальные IP + DNAT"]
-    has -->|SERVFAIL| direct["AdGuard: client=az-resolver"]
+    has -->|REFUSED| direct["AdGuard: client=az-resolver"]
     has -->|Другой ответ| err["Исходный ответ / ошибка"]
     direct --> res{"NOERROR и есть A-записи?"}
     res -->|Да| asn{"Совпала ASN или организация?"}
     res -->|Нет| err
     asn -->|Да| mapped
-    asn -->|Нет| fail["SERVFAIL: следующий upstream"]
+    asn -->|Нет| fail["REFUSED: следующий upstream"]
     classDef service fill:#1e293b,stroke:#64748b,color:#f8fafc
     classDef exit fill:#312e81,stroke:#a5b4fc,color:#ffffff
     classDef mapped fill:#115e59,stroke:#5eead4,color:#ffffff
@@ -850,10 +852,10 @@ flowchart TB
 ```
 
 1. `dnsmap` отправляет исходный запрос в AdGuard по протоколу DoH через внутренний HTTP на `/dns-query/<CLIENT>`, где `<CLIENT>` — `az-local` или `az-world`. Порт DoH AdGuard по умолчанию — `3000`.
-2. Совпавшее доменное include-правило отменяет стандартный rewrite `SERVFAIL` для этого клиента, если одновременно не совпало исключение с `important`. Если ответ содержит IPv4-адреса, `dnsmap` сразу подменяет их: в этой ветке ASN не проверяется и запрос к `az-resolver` не выполняется.
-3. Если первый ответ — `SERVFAIL`, `dnsmap` повторяет тот же исходный запрос с ClientID `az-resolver`. Для этого клиента по умолчанию используются Cloudflare, Google и Quad9 вместо CoreDNS.
-4. Совпавшее доменное исключение также возвращает `SERVFAIL` для `az-resolver`, останавливая проверку ASN после запрета обычного include на первом запросе. Другие ошибки резолвера также возвращаются без создания подменных адресов.
-5. При успешном прямом разрешении `dnsmap` проверяет IPv4-адреса по базе ASN MaxMind. Если хотя бы один адрес совпал с номером ASN, подстрокой организации или regex организации, все IPv4-адреса ответа подменяются для этого узла выхода. При отсутствии совпадений CoreDNS получает исходный `SERVFAIL`.
+2. Совпавшее доменное include-правило отменяет стандартный rewrite `REFUSED` для этого клиента, если одновременно не совпало исключение с `important`. Если ответ содержит IPv4-адреса, `dnsmap` сразу подменяет их: в этой ветке ASN не проверяется и запрос к `az-resolver` не выполняется.
+3. Если первый ответ — `REFUSED`, `dnsmap` повторяет тот же исходный запрос с ClientID `az-resolver`. Для этого клиента по умолчанию используются Cloudflare, Google и Quad9 вместо CoreDNS.
+4. Совпавшее доменное исключение также возвращает `REFUSED` для `az-resolver`, останавливая проверку ASN после запрета обычного include на первом запросе. Другие ошибки резолвера также возвращаются без создания подменных адресов.
+5. При успешном прямом разрешении `dnsmap` проверяет IPv4-адреса по базе ASN MaxMind. Если хотя бы один адрес совпал с номером ASN, подстрокой организации или regex организации, все IPv4-адреса ответа подменяются для этого узла выхода. При отсутствии совпадений CoreDNS получает исходный `REFUSED`.
 6. При подмене `dnsmap` удаляет CNAME-записи, заменяет A-записи виртуальными адресами под исходным именем запроса и устанавливает TTL 300 секунд. Для виртуальных адресов создаются DNAT-правила к реальным адресам.
 
 Пустой ответ не создаёт подменных адресов. Ошибка установки правил подмены возвращает `SERVFAIL`. Пулы адресов и файлы правил описаны в разделе [Правила маршрутизации: include, exclude и ASN](#правила-маршрутизации-include-exclude-и-asn).
@@ -862,7 +864,7 @@ flowchart TB
 
 CoreDNS передаёт ответы без повторных запросов каждой CNAME-цели. `dnsmap` проверяет полученные IPv4-адреса по правилам ASN MaxMind, поэтому для маршрутизации CDN finalizer больше не нужен.
 
-Общий `lists/exclude.txt` подключает списки Steam, PlayStation и Rockstar из v2fly. Фильтр AdGuard **Direct Access Rules** создаёт rewrite-правила `SERVFAIL` с `important` для `az-local`, `az-world` и `az-resolver`, перекрывая обычные Custom/Dist include и останавливая ASN-маршрутизацию. Затем CoreDNS получает прямой ответ через AdGuard. Независимые IP-маршруты продолжают действовать. Новый список служит только источником правил AdGuard и не удаляет строки из include-списков.
+Общий `lists/exclude.txt` подключает списки Steam, PlayStation и Rockstar из v2fly. Фильтр AdGuard **Direct Access Rules** создаёт rewrite-правила `REFUSED` с `important` для `az-local`, `az-world` и `az-resolver`, перекрывая обычные Custom/Dist include и останавливая ASN-маршрутизацию. Затем CoreDNS получает прямой ответ через AdGuard. Независимые IP-маршруты продолжают действовать. Новый список служит только источником правил AdGuard и не удаляет строки из include-списков.
 
 ### Как читать журнал запросов
 
@@ -870,12 +872,12 @@ CoreDNS передаёт ответы без повторных запросов
 
 | Клиент | Ответ | Что означает |
 |---|---|---|
-| `az-world` или `az-local` | `SERVFAIL` | Include не совпал или был перекрыт исключением с `important`; далее следует запрос резолвера |
+| `az-world` или `az-local` | `REFUSED` | Include не совпал или был перекрыт исключением с `important`; далее следует запрос резолвера |
 | `az-resolver` | `NOERROR`, реальные IPv4-адреса | Прямое разрешение для последующей проверки ASN |
-| `az-resolver` | `SERVFAIL` от исключения | Для запроса не применяется ни доменная, ни ASN-маршрутизация |
+| `az-resolver` | `REFUSED` от исключения | Для запроса не применяется ни доменная, ни ASN-маршрутизация |
 | Исходный VPN-клиент | `NOERROR`, `14.18.*` или `14.16.*` | Узел выхода подменил адреса для VPN |
 
-Одна запись `SERVFAIL` для ClientID узла выхода не доказывает, что узел пропущен: проверьте последующий запрос `az-resolver` и сообщения `ASN match` в логах контейнера выхода. Если все узлы вернули `SERVFAIL`, запрос от `coredns` к обычному upstream даёт прямой ответ. Кэширование и CNAME-цепочки меняют число записей в журнале для одного клиентского запроса.
+Одна запись `REFUSED` для ClientID узла выхода не доказывает, что узел пропущен: проверьте последующий запрос `az-resolver` и сообщения `ASN match` в логах контейнера выхода. Если все узлы вернули `REFUSED`, запрос от `coredns` к обычному upstream даёт прямой ответ. Кэширование и CNAME-цепочки меняют число записей в журнале для одного клиентского запроса.
 
 ## Правила маршрутизации: include, exclude и ASN
 
@@ -923,9 +925,9 @@ subdomain.example.net
 Доменные исключения действуют двумя способами:
 
 1. Адаптер удаляет совпавшие входные строки из списков с `filter_custom=1` — это значение по умолчанию.
-2. AdGuard загружает исключения обоих узлов как rewrite-правила `SERVFAIL` с `important` для `az-local`, `az-world` и `az-resolver`, перекрывая обычные include и останавливая проверку ASN.
+2. AdGuard загружает исключения обоих узлов как rewrite-правила `REFUSED` с `important` для `az-local`, `az-world` и `az-resolver`, перекрывая обычные include и останавливая проверку ASN.
 
-Адаптер фильтрует записи списка, а не все имена, охваченные итоговыми правилами AdGuard. Исключение `subdomain.example.com` не удаляет запись `example.com`, но создаваемое правило AdGuard с `important` всё равно перекрывает такой include для совпавших запросов. Порядок маршрутизации: **exclude > include > ASN**. Правила, введённые прямо в AdGuard, сохраняют его штатную семантику: явное `@@…$dnsrewrite,important` может переопределить исключение. Два базовых правила `||*^$dnsrewrite=SERVFAIL` остаются без `important`, чтобы обычные include могли их отменять.
+Адаптер фильтрует записи списка, а не все имена, охваченные итоговыми правилами AdGuard. Исключение `subdomain.example.com` не удаляет запись `example.com`, но создаваемое правило AdGuard с `important` всё равно перекрывает такой include для совпавших запросов. Порядок маршрутизации: **exclude > include > ASN**. Правила, введённые прямо в AdGuard, сохраняют его штатную семантику: явное `@@…$dnsrewrite,important` может переопределить исключение. Два базовых правила `||*^$dnsrewrite=REFUSED` остаются без `important`, чтобы обычные include могли их отменять.
 
 Оба фильтра исключений относятся ко всем трём внутренним клиентам, поэтому исключение с одного узла действует и на другом. Исключение домена не удаляет независимые IP/CIDR-маршруты. CoreDNS больше не запрашивает CNAME-цели отдельно.
 
@@ -934,7 +936,7 @@ subdomain.example.net
 Например, обычный include для `example.com` может сосуществовать с таким создаваемым исключением:
 
 ```text
-||direct.example.com^$dnsrewrite=SERVFAIL,client=az-local|az-world|az-resolver,important
+||direct.example.com^$dnsrewrite=REFUSED,client=az-local|az-world|az-resolver,important
 ```
 
 Запросы для `direct.example.com` и его поддоменов обходят доменную и ASN-маршрутизацию на обоих узлах выхода. Финальный запрос AdGuard от клиента `coredns` не входит в область действия исключения и возвращает прямой ответ.
@@ -943,7 +945,7 @@ subdomain.example.net
 
 Правила ASN позволяют направлять домены через VPN-узел на основании сети, которой принадлежат
 разрешённые IPv4-адреса. Если обычный запрос AdGuard для `az-local` или `az-world` вернул
-`SERVFAIL`, `dnsmap` разрешает домен напрямую через клиента `az-resolver` и проверяет
+`REFUSED`, `dnsmap` разрешает домен напрямую через клиента `az-resolver` и проверяет
 A-записи по базе ASN MaxMind. Если хотя бы один адрес совпал с правилом, все IPv4-адреса из
 этого DNS-ответа заменяются внутренними адресами `dnsmap`, трафик к которым направляется через
 соответствующий VPN-узел. Если A-записей нет или ни одна сеть не совпала, сохраняется исходный
@@ -1041,7 +1043,7 @@ docker run --rm -it --pull=always ghcr.io/runnin4ik/dpi-detector:latest --tests 
 Откройте панель adguard: http://adguard.antizapret:3000/#custom_rules
 Правила/синтаксис: https://adguard-dns.io/kb/general/dns-filtering-syntax/#basic-examples
 
-По умолчанию AdGuard возвращает `SERVFAIL` для внутренних запросов от `az-local` и `az-world`. Доменное правило с `@@` и `$dnsrewrite` разрешает узлу выхода получить адреса и направить домен через VPN, если не совпало исключение с `important`. Если include не разрешил запрос, `dnsmap` обращается к `az-resolver`: исключение останавливает и этот запрос, иначе проверяются ASN. Если ни один способ не дал совпадения, CoreDNS пробует следующий upstream. Для обычных клиентских запросов сохраняется стандартная фильтрация AdGuard.
+По умолчанию AdGuard возвращает `REFUSED` для внутренних запросов от `az-local` и `az-world`. Доменное правило с `@@` и `$dnsrewrite` разрешает узлу выхода получить адреса и направить домен через VPN, если не совпало исключение с `important`. Если include не разрешил запрос, `dnsmap` обращается к `az-resolver`: исключение останавливает и этот запрос, иначе проверяются ASN. Если ни один способ не дал совпадения, CoreDNS пробует следующий upstream. Для обычных клиентских запросов сохраняется стандартная фильтрация AdGuard.
 
 
 Примеры:
@@ -1070,12 +1072,12 @@ docker run --rm -it --pull=always ghcr.io/runnin4ik/dpi-detector:latest --tests 
  - `filter_custom=1` - фильтровать списки правилами из exclude-hosts-custom.txt.
  - `filter_dist=0` - фильтровать списки правилами из exclude-hosts-dist.txt
  - `format=list` - `list`, `json` или `v2fly`. JSON определяется по Content-Type ответа; без `format=` каждая строка обрабатывается как v2fly, если начинается с `include:`, `domain:`, `full:`, `keyword:` или `regexp:` после удаления отступов. Остальные строки обрабатываются как обычный list. Источник и вложенные include читаются потоком без накопления целых списков. Явный `format=` имеет приоритет; при `raw=1` и `regex=1` автоматический разбор отключён.
- - `exclude=0` - `exclude=1` создаёт rewrite-правила `SERVFAIL` с `important` для `az-local|az-world|az-resolver`, перекрывая обычные include и останавливая ASN fallback. Принудительно включает `allow=0`, `suffix=1`, `raw=0` и отключает custom/dist-фильтрацию источника исключений.
+ - `exclude=0` - `exclude=1` создаёт rewrite-правила `REFUSED` с `important` для `az-local|az-world|az-resolver`, перекрывая обычные include и останавливая ASN fallback. Принудительно включает `allow=0`, `suffix=1`, `raw=0` и отключает custom/dist-фильтрацию источника исключений.
  - `client=az-local` - имя клиента для добавления в правила. Определяется автоматически.
  - `allow=1` - отключить эту опцию, чтобы блокировать домены из списка для этого узла выхода.
  - `raw=0` - не изменять правила
  - `suffix=1` - добавить "$dnsrewrite,client=xxx" в правила
- - `dnsrewrite=SERVFAIL` - указать зачение директивы dnsrewrite
+ - `dnsrewrite=REFUSED` - указать зачение директивы dnsrewrite
  - `regex=0` - задайте `regex=1`, чтобы обернуть каждую входную строку как регулярное выражение AdGuard
 
 Несовместимые режимы возвращают HTTP 400 до загрузки источника: `v2fly` с `raw=1` или `regex=1`, `raw=1` с `regex=1` и `exclude=1` с `raw=1`.

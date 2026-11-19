@@ -126,7 +126,7 @@ func TestFailoverAndRecovery(t *testing.T) {
 			"${AZ_EXPECTED_EXITS}", strconv.Itoa(exits),
 			"${AZ_FALLBACK_HOST}", fallback,
 			"${AZ_FORWARD_HOSTS}", strings.Join(hosts, " "),
-			"failover SERVFAIL", failover,
+			"failover SERVFAIL REFUSED", failover,
 		).Replace(string(template)))
 	}
 	writeConfig := func(exits int, hosts []string, fallback, failover string) {
@@ -135,7 +135,7 @@ func TestFailoverAndRecovery(t *testing.T) {
 		requireNoError(t, os.Rename(corefile+".tmp", corefile))
 	}
 
-	writeConfig(2, destinations, adguard.address, "failover SERVFAIL")
+	writeConfig(2, destinations, adguard.address, "failover SERVFAIL REFUSED")
 	process := exec.CommandContext(t.Context(), binary, "-conf", corefile)
 	process.Cancel = func() error { return process.Process.Signal(syscall.SIGTERM) }
 	process.WaitDelay = 3 * time.Second
@@ -221,26 +221,31 @@ func TestFailoverAndRecovery(t *testing.T) {
 	}
 
 	local.rcode.Store(dns.RcodeServerFailure)
-	world.rcode.Store(dns.RcodeServerFailure)
+	world.rcode.Store(dns.RcodeRefused)
+	expect(uncached)
+	local.rcode.Store(dns.RcodeRefused)
 	eventually(fallback)
+	local.rcode.Store(dns.RcodeServerFailure)
+	expect(uncached)
 	local.rcode.Store(dns.RcodeSuccess)
 	expect(localAnswer)
 	world.rcode.Store(dns.RcodeSuccess)
 	expect(worldAnswer)
 
-	writeConfig(2, destinations[1:], adguard.address, "failover SERVFAIL")
+	writeConfig(2, destinations[1:], adguard.address, "failover SERVFAIL REFUSED")
 	eventually(localAnswer)
-	local.rcode.Store(dns.RcodeServerFailure)
+	local.rcode.Store(dns.RcodeRefused)
 	expect(uncached)
-	writeConfig(1, destinations[1:], adguard.address, "failover SERVFAIL")
+	writeConfig(1, destinations[1:], adguard.address, "failover SERVFAIL REFUSED")
 	eventually(fallback)
-	writeConfig(2, destinations[2:], adguard.address, "failover SERVFAIL")
+	writeConfig(2, destinations[2:], adguard.address, "failover SERVFAIL REFUSED")
 	eventually(uncached)
-	writeConfig(2, destinations[:2], "", "failover SERVFAIL")
+	writeConfig(2, destinations[:2], "", "failover SERVFAIL REFUSED")
 	eventually(worldAnswer)
 
+	writeConfig(2, destinations[:2], "", "failover SERVFAIL")
 	world.rcode.Store(dns.RcodeRefused)
-	expect(refused)
+	eventually(refused)
 	local.rcode.Store(dns.RcodeSuccess)
 	writeConfig(2, destinations[:2], "", "failover REFUSED")
 	eventually(localAnswer)

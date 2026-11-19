@@ -28,7 +28,7 @@ func TestV2flyIncludesAndMatchTypes(t *testing.T) {
 	patterns := []string{"|nested.example|", "||keep.example^", "||example.org^", "|exact.example.org|", `/game\.store/`, `/^cdn[0-9]+\.example\.org$/`, "||drop.example^"}
 	var want string
 	for _, pattern := range patterns {
-		want += pattern + "$dnsrewrite=SERVFAIL,client=az-local|az-world|az-resolver,important\n"
+		want += pattern + "$dnsrewrite=REFUSED,client=az-local|az-world|az-resolver,important\n"
 	}
 	if response.Code != 200 || response.Body.String() != want {
 		t.Fatalf("status=%d\ngot %q\nwant %q", response.Code, response.Body.String(), want)
