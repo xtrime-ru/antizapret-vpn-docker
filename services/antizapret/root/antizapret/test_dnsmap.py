@@ -11,7 +11,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from dnslib import A, CNAME, DNSRecord, QTYPE, RCODE, RR
+from dnslib import A, AAAA, CNAME, DNSRecord, HTTPS, QTYPE, RCODE, RR
 
 import dnsmap
 
@@ -893,14 +893,108 @@ class ResolverContractTests(ResolverTestCase):
         self.assertEqual(reply.rr[0].rtype, QTYPE.CNAME)
         resolver.add_mappings.assert_not_called()
 
-    def test_aaaa_and_https_are_suppressed(self):
-        for query_type in ('AAAA', 'HTTPS'):
-            with self.subTest(query_type=query_type):
-                request = DNSRecord.question('example.com', query_type)
-                resolver = self.resolver_with_replies([dns_reply(request)])
+    def test_aaaa_is_suppressed(self):
+        request = DNSRecord.question('example.com', 'AAAA')
+        resolver = self.resolver_with_replies([dns_reply(request)])
+        reply = resolver.resolve(request, Mock())
+        self.assertEqual(reply.header.rcode, RCODE.NOERROR)
+        self.assertEqual(reply.rr, [])
+
+    def test_https_keeps_alias_target_and_alpn_and_removes_addresses(self):
+        request = DNSRecord.question('video.example', 'HTTPS')
+        upstream = request.reply()
+        upstream.header.ad = 1
+        upstream.add_answer(
+            RR('video.example', QTYPE.CNAME, rdata=CNAME('canonical.example')),
+            RR('canonical.example', QTYPE.HTTPS, ttl=300, rdata=HTTPS.fromZone([
+                '1', 'edge.example.', 'mandatory=alpn', 'alpn=h3,h2',
+                'port=8443', 'ipv4hint=192.0.2.10', 'ipv6hint=2001:db8::10',
+            ])),
+            RR('edge.example', QTYPE.A, rdata=A('192.0.2.10')),
+        )
+        upstream.add_ar(
+            RR('edge.example', QTYPE.A, rdata=A('192.0.2.10')),
+            RR('edge.example', QTYPE.AAAA, rdata=AAAA('2001:db8::10')),
+        )
+        resolver = self.resolver_with_replies([DNSRecord.parse(upstream.pack())])
+
+        reply = DNSRecord.parse(resolver.resolve(request, Mock()).pack())
+
+        self.assertEqual([rr.rtype for rr in reply.rr], [QTYPE.CNAME, QTYPE.HTTPS])
+        self.assertEqual(str(reply.rr[1].rdata), '1 edge.example. mandatory=alpn alpn=h3,h2 port=8443')
+        self.assertEqual(reply.rr[1].ttl, 300)
+        self.assertEqual(reply.ar, [])
+        self.assertFalse(reply.header.ad)
+        resolver.is_blocked_asn.assert_not_called()
+        resolver.add_mappings.assert_not_called()
+
+    def test_https_skips_records_with_mandatory_address_hints(self):
+        request = DNSRecord.question('video.example', 'HTTPS')
+        blocked = [
+            RR(request.q.qname, QTYPE.HTTPS, rdata=HTTPS.fromZone(['1', '.', *params]))
+            for params in (
+                ['mandatory=ipv4hint', 'ipv4hint=192.0.2.10'],
+                ['mandatory=alpn,ipv6hint', 'alpn=h3', 'ipv6hint=2001:db8::10'],
+            )
+        ]
+        allowed = RR(request.q.qname, QTYPE.HTTPS, rdata=HTTPS.fromZone(['2', '.', 'alpn=h3']))
+        for expected in ([], [allowed]):
+            with self.subTest(expected=expected):
+                upstream = request.reply()
+                upstream.add_answer(*blocked, *expected)
+                resolver = self.resolver_with_replies([upstream])
                 reply = resolver.resolve(request, Mock())
                 self.assertEqual(reply.header.rcode, RCODE.NOERROR)
-                self.assertEqual(reply.rr, [])
+                self.assertEqual(reply.rr, expected)
+
+    def test_https_with_matching_asn_returns_filtered_answer(self):
+        request = DNSRecord.question('video.example', 'HTTPS')
+        address_request = DNSRecord.question('video.example', 'A')
+        https_reply = request.reply()
+        https_reply.add_answer(RR(request.q.qname, QTYPE.HTTPS, rdata=HTTPS.fromZone([
+            '1', '.', 'alpn=h3', 'ipv4hint=192.0.2.2',
+        ])))
+        resolver = self.resolver_with_replies([
+            dns_reply(request, rcode=RCODE.SERVFAIL),
+            dns_reply(address_request, ['192.0.2.1', '192.0.2.2']),
+            https_reply,
+        ])
+        resolver.is_blocked_asn.side_effect = [False, True]
+
+        reply = resolver.resolve(request, Mock())
+
+        self.assertEqual(reply.header.rcode, RCODE.NOERROR)
+        self.assertEqual(str(reply.rr[0].rdata), '1 . alpn=h3')
+        calls = resolver.query_doh.call_args_list
+        self.assertEqual([(call.args[0].q.qtype, call.args[1]) for call in calls], [
+            (QTYPE.HTTPS, 'az-local'), (QTYPE.A, 'az-resolver'), (QTYPE.HTTPS, 'az-resolver'),
+        ])
+        self.assertEqual([call.args[0].q.qname for call in calls], [request.q.qname] * 3)
+        self.assertEqual([call.args for call in resolver.is_blocked_asn.call_args_list], [
+            ('192.0.2.1', 'video.example.'), ('192.0.2.2', 'video.example.'),
+        ])
+        resolver.add_mappings.assert_not_called()
+
+    def test_https_without_matching_asn_preserves_servfail(self):
+        request = DNSRecord.question('video.example', 'HTTPS')
+        address_request = DNSRecord.question('video.example', 'A')
+        for address_reply in (
+            dns_reply(address_request, ['192.0.2.1']),
+            dns_reply(address_request),
+            dns_reply(address_request, rcode=RCODE.NXDOMAIN),
+        ):
+            with self.subTest(address_reply=address_reply):
+                resolver = self.resolver_with_replies([
+                    dns_reply(request, rcode=RCODE.SERVFAIL),
+                    address_reply,
+                ])
+
+                reply = resolver.resolve(request, Mock())
+
+                self.assertEqual(reply.header.rcode, RCODE.SERVFAIL)
+                self.assertEqual(reply.q.qtype, QTYPE.HTTPS)
+                self.assertEqual(resolver.query_doh.call_count, 2)
+                resolver.add_mappings.assert_not_called()
 
     def test_mmdb_exception_returns_servfail(self):
         request = DNSRecord.question('example.com', 'A')

@@ -7,12 +7,13 @@ import atexit, base64, http.client, os, queue, re, signal, socket, struct, subpr
 from urllib.parse import quote
 
 from collections import deque, namedtuple
+from copy import copy
 from ipaddress import IPv4Network
 
 import idna
 import maxminddb
 
-from dnslib import DNSRecord, RCODE, QTYPE, A, RR
+from dnslib import DNSQuestion, DNSRecord, RCODE, QTYPE, A, HTTPS, RR
 from dnslib.server import DNSServer, DNSHandler, BaseResolver, DNSLogger
 
 
@@ -463,6 +464,51 @@ class ProxyResolver(BaseResolver):
                     self.mapping_condition.notify_all()
                     return
 
+    def resolve_by_asn(self, request, filtered_reply):
+        address_request = request
+        if request.q.qtype == QTYPE.HTTPS:
+            question = DNSQuestion(request.q.qname, QTYPE.A, request.q.qclass)
+            address_request = DNSRecord(header=copy(request.header), q=question, ar=request.ar)
+
+        addresses = self.query_doh(address_request, self.resolver_client_id)
+        if addresses.header.rcode != RCODE.NOERROR:
+            return addresses if address_request is request else filtered_reply
+        hostname = str(request.q.qname)
+        if not any(record.rtype == QTYPE.A and self.is_blocked_asn(str(record.rdata), hostname)
+                   for record in addresses.rr):
+            return filtered_reply
+
+        if address_request is request:
+            return addresses
+        return self.query_doh(request, self.resolver_client_id)
+
+    @staticmethod
+    def filter_https_reply(request, upstream_reply):
+        reply = request.reply(aa=0)
+        reply.header.ad = 0
+        reply.header.rcode = upstream_reply.header.rcode
+        if reply.header.rcode != RCODE.NOERROR:
+            return reply
+
+        # RFC 9460 SvcParamKeys: mandatory=0, ipv4hint=4, ipv6hint=6.
+        address_hints = {4, 6}
+        records = []
+        for record in upstream_reply.rr:
+            if record.rtype != QTYPE.HTTPS:
+                continue
+            data = record.rdata
+            mandatory = next((value for key, value in data.params if key == 0), b'')
+            if len(mandatory) % 2 or any(key in address_hints for key, in struct.iter_unpack('!H', mandatory)):
+                continue
+            params = [(key, value) for key, value in data.params if key not in address_hints]
+            records.append(RR(record.rname, QTYPE.HTTPS, record.rclass, record.ttl,
+                              HTTPS(data.priority, data.target, params)))
+
+        if records:
+            aliases = [record for record in upstream_reply.rr if record.rtype == QTYPE.CNAME]
+            reply.add_answer(*aliases, *records)
+        return reply
+
     def resolve(self,request,handler):
         try:
             if (request.q.qtype == QTYPE.A
@@ -474,30 +520,17 @@ class ProxyResolver(BaseResolver):
 
             reply = self.query_doh(request, self.client_id)
 
-            if request.q.qtype == QTYPE.AAAA or request.q.qtype == QTYPE.HTTPS:
-                print('GOT AAAA or HTTPS')
-                reply = request.reply()
-                return reply
+            if request.q.qtype == QTYPE.AAAA:
+                return request.reply()
+            if request.q.qtype in (QTYPE.A, QTYPE.HTTPS) and reply.header.rcode == RCODE.SERVFAIL:
+                reply = self.resolve_by_asn(request, reply)
+            if request.q.qtype == QTYPE.HTTPS:
+                return self.filter_https_reply(request, reply)
 
             if request.q.qtype == QTYPE.A:
                 print('GOT A')
 
-                if reply.header.rcode == RCODE.SERVFAIL:
-                    filtered_reply = reply
-                    resolved_reply = self.query_doh(request, self.resolver_client_id)
-                    if resolved_reply.header.rcode != RCODE.NOERROR:
-                        return resolved_reply
-                    real_addresses = [
-                        str(record.rdata)
-                        for record in resolved_reply.rr
-                        if record.rtype == QTYPE.A
-                    ]
-                    if not any(self.is_blocked_asn(address, str(request.q.qname))
-                               for address in real_addresses):
-                        return filtered_reply
-                    reply = resolved_reply
-
-                if not any(record.rtype == QTYPE.A for record in reply.rr):
+                if reply.header.rcode != RCODE.NOERROR or not any(record.rtype == QTYPE.A for record in reply.rr):
                     return reply
 
                 newrr = []
