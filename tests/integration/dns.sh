@@ -2,13 +2,10 @@
 set -euo pipefail
 
 network=$(docker network create --internal "ci-dns-$$-$RANDOM")
-adguard=
-dnsmap=
-coredns=
+containers=()
 cleanup() {
     local status=$? container
-    for container in "$coredns" "$dnsmap" "$adguard"; do
-        [[ -n "$container" ]] || continue
+    for container in "${containers[@]}"; do
         if ((status != 0)); then docker logs "$container" >&2 || true; fi
         docker rm -f "$container" >/dev/null || true
     done
@@ -16,39 +13,93 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# Use the packaged configuration and binaries with a local rewrite for a
-# deterministic response. The internal network keeps public resolvers out.
-adguard=$(docker run -d --pull=never --network "$network" --network-alias ci-dns-upstream \
-    --entrypoint /bin/sh antizapret-adguard:ci -ec '
+# The internal network uses a deterministic local resolver in place of public DNS.
+run_adguard() {
+    docker run -d --pull=never --network "$network" --network-alias "$1" \
+        -e COREDNS_ADDRESS="${2:-}" --entrypoint /bin/sh "${ADGUARD_TEST_IMAGE:-antizapret-adguard:ci}" -ec '
         mkdir -p /opt/adguardhome/conf /opt/adguardhome/work
-        yq ".users = [] | .filters = [] | .whitelist_filters = [] |
-            .dns.upstream_dns = [\"127.0.0.1:9\"] | .dns.fallback_dns = [] |
-            .clients.persistent = [] |
-            .filtering.rewrites = [{\"domain\": \"ci-probe.test\", \"answer\": \"192.0.2.42\", \"enabled\": true}]" \
-            /root/AdGuardHome.yaml > /opt/adguardhome/conf/AdGuardHome.yaml
+        config=/opt/adguardhome/conf/AdGuardHome.yaml
+        yq ".users = [] | .filters = [] | .whitelist_filters = [] | .dns.fallback_dns = []" \
+            /root/AdGuardHome.yaml > "$config"
+        if [ -n "$COREDNS_ADDRESS" ]; then
+            yq -i ".dns.upstream_dns = [strenv(COREDNS_ADDRESS)] |
+                .clients.persistent |= map(select(.name == \"coredns\")) |
+                .clients.persistent[0].ids = [strenv(COREDNS_ADDRESS)] |
+                .clients.persistent[0].upstreams = [\"ci-dns-upstream\"]" "$config"
+        else
+            yq -i ".dns.upstream_dns = [\"127.0.0.1:9\"] | .clients.persistent = [] |
+                .filtering.rewrites = [{\"domain\": \"ci-probe.test\", \"answer\": \"192.0.2.42\", \"enabled\": true}]" "$config"
+        fi
         exec /opt/adguardhome/AdGuardHome --no-check-update \
-            -c /opt/adguardhome/conf/AdGuardHome.yaml -w /opt/adguardhome/work
-    ')
-dnsmap=$(docker run -d --pull=never --network "$network" --cap-add NET_ADMIN \
-    --network-alias az-local.antizapret --network-alias az-world.antizapret \
-    --entrypoint /bin/sh antizapret-antizapret:ci -ec '
-        iptables -t nat -N dnsmap
-        exec /usr/bin/dnsmap --upstream ci-dns-upstream --asn-file /dev/null --iprange 14.16.0.0/29
-    ')
-coredns=$(docker run -d --pull=never --network "$network" --entrypoint /bin/sh antizapret-coredns:ci -ec '
-    /root/config.sh
-    exec /coredns -conf /Corefile
-')
+            -c "$config" -w /opt/adguardhome/work
+    '
+}
 
-# Only dnsmap knows the AdGuard alias, so CoreDNS cannot bypass it.
-for ((attempt=0; attempt<30; attempt++)); do
-    if docker exec "$coredns" dig @127.0.0.1 ci-probe.test. A +short +time=1 +tries=1 |
-        grep -Fxq 14.16.0.2; then
-        docker exec "$dnsmap" iptables -t nat -C dnsmap -d 14.16.0.2 -j DNAT --to-destination 192.0.2.42
-        echo 'CoreDNS -> dnsmap -> AdGuard returned a mapped address with the expected DNAT rule'
-        exit 0
-    fi
-    sleep 1
-done
-echo 'DNS integration query did not return the expected address' >&2
-exit 1
+run_exit() {
+    docker run -d --pull=never --network "$network" --cap-add NET_ADMIN --network-alias "$1.antizapret" \
+        --entrypoint /bin/sh "${ANTIZAPRET_TEST_IMAGE:-antizapret-antizapret:ci}" -ec '
+            iptables -t nat -N dnsmap
+            exec /usr/bin/dnsmap --upstream ci-dns-upstream --asn-file /dev/null --iprange "$1"
+        ' sh "$2"
+}
+
+expect_dns() {
+    local answer=$1 ttl=${2:-positive} result deadline=$((SECONDS + 30))
+    while ((SECONDS < deadline)); do
+        result=$(docker exec "$coredns" dig @127.0.0.1 ci-probe.test. A \
+            +noall +comments +answer +time=3 +tries=1) || true
+        if [[ "$answer" == SERVFAIL && "$result" == *'status: SERVFAIL,'* ]] ||
+            awk -v ip="$answer" -v ttl="$ttl" '$4 == "A" && $5 == ip && (ttl == "0" ? $2 == 0 : $2 > 0) {found=1} END {exit !found}' <<< "$result"; then
+            return 0
+        fi
+        sleep 1
+    done
+    printf 'Expected %s with TTL %s; last response:\n%s\n' "$answer" "$ttl" "$result" >&2
+    return 1
+}
+
+address() {
+    docker inspect --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$1"
+}
+
+coredns=$(docker run -d --pull=never --network "$network" --init -e AZ_WORLD_ENABLED=1 \
+    --entrypoint /usr/local/lib/docktinel/entrypoint "${COREDNS_TEST_IMAGE:-antizapret-coredns:ci}" \
+    /coredns -conf /Corefile)
+containers+=("$coredns")
+docker exec "$coredns" test ! -e /Corefile
+
+resolver=$(run_adguard ci-dns-upstream)
+containers+=("$resolver")
+local_exit=$(run_exit az-local 14.16.0.0/29)
+containers+=("$local_exit")
+world_exit=$(run_exit az-world 14.18.0.0/29)
+containers+=("$world_exit")
+adguard=$(run_adguard adguard.antizapret "$(address "$coredns")")
+containers+=("$adguard")
+
+expect_dns 14.18.0.2
+docker exec "$world_exit" iptables -t nat -C dnsmap -d 14.18.0.2 -j DNAT --to-destination 192.0.2.42
+
+docker stop -t 1 "$world_exit" >/dev/null
+expect_dns 14.16.0.2
+docker stop -t 1 "$local_exit" >/dev/null
+expect_dns 192.0.2.42 0
+
+# Query AdGuard as a regular client, so the request goes through CoreDNS and
+# back as the distinct coredns client. A loop cannot reach the local resolver.
+docker exec "$adguard" nslookup -type=A ci-probe.test. 127.0.0.1 | grep -Eq 'Address: 192\.0\.2\.42$'
+docker start "$local_exit" >/dev/null
+expect_dns 14.16.0.2
+docker exec "$adguard" nslookup -type=A ci-probe.test. 127.0.0.1 | grep -Eq 'Address: 14\.16\.0\.2$'
+
+docker stop -t 1 "$adguard" >/dev/null
+expect_dns 14.16.0.2
+docker stop -t 1 "$local_exit" >/dev/null
+expect_dns SERVFAIL
+docker exec "$coredns" docktinel healthcheck --no-kill
+
+docker start "$adguard" >/dev/null
+expect_dns 192.0.2.42 0
+docker start "$world_exit" >/dev/null
+expect_dns 14.18.0.2
+echo 'CoreDNS DNS failover, cache recovery and priority recovery passed'
