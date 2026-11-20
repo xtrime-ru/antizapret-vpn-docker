@@ -4,7 +4,7 @@ FROM ${DOCKTINEL_IMAGE} AS docktinel
 
 FROM xtrime/antizapret-vpn:6.12.1 AS antizapret
 
-FROM adguard/adguardhome:v1.0.0-b.2 AS runtime-base
+FROM adguard/adguardhome:v1.0.0 AS runtime-base
 
 RUN apk --no-cache add iptables apache2-utils yq jq bash curl
 
