@@ -7,7 +7,7 @@ services:
     entrypoint: ["/usr/local/lib/docktinel/entrypoint"]
     command: ["/root/entrypoint.sh"]
     restart: unless-stopped
-    image: xtrime/antizapret-vpn-firewall:6.9.0
+    image: xtrime/antizapret-vpn-firewall:6.12.2
     init: true
     stop_grace_period: 30s
     healthcheck:

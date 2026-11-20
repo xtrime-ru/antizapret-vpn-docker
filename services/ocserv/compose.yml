@@ -4,7 +4,7 @@ services:
     command: ["/ocserv.sh", "/usr/sbin/ocserv", "--config", "/run/ocserv/ocserv.conf", "--foreground", "--log-stderr"]
     init: true
     restart: unless-stopped
-    image: xtrime/antizapret-vpn-ocserv:6.10.0
+    image: xtrime/antizapret-vpn-ocserv:6.12.2
     hostname: ocserv.antizapret
     build:
       context: .

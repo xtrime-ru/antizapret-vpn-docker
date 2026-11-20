@@ -5,7 +5,7 @@ services:
     init: true
     hostname: dashboard.antizapret
     restart: unless-stopped
-    image: xtrime/antizapret-vpn-dashboard:5.0.0
+    image: xtrime/antizapret-vpn-dashboard:6.12.2
     stop_grace_period: 30s
     healthcheck:
       test: ["CMD", "docktinel", "healthcheck", "--startup-grace", "10m"]

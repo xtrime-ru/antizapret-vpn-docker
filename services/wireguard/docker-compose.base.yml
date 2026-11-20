@@ -4,7 +4,7 @@ services:
     command: ["/init.sh"]
     init: true
     restart: unless-stopped
-    image: xtrime/antizapret-vpn-wireguard:6.11.0
+    image: xtrime/antizapret-vpn-wireguard:6.12.2
     build:
       context: .
       args:
