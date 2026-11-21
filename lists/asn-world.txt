@@ -17,6 +17,10 @@ Fastly
 
 Apple
 
+# YouTube / Googlevideo: direct access from msk is unreliable.
+AS15169 regexp:^rr?[0-9]+(?:---|\.)sn-[a-z0-9]+(?:-[a-z0-9]+)*\.googlevideo\.com$ # Google
+AS21395 regexp:^rr?[0-9]+(?:---|\.)sn-[a-z0-9]+(?:-[a-z0-9]+)*\.googlevideo\.com$ # Orange Polska
+
 # docker run --rm -it --pull=always ghcr.io/runnin4ik/dpi-detector:latest --tests 3
 AS12876
 AS13335
