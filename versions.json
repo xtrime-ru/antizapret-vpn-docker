@@ -67,7 +67,7 @@
     {
       "name": "https",
       "repository": "antizapret-vpn-https",
-      "version": "6.12.2",
+      "version": "6.12.3",
       "source": "services/https",
       "compose": "docker-compose.yml",
       "target": "https",

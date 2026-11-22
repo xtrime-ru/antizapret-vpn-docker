@@ -9,7 +9,7 @@
 [![zapret2 1.0.7](https://img.shields.io/badge/zapret2-1.0.7-2563EB?style=flat-square)](services/antizapret/Dockerfile)
 [![CoreDNS 1.15.0](docs/badges/coredns.svg)](services/coredns/Dockerfile)
 
-[![Caddy 2.11.7](https://img.shields.io/badge/Caddy-2.11.7-1F88C0?style=flat-square&logo=caddy&logoColor=white)](services/https/Dockerfile)
+[![Caddy 2.11.9](https://img.shields.io/badge/Caddy-2.11.9-1F88C0?style=flat-square&logo=caddy&logoColor=white)](services/https/Dockerfile)
 [![ocserv 1.6.0](https://img.shields.io/badge/ocserv-1.6.0-16803C?style=flat-square)](services/ocserv/Dockerfile)
 [![Cloudflare WARP 2026.8.2115.0](https://img.shields.io/badge/Cloudflare%20WARP-2026.8.2115.0-F38020?style=flat-square&logo=cloudflare&logoColor=white)](services/antizapret/Dockerfile)
 
@@ -475,7 +475,7 @@ services:
 недоступные конфиги пользователей/групп теперь приводят к отказу в подключении
 для соответствующей сессии. Стандартный IPv4-конфиг проекта менять не нужно.
 Плагин finalizer в CoreDNS теперь использует минимальный TTL по цепочке CNAME.
-В Caddy 2.11.7 лимит заголовков запроса по умолчанию составляет 16 КиБ, а
+В Caddy 2.11.9 лимит заголовков запроса по умолчанию составляет 16 КиБ, а
 таймауты простоя чтения/записи — одну минуту; для собственных приложений эти
 значения можно переопределить в конфигурации Caddy.
 

@@ -1,4 +1,4 @@
-ARG CADDY_VERSION="2.11.7"
+ARG CADDY_VERSION="2.11.9"
 ARG DOCKTINEL_IMAGE=ghcr.io/xtrime-ru/docktinel:0.2.0
 
 FROM ${DOCKTINEL_IMAGE} AS docktinel
@@ -8,7 +8,7 @@ FROM xtrime/antizapret-vpn:6.12.2 AS antizapret
 FROM caddy:${CADDY_VERSION}-builder AS builder
 
 ARG CADDY_VERSION
-ARG CADDY_L4_VERSION="v0.1.2"
+ARG CADDY_L4_VERSION="v0.1.3"
 RUN xcaddy build "v${CADDY_VERSION}" \
     --with github.com/mholt/caddy-l4@${CADDY_L4_VERSION}
 

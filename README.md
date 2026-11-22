@@ -9,7 +9,7 @@
 [![zapret2 1.0.7](https://img.shields.io/badge/zapret2-1.0.7-2563EB?style=flat-square)](services/antizapret/Dockerfile)
 [![CoreDNS 1.15.0](docs/badges/coredns.svg)](services/coredns/Dockerfile)
 
-[![Caddy 2.11.7](https://img.shields.io/badge/Caddy-2.11.7-1F88C0?style=flat-square&logo=caddy&logoColor=white)](services/https/Dockerfile)
+[![Caddy 2.11.9](https://img.shields.io/badge/Caddy-2.11.9-1F88C0?style=flat-square&logo=caddy&logoColor=white)](services/https/Dockerfile)
 [![ocserv 1.6.0](https://img.shields.io/badge/ocserv-1.6.0-16803C?style=flat-square)](services/ocserv/Dockerfile)
 [![Cloudflare WARP 2026.8.2115.0](https://img.shields.io/badge/Cloudflare%20WARP-2026.8.2115.0-F38020?style=flat-square&logo=cloudflare&logoColor=white)](services/antizapret/Dockerfile)
 
@@ -476,7 +476,7 @@ server address changing from the network address plus one to the network
 address itself. Invalid or unreadable per-user/group configuration files now
 reject the affected session. The project's default IPv4 configuration needs
 no changes. CoreDNS finalizer now uses the minimum TTL across the CNAME chain.
-Caddy 2.11.7 defaults to a 16 KiB request header limit and one-minute idle
+Caddy 2.11.9 defaults to a 16 KiB request header limit and one-minute idle
 read/write timeouts; custom applications that need larger headers or longer
 stalls can override these in their Caddy configuration.
 
