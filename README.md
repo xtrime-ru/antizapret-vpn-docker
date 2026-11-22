@@ -2,16 +2,16 @@
 
 # AntiZapret VPN in Docker
 
-[![AdGuard Home v1.0.0](https://img.shields.io/badge/AdGuard%20Home-v1.0.0-68BC71?style=flat-square&logo=adguard&logoColor=white)](services/adguard/Dockerfile)
+[![AdGuard Home v1.0.0](https://img.shields.io/badge/AdGuard%20Home-v1.0.0-68BC71?style=flat-square&logo=adguard&logoColor=white)](https://github.com/AdguardTeam/AdGuardHome/releases/tag/v1.0.0)
 [![wg-easy 15.5.0](https://img.shields.io/badge/wg--easy-15.5.0-88171A?style=flat-square&logo=wireguard&logoColor=white)](https://github.com/wg-easy/wg-easy/releases/tag/v15.5.0)
-[![OpenVPN 2.7.9](https://img.shields.io/badge/OpenVPN-2.7.9-EA7E20?style=flat-square&logo=openvpn&logoColor=white)](services/openvpn/Dockerfile)
+[![OpenVPN 2.7.9](https://img.shields.io/badge/OpenVPN-2.7.9-EA7E20?style=flat-square&logo=openvpn&logoColor=white)](https://github.com/OpenVPN/openvpn/releases/tag/v2.7.9)
 [![AmneziaWG tools 3.1.20260812](docs/badges/amneziawg.svg)](https://github.com/amnezia-vpn/amneziawg-tools/releases/tag/v3.1.20260812)
-[![zapret2 1.0.7](https://img.shields.io/badge/zapret2-1.0.7-2563EB?style=flat-square)](services/antizapret/Dockerfile)
-[![CoreDNS 1.15.0](docs/badges/coredns.svg)](services/coredns/Dockerfile)
+[![zapret2 1.0.7](https://img.shields.io/badge/zapret2-1.0.7-2563EB?style=flat-square)](https://github.com/vernette/ss-zapret2)
+[![CoreDNS 1.15.0](docs/badges/coredns.svg)](https://github.com/coredns/coredns/releases/tag/v1.15.0)
 
-[![Caddy 2.11.9](https://img.shields.io/badge/Caddy-2.11.9-1F88C0?style=flat-square&logo=caddy&logoColor=white)](services/https/Dockerfile)
-[![ocserv 1.6.0](https://img.shields.io/badge/ocserv-1.6.0-16803C?style=flat-square)](services/ocserv/Dockerfile)
-[![Cloudflare WARP 2026.8.2115.0](https://img.shields.io/badge/Cloudflare%20WARP-2026.8.2115.0-F38020?style=flat-square&logo=cloudflare&logoColor=white)](services/antizapret/Dockerfile)
+[![Caddy 2.11.9](https://img.shields.io/badge/Caddy-2.11.9-1F88C0?style=flat-square&logo=caddy&logoColor=white)](https://github.com/caddyserver/caddy/releases/tag/v2.11.9)
+[![ocserv 1.6.0](https://img.shields.io/badge/ocserv-1.6.0-16803C?style=flat-square)](https://gitlab.com/openconnect/ocserv/-/tags/1.6.0)
+[![Cloudflare WARP 2026.8.2115.0](https://img.shields.io/badge/Cloudflare%20WARP-2026.8.2115.0-F38020?style=flat-square&logo=cloudflare&logoColor=white)](https://developers.cloudflare.com/cloudflare-one/team-and-resources/devices/cloudflare-one-client/download/#linux)
 [![Docktinel 0.2.0](https://img.shields.io/badge/Docktinel-0.2.0-2496ED?style=flat-square)](https://github.com/xtrime-ru/docktinel)
 
 Component versions used in this project.
@@ -107,9 +107,8 @@ This repo is based on idea from original [AntiZapret LXD image](https://bitbucke
     - [Legacy clients support](#legacy-clients-support)
   - [Amnezia Wireguard](#amnezia-wireguard)
     - [Enable Amnezia Wireguard Kernel Extension](#enable-amnezia-wireguard-kernel-extension)
-      - [Ubuntu 26.04](#ubuntu-2604)
-      - [Ubuntu 24.04](#ubuntu-2404)
-      - [Ubuntu 20.04, 22.04](#ubuntu-2004-2204)
+      - [Ubuntu 26.04/24.04](#ubuntu-26042404)
+      - [Ubuntu 22.04/20.04](#ubuntu-22042004)
     - [AmneziaWG Parameters](#amneziawg-parameters)
       - [Parameter Compatibility Table](#parameter-compatibility-table)
       - [Notes](#notes)
@@ -528,7 +527,7 @@ stalls can override these in their Caddy configuration.
      - Click save at openvpn-ui server config page: http://openvpn-ui.antizapret:8080/ov/config/ and then restart openvpn server.
      - Install new dkms module on host: `apt remove openvpn-dkms-dco` + https://github.com/xtrime-ru/antizapret-vpn-docker/blob/v6/README.md?tab=readme-ov-file#enable-openvpn-data-channel-offload-dco
    - Socks 
-   Replace it with proxy container and rename ENV variables. See example: https://github.com/xtrime-ru/antizapret-vpn-docker/blob/v6/docker-compose.override.sample.yml#L63-L93
+   Replace it with proxy container and rename ENV variables. See example: https://github.com/xtrime-ru/antizapret-vpn-docker/blob/v6/docker-compose.override.sample.yml#L75-L105
    Make sure you use strong password, because now HTTPS proxy accessible from internet.
 
 If you added custom AdGuard Home rules that use `dnsrewrite=SERVFAIL` to skip a
@@ -1541,7 +1540,7 @@ https://github.com/d3vilh/openvpn-ui?tab=readme-ov-file#generating-ovpn-client-p
 5) click on certificate name in list to download ovpn file.
 
 ### Enable OpenVPN Data Channel Offload (DCO)
-[OpenVPN Data Channel Offload (DCO)](https://openvpn.net/as-docs/openvpn-dco.html) provides performance improvements by moving the data channel handling to the kernel space, where it can be handled more efficiently and with multi-threading.
+[OpenVPN Data Channel Offload (DCO)](https://openvpn.net/as-docs/openvpn-dco/) provides performance improvements by moving the data channel handling to the kernel space, where it can be handled more efficiently and with multi-threading.
 **tl;dr** it increases speed and reduces CPU usage on a server.
 
 Kernel extensions can be installed only on <u>a host machine</u>, not in a container.
@@ -1691,15 +1690,34 @@ iperf3 server is included in antizapret-vpn container.
     ```
 
 # Credits
+
 - [ProstoVPN](https://antizapret.prostovpn.org) — the original project
 - [AntiZapret VPN Container](https://bitbucket.org/anticensority/antizapret-vpn-container/src/master/) — source code of the LXD-based container
 - [AntiZapret PAC Generator](https://bitbucket.org/anticensority/antizapret-pac-generator-light/src/master/) — proxy auto-configuration generator to bypass censorship of Russian Federation
-- [WireGuard VPN](https://github.com/wg-easy/wg-easy) — used for Wireguard integration
+- [WireGuard](https://www.wireguard.com/) — VPN protocol and tools
+- [wg-easy](https://github.com/wg-easy/wg-easy) — WireGuard container and web UI
+- [AmneziaWG](https://github.com/amnezia-vpn/amneziawg-linux-kernel-module) — kernel module
+- [AmneziaWG tools](https://github.com/amnezia-vpn/amneziawg-tools) — command-line tools
+- [OpenVPN](https://github.com/OpenVPN/openvpn) — VPN server
+- [d3vilh/openvpn-server](https://github.com/d3vilh/openvpn-server) — OpenVPN base image
+- [d3vilh/openvpn-ui](https://github.com/d3vilh/openvpn-ui) — OpenVPN management interface
 - [ocserv](https://gitlab.com/openconnect/ocserv) — OpenConnect server
-- [OpenVPN](https://github.com/d3vilh/openvpn-ui) - used for OpenVPN integration
-- [AdGuardHome](https://github.com/AdguardTeam/AdGuardHome) - DNS resolver
-- [filebrowser](https://github.com/filebrowser/filebrowser) - web file browser & editor
-- [lighttpd](https://github.com/lighttpd/lighttpd1.4) - web server for unified dashboard
-- [caddy](https://github.com/caddyserver/caddy) - reverse proxy
-- [No Thought Is a Crime](https://ntc.party) — a forum about technical, political and economical aspects of internet censorship in different countries
-- [3proxy](https://github.com/3proxy/3proxy) - HTTP(S) and SOCKS5 proxy for per-application routing
+- [AdGuard Home](https://github.com/AdguardTeam/AdGuardHome) — DNS resolver and filtering
+- [CoreDNS](https://github.com/coredns/coredns) — DNS forwarding and failover
+- [Cloudflare WARP](https://developers.cloudflare.com/cloudflare-one/team-and-resources/devices/cloudflare-one-client/download/#linux) — optional outbound tunnel
+- [zapret2](https://github.com/bol-van/zapret2) — DPI workarounds
+- [ss-zapret2](https://github.com/vernette/ss-zapret2) — source of the bundled zapret2 files
+- [Cloak](https://github.com/cbeuw/Cloak) — optional proxy transport
+- [Docktinel](https://github.com/xtrime-ru/docktinel) — container health checks and process supervision
+- [File Browser](https://github.com/filebrowser/filebrowser) — web file manager and editor
+- [lighttpd](https://github.com/lighttpd/lighttpd1.4) — dashboard web server
+- [jitesoft/lighttpd](https://hub.docker.com/r/jitesoft/lighttpd) — dashboard base image
+- [Caddy](https://github.com/caddyserver/caddy) — HTTPS reverse proxy
+- [caddy-l4](https://github.com/mholt/caddy-l4) — TCP forwarding to ocserv
+- [3proxy](https://github.com/3proxy/3proxy) — HTTP and SOCKS5 proxy
+- [3proxy-docker](https://github.com/tarampampam/3proxy-docker) — source image for 3proxy
+- [v2fly/domain-list-community](https://github.com/v2fly/domain-list-community) — domain lists used by the routing rules
+- [MaxMind GeoLite2 ASN](https://dev.maxmind.com/geoip/geolite2-free-geolocation-data/) — ASN data distributed in the image via P3TERX/GeoLite.mmdb
+- [P3TERX/GeoLite.mmdb](https://github.com/P3TERX/GeoLite.mmdb) — distribution of the GeoLite2 ASN database
+- [iperf3](https://github.com/esnet/iperf) — network throughput testing
+- [No Thought Is a Crime](https://github.com/net4people/bbs/issues/11) — the founder’s announcement of the internet censorship research forum

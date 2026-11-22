@@ -2,16 +2,16 @@
 
 # AntiZapret VPN в Docker
 
-[![AdGuard Home v1.0.0](https://img.shields.io/badge/AdGuard%20Home-v1.0.0-68BC71?style=flat-square&logo=adguard&logoColor=white)](services/adguard/Dockerfile)
+[![AdGuard Home v1.0.0](https://img.shields.io/badge/AdGuard%20Home-v1.0.0-68BC71?style=flat-square&logo=adguard&logoColor=white)](https://github.com/AdguardTeam/AdGuardHome/releases/tag/v1.0.0)
 [![wg-easy 15.5.0](https://img.shields.io/badge/wg--easy-15.5.0-88171A?style=flat-square&logo=wireguard&logoColor=white)](https://github.com/wg-easy/wg-easy/releases/tag/v15.5.0)
-[![OpenVPN 2.7.9](https://img.shields.io/badge/OpenVPN-2.7.9-EA7E20?style=flat-square&logo=openvpn&logoColor=white)](services/openvpn/Dockerfile)
+[![OpenVPN 2.7.9](https://img.shields.io/badge/OpenVPN-2.7.9-EA7E20?style=flat-square&logo=openvpn&logoColor=white)](https://github.com/OpenVPN/openvpn/releases/tag/v2.7.9)
 [![AmneziaWG tools 3.1.20260812](docs/badges/amneziawg.svg)](https://github.com/amnezia-vpn/amneziawg-tools/releases/tag/v3.1.20260812)
-[![zapret2 1.0.7](https://img.shields.io/badge/zapret2-1.0.7-2563EB?style=flat-square)](services/antizapret/Dockerfile)
-[![CoreDNS 1.15.0](docs/badges/coredns.svg)](services/coredns/Dockerfile)
+[![zapret2 1.0.7](https://img.shields.io/badge/zapret2-1.0.7-2563EB?style=flat-square)](https://github.com/vernette/ss-zapret2)
+[![CoreDNS 1.15.0](docs/badges/coredns.svg)](https://github.com/coredns/coredns/releases/tag/v1.15.0)
 
-[![Caddy 2.11.9](https://img.shields.io/badge/Caddy-2.11.9-1F88C0?style=flat-square&logo=caddy&logoColor=white)](services/https/Dockerfile)
-[![ocserv 1.6.0](https://img.shields.io/badge/ocserv-1.6.0-16803C?style=flat-square)](services/ocserv/Dockerfile)
-[![Cloudflare WARP 2026.8.2115.0](https://img.shields.io/badge/Cloudflare%20WARP-2026.8.2115.0-F38020?style=flat-square&logo=cloudflare&logoColor=white)](services/antizapret/Dockerfile)
+[![Caddy 2.11.9](https://img.shields.io/badge/Caddy-2.11.9-1F88C0?style=flat-square&logo=caddy&logoColor=white)](https://github.com/caddyserver/caddy/releases/tag/v2.11.9)
+[![ocserv 1.6.0](https://img.shields.io/badge/ocserv-1.6.0-16803C?style=flat-square)](https://gitlab.com/openconnect/ocserv/-/tags/1.6.0)
+[![Cloudflare WARP 2026.8.2115.0](https://img.shields.io/badge/Cloudflare%20WARP-2026.8.2115.0-F38020?style=flat-square&logo=cloudflare&logoColor=white)](https://developers.cloudflare.com/cloudflare-one/team-and-resources/devices/cloudflare-one-client/download/#linux)
 [![Docktinel 0.2.0](https://img.shields.io/badge/Docktinel-0.2.0-2496ED?style=flat-square)](https://github.com/xtrime-ru/docktinel)
 
 Версии компонентов, используемых в проекте.
@@ -107,9 +107,8 @@ Antizapret создан для того, чтобы перенаправлять
     - [Поддержка устаревших клиентов](#поддержка-устаревших-клиентов)
   - [Amnezia Wireguard](#amnezia-wireguard)
     - [Включение расширения ядра Amnezia Wireguard](#включение-расширения-ядра-amnezia-wireguard)
-      - [Ubuntu 26.04](#ubuntu-2604)
-      - [Ubuntu 24.04](#ubuntu-2404)
-      - [Ubuntu 20.04, 22.04](#ubuntu-2004-2204)
+      - [Ubuntu 26.04/24.04](#ubuntu-26042404)
+      - [Ubuntu 22.04/20.04](#ubuntu-22042004)
     - [Параметры AmneziaWG](#параметры-amneziawg)
       - [Таблица совместимости параметров](#таблица-совместимости-параметров)
       - [Примечания](#примечания)
@@ -520,7 +519,7 @@ services:
      - Нажмите save на странице конфигурации сервера openvpn-ui: http://openvpn-ui.antizapret:8080/ov/config/ а затем перезапустите сервер openvpn.
      - Установите новый dkms модуль на хост: `apt remove openvpn-dkms-dco` + https://github.com/xtrime-ru/antizapret-vpn-docker/blob/v6/README.md?tab=readme-ov-file#enable-openvpn-data-channel-offload-dco
    - Socks
-   Замените его на контейнер proxy и переименуйте переменные окружения. См. пример: https://github.com/xtrime-ru/antizapret-vpn-docker/blob/v6/docker-compose.override.sample.yml#L63-L93
+   Замените его на контейнер proxy и переименуйте переменные окружения. См. пример: https://github.com/xtrime-ru/antizapret-vpn-docker/blob/v6/docker-compose.override.sample.yml#L75-L105
    Убедитесь, что используете надежный пароль, потому что теперь HTTPS прокси доступен из интернета.
 
 Если вы добавляли в AdGuard Home свои правила с `dnsrewrite=SERVFAIL` для
@@ -1530,7 +1529,7 @@ https://github.com/d3vilh/openvpn-ui?tab=readme-ov-file#generating-ovpn-client-p
 5) нажмите на имя сертификата в списке, чтобы скачать файл ovpn.
 
 ### Включение OpenVPN Data Channel Offload (DCO)
-[OpenVPN Data Channel Offload (DCO)](https://openvpn.net/as-docs/openvpn-dco.html) обеспечивает повышение производительности за счет перемещения обработки канала данных в пространство ядра, где она может обрабатываться более эффективно и с многопоточностью.
+[OpenVPN Data Channel Offload (DCO)](https://openvpn.net/as-docs/openvpn-dco/) обеспечивает повышение производительности за счет перемещения обработки канала данных в пространство ядра, где она может обрабатываться более эффективно и с многопоточностью.
 **tl;dr** увеличивает скорость и снижает нагрузку на процессор сервера.
 
 Расширения ядра можно установить только на <u>хостовую машину</u>, а не в контейнер.
@@ -1661,7 +1660,7 @@ docker compose down && rm -rf ./config/wireguard_amnezia/ && docker compose up -
 
 ## Дополнительная информация
 - [Руководство по настройке OpenWrt](./docs/guide_OpenWrt.md) - как настроить роутер OpenWrt с этим решением, чтобы локальные клиенты работали нормально.
-- [Руководство по настройке Keenetic](./docs/guide_Keenetic_RU.md) - инструкции по настройке сервера и подключению к нему роутеров Keenetic [(на русском языке)](./docs/guide_Keenetic_RU.md)
+- [Руководство по настройке Keenetic](./docs/guide_Keenetic_RU.md) - инструкции по настройке сервера и подключению к нему роутеров Keenetic
 
 ## Тест скорости с iperf3
 iperf3 сервер включен в контейнер antizapret-vpn.
@@ -1679,15 +1678,34 @@ iperf3 сервер включен в контейнер antizapret-vpn.
     ```
 
 # Благодарности
+
 - [ProstoVPN](https://antizapret.prostovpn.org) — оригинальный проект
 - [AntiZapret VPN Container](https://bitbucket.org/anticensority/antizapret-vpn-container/src/master/) — исходный код LXD-контейнера
 - [AntiZapret PAC Generator](https://bitbucket.org/anticensority/antizapret-pac-generator-light/src/master/) — генератор автоконфигурации прокси для обхода цензуры в Российской Федерации
-- [WireGuard VPN](https://github.com/wg-easy/wg-easy) — используется для интеграции Wireguard
+- [WireGuard](https://www.wireguard.com/) — протокол VPN и инструменты
+- [wg-easy](https://github.com/wg-easy/wg-easy) — контейнер и веб-интерфейс WireGuard
+- [AmneziaWG](https://github.com/amnezia-vpn/amneziawg-linux-kernel-module) — модуль ядра
+- [AmneziaWG tools](https://github.com/amnezia-vpn/amneziawg-tools) — инструменты командной строки
+- [OpenVPN](https://github.com/OpenVPN/openvpn) — сервер VPN
+- [d3vilh/openvpn-server](https://github.com/d3vilh/openvpn-server) — базовый образ OpenVPN
+- [d3vilh/openvpn-ui](https://github.com/d3vilh/openvpn-ui) — интерфейс управления OpenVPN
 - [ocserv](https://gitlab.com/openconnect/ocserv) — сервер OpenConnect
-- [OpenVPN](https://github.com/d3vilh/openvpn-ui) - используется для интеграции OpenVPN
-- [AdGuardHome](https://github.com/AdguardTeam/AdGuardHome) - DNS-резолвер
-- [filebrowser](https://github.com/filebrowser/filebrowser) - веб-браузер файлов и редактор
-- [lighttpd](https://github.com/lighttpd/lighttpd1.4) - веб-сервер для единой панели управления
-- [caddy](https://github.com/caddyserver/caddy) - обратный прокси
-- [No Thought Is a Crime](https://ntc.party) — форум о технических, политических и экономических аспектах интернет-цензуры в разных странах
-- [3proxy](https://github.com/3proxy/3proxy) - HTTP(S) и SOCKS5 прокси для маршрутизации конкретных приложений
+- [AdGuard Home](https://github.com/AdguardTeam/AdGuardHome) — DNS-резолвер и фильтрация
+- [CoreDNS](https://github.com/coredns/coredns) — перенаправление DNS-запросов и переключение при сбоях
+- [Cloudflare WARP](https://developers.cloudflare.com/cloudflare-one/team-and-resources/devices/cloudflare-one-client/download/#linux) — опциональный туннель для исходящего трафика
+- [zapret2](https://github.com/bol-van/zapret2) — средства обхода DPI
+- [ss-zapret2](https://github.com/vernette/ss-zapret2) — источник встроенных файлов zapret2
+- [Cloak](https://github.com/cbeuw/Cloak) — опциональный транспорт прокси
+- [Docktinel](https://github.com/xtrime-ru/docktinel) — проверки состояния контейнеров и управление процессами
+- [File Browser](https://github.com/filebrowser/filebrowser) — веб-интерфейс для работы с файлами и их редактирования
+- [lighttpd](https://github.com/lighttpd/lighttpd1.4) — веб-сервер панели управления
+- [jitesoft/lighttpd](https://hub.docker.com/r/jitesoft/lighttpd) — базовый образ панели управления
+- [Caddy](https://github.com/caddyserver/caddy) — обратный прокси HTTPS
+- [caddy-l4](https://github.com/mholt/caddy-l4) — перенаправление TCP-трафика в ocserv
+- [3proxy](https://github.com/3proxy/3proxy) — прокси HTTP и SOCKS5
+- [3proxy-docker](https://github.com/tarampampam/3proxy-docker) — исходный образ 3proxy
+- [v2fly/domain-list-community](https://github.com/v2fly/domain-list-community) — списки доменов для правил маршрутизации
+- [MaxMind GeoLite2 ASN](https://dev.maxmind.com/geoip/geolite2-free-geolocation-data/) — база ASN, которая загружается в образ из P3TERX/GeoLite.mmdb
+- [P3TERX/GeoLite.mmdb](https://github.com/P3TERX/GeoLite.mmdb) — источник файла базы GeoLite2 ASN
+- [iperf3](https://github.com/esnet/iperf) — измерение пропускной способности сети
+- [No Thought Is a Crime](https://github.com/net4people/bbs/issues/11) — анонс форума исследователей интернет-цензуры от его основателя
