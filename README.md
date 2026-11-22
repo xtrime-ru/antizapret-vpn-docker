@@ -139,7 +139,7 @@ https://t.me/antizapret_support
 2. CoreDNS tries the VPN exit nodes in order: `az-world` → `az-local` in Swarm, or only `az-local` in single-server Compose.
 3. Each exit node asks AdGuard using its ClientID. Domain exclusions take priority over ordinary includes. Without an exclusion, an include enables VPN routing; otherwise, `dnsmap` resolves through `az-resolver` and checks the returned IPv4 addresses against ASN and organization rules.
 4. For a match, `dnsmap` allocates virtual IPv4 addresses and creates iptables DNAT mappings to the real addresses. The default pools are `14.16.0.0/15` for the local exit and `14.18.0.0/15` for the world exit.
-5. CoreDNS returns virtual addresses for VPN-routed domains or falls back to an ordinary DNS answer when no exit node matches. ASN matching uses the IPv4 addresses in the resolved answer, including CDN addresses behind CNAMEs.
+5. CoreDNS returns virtual addresses from a matching VPN exit. If the exits decline the query or are unavailable, it asks AdGuard for direct DNS resolution. During an exit outage, CoreDNS sets the direct answer's TTL to zero so VPN routing can resume as soon as an exit recovers.
 6. VPN clients route virtual addresses through the tunnel. Explicit IP/CIDR lists can also add routes for real addresses. See [Routing rules: include, exclude and ASN](#routing-rules-include-exclude-and-asn).
 
 
@@ -476,7 +476,7 @@ When upgrading ocserv to 1.6, custom IPv6 configurations must account for the
 server address changing from the network address plus one to the network
 address itself. Invalid or unreadable per-user/group configuration files now
 reject the affected session. The project's default IPv4 configuration needs
-no changes. CoreDNS finalizer now uses the minimum TTL across the CNAME chain.
+no changes.
 Caddy 2.11.9 defaults to a 16 KiB request header limit and one-minute idle
 read/write timeouts; custom applications that need larger headers or longer
 stalls can override these in their Caddy configuration.
@@ -786,51 +786,38 @@ Restarting containers or updating the stack alone is insufficient: the existing 
 
 ## DNS resolving algorithm
 
-The diagrams show IPv4 (`A`) queries. AdGuard's default configuration disables AAAA responses; `dnsmap` also returns empty responses for `AAAA` and `HTTPS` queries. AdGuard uses the ClientIDs `az-local`, `az-world` and `az-resolver` to apply different rules and upstreams to internal requests.
+The diagrams show IPv4 (`A`) queries. AdGuard uses the ClientIDs `az-local`, `az-world` and `az-resolver` to apply different rules and upstreams to internal requests. AdGuard's default configuration disables `AAAA` responses.
 
 ### Docker Swarm
 
 ```mermaid
 flowchart TB
-    client["VPN client"] -->|DNS query| adguard["AdGuard Home"]
-    adguard -->|Blocked| deny["Blocking response"]
+    client["VPN client"] --> adguard["AdGuard Home"]
+    adguard -->|Blocked| blocked["Blocking response"]
     adguard -->|Domain-specific upstream| external["External DNS"]
-    adguard --> core["CoreDNS"]
-    core --> world
-    world["az-world: dnsmap<br/>domains / ASN"]
-    world -->|Domain or ASN| worldip["14.18.0.0/15<br/>DNAT"]
-    world -->|REFUSED| local
-    local["az-local: dnsmap<br/>domains / ASN"]
-    local -->|Domain or ASN| localip["14.16.0.0/15<br/>DNAT"]
-    local -->|REFUSED| retry["AdGuard: client=coredns"]
-    retry -->|Ordinary upstream| external
-    classDef service fill:#1e293b,stroke:#64748b,color:#f8fafc
-    classDef exit fill:#312e81,stroke:#a5b4fc,color:#ffffff
-    classDef mapped fill:#115e59,stroke:#5eead4,color:#ffffff
-    class adguard,core,retry,external service
-    class local,world exit
-    class localip,worldip mapped
+    adguard -->|Ordinary query| core["CoreDNS"]
+    core --> world["az-world (dnsmap)"]
+    world -->|Domain or ASN match| world_ip["VPN address: 14.18.0.0/15"]
+    world -->|Refusal or failure| local_exit["az-local (dnsmap)"]
+    local_exit -->|Domain or ASN match| local_ip["VPN address: 14.16.0.0/15"]
+    local_exit -->|Refusal or failure| direct_dns["AdGuard direct DNS (coredns client)"]
+    direct_dns --> external
+    adguard -.->|Primary upstream fails| fallback_dns["AdGuard fallback DNS"]
 ```
 
 ### Single node (Docker Compose)
 
 ```mermaid
 flowchart TB
-    client["VPN client"] -->|DNS query| adguard["AdGuard Home"]
-    adguard -->|Blocked| deny["Blocking response"]
+    client["VPN client"] --> adguard["AdGuard Home"]
+    adguard -->|Blocked| blocked["Blocking response"]
     adguard -->|Domain-specific upstream| external["External DNS"]
-    adguard --> core["CoreDNS"]
-    core --> local
-    local["az-local: dnsmap<br/>domains / ASN"]
-    local -->|Domain or ASN| localip["14.16.0.0/15<br/>DNAT"]
-    local -->|REFUSED| retry["AdGuard: client=coredns"]
-    retry -->|Ordinary upstream| external
-    classDef service fill:#1e293b,stroke:#64748b,color:#f8fafc
-    classDef exit fill:#312e81,stroke:#a5b4fc,color:#ffffff
-    classDef mapped fill:#115e59,stroke:#5eead4,color:#ffffff
-    class adguard,core,retry,external service
-    class local exit
-    class localip mapped
+    adguard -->|Ordinary query| core["CoreDNS"]
+    core --> local_exit["az-local (dnsmap)"]
+    local_exit -->|Domain or ASN match| local_ip["VPN address: 14.16.0.0/15"]
+    local_exit -->|Refusal or failure| direct_dns["AdGuard direct DNS (coredns client)"]
+    direct_dns --> external
+    adguard -.->|Primary upstream fails| fallback_dns["AdGuard fallback DNS"]
 ```
 
 In Swarm, CoreDNS uses `az-world`, then `az-local`, then a direct query to AdGuard. It proceeds to the next upstream on a network error, timeout, `REFUSED`, or `SERVFAIL`. The final AdGuard request uses the `coredns` client, whose upstreams are ordinary external resolvers, so it does not loop back into CoreDNS.
@@ -841,27 +828,20 @@ CoreDNS sets the TTL of fallback answers from AdGuard to zero if a configured ex
 
 When upgrading separately, update CoreDNS first, then AdGuard and the exit nodes. On startup, the AdGuard entrypoint updates the two bundled routing rules for `az-local` and `az-world` to `REFUSED`. AdGuard refreshes subscriptions through its regular update process. Update custom routing rules separately if they still use `SERVFAIL` to skip an exit.
 
-In single-server Compose, CoreDNS uses only `az-local` before falling back to AdGuard. Both local and world domain lists use the `az-local` ClientID, and `ASN_FILES` includes both generated ASN lists.
+In single-server Compose, CoreDNS uses only `az-local` before falling back to AdGuard. Both local and world domain lists use the `az-local` ClientID, and `ASN_FILES` includes both generated ASN lists. If AdGuard cannot reach its primary upstream, it can use its own [fallback resolvers](#adguard-upstream-dns).
 
 ### Inside an exit node: domains and ASN
 
 ```mermaid
 flowchart TB
-    q["Original A query"] --> first["AdGuard: client=az-local / az-world"]
-    first --> has{"NOERROR with A records?"}
-    has -->|Yes| mapped["Virtual IPs + DNAT"]
-    has -->|REFUSED| direct["AdGuard: client=az-resolver"]
-    has -->|Other response| err["Original response / error"]
-    direct --> res{"NOERROR with A records?"}
-    res -->|Yes| asn{"ASN or organization match?"}
-    res -->|No| err
-    asn -->|Yes| mapped
-    asn -->|No| fail["REFUSED: next upstream"]
-    classDef service fill:#1e293b,stroke:#64748b,color:#f8fafc
-    classDef exit fill:#312e81,stroke:#a5b4fc,color:#ffffff
-    classDef mapped fill:#115e59,stroke:#5eead4,color:#ffffff
-    class first,direct,err,has,res,asn service
-    class mapped mapped
+    query["Original A query"] --> exit_query["AdGuard using az-local or az-world"]
+    exit_query -->|NOERROR with A records| mapped["Virtual IPv4 addresses and DNAT"]
+    exit_query -->|REFUSED| resolver["AdGuard using az-resolver"]
+    exit_query -->|Other response| original["Return the response to CoreDNS"]
+    resolver -->|NOERROR with A records| asn_match{"ASN or organization match?"}
+    resolver -->|Other response| original
+    asn_match -->|Yes| mapped
+    asn_match -->|No| refused["Return REFUSED to CoreDNS"]
 ```
 
 1. `dnsmap` sends the original query to AdGuard using the DoH protocol over internal HTTP at `/dns-query/<CLIENT>`, with `<CLIENT>` set to `az-local` or `az-world`. The default AdGuard DoH port is `3000`.
@@ -871,11 +851,11 @@ flowchart TB
 5. If direct resolution succeeds, `dnsmap` checks the returned IPv4 addresses in the MaxMind ASN database. If any address matches an ASN number, organization substring or organization regex, all IPv4 addresses in that response are mapped through this exit node. With no matching address, the original `REFUSED` is returned to CoreDNS.
 6. When mapping addresses, `dnsmap` removes CNAME records, replaces A records with virtual addresses under the original query name, and sets their TTL to 300 seconds. It installs DNAT mappings from the virtual addresses to the real addresses.
 
-An empty answer does not create mappings. A failure to install mappings returns `SERVFAIL`. The default address pools and rule files are described in [Routing rules: include, exclude and ASN](#routing-rules-include-exclude-and-asn).
+For an `HTTPS` query, `dnsmap` uses a separate `A` lookup for ASN matching when the exit's ClientID returns `REFUSED`. It strips IPv4 and IPv6 address hints from returned HTTPS records and drops records that require those hints. An empty answer creates no mappings. A failure to install mappings returns `SERVFAIL`. The default address pools and rule files are described in [Routing rules: include, exclude and ASN](#routing-rules-include-exclude-and-asn).
 
 ### CNAME resolution and direct exceptions
 
-CoreDNS forwards answers without re-querying each CNAME target. `dnsmap` checks the resolved IPv4 addresses against MaxMind ASN rules, so CDN routing does not require a CNAME finalizer.
+CoreDNS forwards answers without re-querying each CNAME target. `dnsmap` checks the resolved IPv4 addresses against MaxMind ASN rules to route CDN traffic.
 
 The bundled `lists/exclude.txt` loads Steam, PlayStation and Rockstar domain lists from v2fly. AdGuard's **Direct Access Rules** filter returns important `REFUSED` rewrites for `az-local`, `az-world` and `az-resolver`, overriding ordinary custom/dist includes and preventing ASN routing. CoreDNS then reaches the direct AdGuard upstream. Independent IP routes still apply. The new list supplies AdGuard rules only; it does not remove entries from include lists.
 
@@ -1421,7 +1401,7 @@ Each supervised container runs a Docktinel daemon. The daemon runs the registere
 | Service | Startup checks and deadlines | Runtime checks and restart triggers | Background processes and jobs |
 | --- | --- | --- | --- |
 | `az-local`, `az-world` | <ul><li>Wait up to 8m for the dnsmap initialization marker.</li></ul> | <ul><li>Once a minute, `nslookup` must get `127.0.0.1` for `healthcheck.invalid.` from local dnsmap.</li><li>If WARP is enabled, check that it is connected once a minute.</li><li>Three failures in either check trigger a restart.</li><li>dnsmap exit also stops the main process.</li></ul> | <ul><li>`routes`</li><li>API</li><li>iperf3</li><li>dnsmap, started by the startup script.</li><li>`warp-svc`, when WARP is enabled.</li><li>zapret2, when enabled.</li><li>Check for configuration and list changes every 30s.</li><li>Run `doall` every 6h, starting after 6h.</li></ul> |
-| AdGuard | <ul><li>Wait up to 60s for dependency DNS registration, then start with the addresses available.</li><li>Wait up to 5m for initialization.</li><li>Wait up to 5m for a successful DNS probe, within the overall startup budget.</li></ul> | <ul><li>BusyBox `nslookup` queries local AdGuard once a minute using `example.org` by default.</li><li>Three failures trigger a restart, including when upstream and fallback resolvers are unavailable and the probe cannot resolve.</li></ul> | <ul><li>`routes`.</li><li>Maintenance every 10s.<ul><li>Reconcile client addresses.</li><li>Reinitialize DNS when dependencies change.</li><li>Refresh filters when their configuration changes.</li></ul></li></ul> |
+| AdGuard | <ul><li>Wait up to 60s for dependency DNS registration, then start with the addresses available.</li><li>Wait up to 5m for initialization.</li><li>Wait up to 5m for the local TCP listener on port 53, within the overall startup budget.</li></ul> | <ul><li>Check the local TCP listener on port 53 once a minute.</li><li>Three consecutive listener failures trigger a restart. Upstream and fallback DNS outages alone do not fail this check.</li></ul> | <ul><li>`routes`.</li><li>Maintenance every 10s.<ul><li>Reconcile client addresses.</li><li>Reinitialize DNS when dependencies change.</li><li>Refresh filters when their configuration changes.</li></ul></li></ul> |
 | CoreDNS | <ul><li>Generate a Corefile from available upstream addresses within 1m.</li><li>Check local HTTP `/health` on port 8080 within 30s.</li></ul> | <ul><li>Check `/health` every 5s.</li><li>Three failures trigger a restart.</li><li>The forwarder checks failing upstreams every 1s.</li><li>Recovered upstreams regain their priority automatically.</li></ul> | <ul><li>Rediscover upstream addresses every 5s.</li><li>Keep the previous Corefile if all addresses are missing.</li><li>Reload when the Corefile changes.</li></ul> |
 | HTTPS | <ul><li>Configure Caddy within 2m.</li><li>Check local HTTP `/healthz` on port 2018 within 30s.</li></ul> | <ul><li>Check `/healthz` every 5s.</li><li>Three failures trigger a restart.</li></ul> | <ul><li>Synchronize the ocserv certificate every 10s.</li><li>Use a fallback certificate when needed.</li><li>Retry after failed Caddy reloads.</li></ul> |
 | WireGuard and AmneziaWG | <ul><li>Wait up to 8m for the initialization marker.</li><li>First-time database setup requests a restart to load the generated settings.</li></ul> | <ul><li>Check the IP-list checksum every 10s.</li><li>One failed check triggers a restart to apply the new routes.</li></ul> | <ul><li>`routes --vpn`.</li><li>Supervise BIRD when `BGP_ENABLE=true`.</li></ul> |

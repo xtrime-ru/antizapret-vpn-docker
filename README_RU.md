@@ -139,7 +139,7 @@ https://t.me/antizapret_support
 2. CoreDNS последовательно опрашивает VPN-узлы: `az-world` → `az-local` в Swarm или только `az-local` в односерверном Compose.
 3. Каждый узел выхода обращается к AdGuard со своим ClientID. Доменные исключения имеют приоритет над обычными include. Без исключения include включает VPN-маршрутизацию; иначе `dnsmap` разрешает имя через `az-resolver` и проверяет полученные IPv4-адреса по правилам ASN и организаций.
 4. При совпадении `dnsmap` выделяет виртуальные IPv4-адреса и создаёт правила DNAT к реальным адресам. Пулы по умолчанию: `14.16.0.0/15` для локального узла и `14.18.0.0/15` для зарубежного.
-5. CoreDNS возвращает VPN-адреса либо обычный DNS-ответ, если ни один узел выхода не дал совпадения. Проверка ASN использует IPv4-адреса ответа, включая CDN за CNAME.
+5. CoreDNS возвращает виртуальные адреса от подходящего VPN-узла. Если узлы отклонили запрос или недоступны, CoreDNS обращается к AdGuard за прямым DNS-ответом. Во время сбоя узла CoreDNS обнуляет TTL прямого ответа, чтобы VPN-маршрутизация возобновилась после восстановления узла.
 6. VPN-клиенты направляют виртуальные адреса через туннель. Явные IP/CIDR-списки могут дополнительно создавать маршруты для реальных адресов. См. [Правила маршрутизации: include, exclude и ASN](#правила-маршрутизации-include-exclude-и-asn).
 
 
@@ -475,7 +475,6 @@ services:
 сервера: теперь это адрес сети, а не адрес сети плюс один. Ошибочные или
 недоступные конфиги пользователей/групп теперь приводят к отказу в подключении
 для соответствующей сессии. Стандартный IPv4-конфиг проекта менять не нужно.
-Плагин finalizer в CoreDNS теперь использует минимальный TTL по цепочке CNAME.
 В Caddy 2.11.9 лимит заголовков запроса по умолчанию составляет 16 КиБ, а
 таймауты простоя чтения/записи — одну минуту; для собственных приложений эти
 значения можно переопределить в конфигурации Caddy.
@@ -778,51 +777,38 @@ docker exec "$ADGUARD_ID" ping -c 4 -W 2 az-world.antizapret
 
 ## Алгоритм разрешения DNS
 
-Схемы показывают IPv4-запросы (`A`). Конфигурация AdGuard по умолчанию отключает ответы AAAA; `dnsmap` также возвращает пустые ответы на запросы `AAAA` и `HTTPS`. ClientID `az-local`, `az-world` и `az-resolver` позволяют AdGuard применять разные правила и upstream к внутренним запросам.
+Схемы показывают IPv4-запросы (`A`). AdGuard использует ClientID `az-local`, `az-world` и `az-resolver`, чтобы применять разные правила и upstream к внутренним запросам. Конфигурация AdGuard по умолчанию отключает ответы `AAAA`.
 
 ### Docker Swarm
 
 ```mermaid
 flowchart TB
-    client["VPN-клиент"] -->|DNS-запрос| adguard["AdGuard Home"]
-    adguard -->|Блокировка| deny["Ответ блокировки"]
-    adguard -->|Адресный upstream| external["Внешний DNS"]
-    adguard --> core["CoreDNS"]
-    core --> world
-    world["az-world: dnsmap<br/>домены / ASN"]
-    world -->|Домен или ASN| worldip["14.18.0.0/15<br/>DNAT"]
-    world -->|REFUSED| local
-    local["az-local: dnsmap<br/>домены / ASN"]
-    local -->|Домен или ASN| localip["14.16.0.0/15<br/>DNAT"]
-    local -->|REFUSED| retry["AdGuard: client=coredns"]
-    retry -->|Обычный upstream| external
-    classDef service fill:#1e293b,stroke:#64748b,color:#f8fafc
-    classDef exit fill:#312e81,stroke:#a5b4fc,color:#ffffff
-    classDef mapped fill:#115e59,stroke:#5eead4,color:#ffffff
-    class adguard,core,retry,external service
-    class local,world exit
-    class localip,worldip mapped
+    client["VPN-клиент"] --> adguard["AdGuard Home"]
+    adguard -->|Блокировка| blocked["Ответ блокировки"]
+    adguard -->|Upstream для домена| external["Внешний DNS"]
+    adguard -->|Обычный запрос| core["CoreDNS"]
+    core --> world["az-world (dnsmap)"]
+    world -->|Совпал домен или ASN| world_ip["VPN-адрес: 14.18.0.0/15"]
+    world -->|Отказ или сбой| local_exit["az-local (dnsmap)"]
+    local_exit -->|Совпал домен или ASN| local_ip["VPN-адрес: 14.16.0.0/15"]
+    local_exit -->|Отказ или сбой| direct_dns["Прямой DNS через AdGuard (клиент coredns)"]
+    direct_dns --> external
+    adguard -.->|Сбой основного upstream| fallback_dns["Резервный DNS AdGuard"]
 ```
 
 ### Один сервер (Docker Compose)
 
 ```mermaid
 flowchart TB
-    client["VPN-клиент"] -->|DNS-запрос| adguard["AdGuard Home"]
-    adguard -->|Блокировка| deny["Ответ блокировки"]
-    adguard -->|Адресный upstream| external["Внешний DNS"]
-    adguard --> core["CoreDNS"]
-    core --> local
-    local["az-local: dnsmap<br/>домены / ASN"]
-    local -->|Домен или ASN| localip["14.16.0.0/15<br/>DNAT"]
-    local -->|REFUSED| retry["AdGuard: client=coredns"]
-    retry -->|Обычный upstream| external
-    classDef service fill:#1e293b,stroke:#64748b,color:#f8fafc
-    classDef exit fill:#312e81,stroke:#a5b4fc,color:#ffffff
-    classDef mapped fill:#115e59,stroke:#5eead4,color:#ffffff
-    class adguard,core,retry,external service
-    class local exit
-    class localip mapped
+    client["VPN-клиент"] --> adguard["AdGuard Home"]
+    adguard -->|Блокировка| blocked["Ответ блокировки"]
+    adguard -->|Upstream для домена| external["Внешний DNS"]
+    adguard -->|Обычный запрос| core["CoreDNS"]
+    core --> local_exit["az-local (dnsmap)"]
+    local_exit -->|Совпал домен или ASN| local_ip["VPN-адрес: 14.16.0.0/15"]
+    local_exit -->|Отказ или сбой| direct_dns["Прямой DNS через AdGuard (клиент coredns)"]
+    direct_dns --> external
+    adguard -.->|Сбой основного upstream| fallback_dns["Резервный DNS AdGuard"]
 ```
 
 В Swarm CoreDNS использует `az-world`, затем `az-local`, затем прямой запрос в AdGuard. Переход к следующему upstream происходит при сетевой ошибке, таймауте, `REFUSED` или `SERVFAIL`. Последний запрос в AdGuard относится к клиенту `coredns`, для которого настроены обычные внешние DNS-серверы: запрос не возвращается обратно в CoreDNS.
@@ -833,27 +819,20 @@ CoreDNS обнуляет TTL резервного ответа AdGuard, если
 
 При раздельном обновлении сначала обновите CoreDNS, затем AdGuard и узлы выхода. При запуске entrypoint AdGuard переводит на `REFUSED` два штатных правила для `az-local` и `az-world`. Подписки обновляются штатным механизмом AdGuard. Если пользовательское правило использует `SERVFAIL` для пропуска узла, обновите его отдельно.
 
-В односерверном Compose CoreDNS использует только `az-local` перед переходом к AdGuard. Локальные и зарубежные доменные списки применяются к ClientID `az-local`, а `ASN_FILES` включает оба итоговых ASN-списка.
+В односерверном Compose CoreDNS использует только `az-local` перед переходом к AdGuard. Локальные и зарубежные доменные списки применяются к ClientID `az-local`, а `ASN_FILES` включает оба итоговых ASN-списка. Если основной upstream AdGuard недоступен, AdGuard может обратиться к своим [резервным DNS-серверам](#upstream-dns-для-adguard).
 
 ### Внутри узла выхода: домены и ASN
 
 ```mermaid
 flowchart TB
-    q["Исходный A-запрос"] --> first["AdGuard: client=az-local / az-world"]
-    first --> has{"NOERROR и есть A-записи?"}
-    has -->|Да| mapped["Виртуальные IP + DNAT"]
-    has -->|REFUSED| direct["AdGuard: client=az-resolver"]
-    has -->|Другой ответ| err["Исходный ответ / ошибка"]
-    direct --> res{"NOERROR и есть A-записи?"}
-    res -->|Да| asn{"Совпала ASN или организация?"}
-    res -->|Нет| err
-    asn -->|Да| mapped
-    asn -->|Нет| fail["REFUSED: следующий upstream"]
-    classDef service fill:#1e293b,stroke:#64748b,color:#f8fafc
-    classDef exit fill:#312e81,stroke:#a5b4fc,color:#ffffff
-    classDef mapped fill:#115e59,stroke:#5eead4,color:#ffffff
-    class first,direct,err,has,res,asn service
-    class mapped mapped
+    query["Исходный A-запрос"] --> exit_query["AdGuard с ClientID az-local или az-world"]
+    exit_query -->|NOERROR с A-записями| mapped["Виртуальные IPv4-адреса и DNAT"]
+    exit_query -->|REFUSED| resolver["AdGuard с ClientID az-resolver"]
+    exit_query -->|Другой ответ| original["Вернуть ответ в CoreDNS"]
+    resolver -->|NOERROR с A-записями| asn_match{"Совпала ASN или организация?"}
+    resolver -->|Другой ответ| original
+    asn_match -->|Да| mapped
+    asn_match -->|Нет| refused["Вернуть REFUSED в CoreDNS"]
 ```
 
 1. `dnsmap` отправляет исходный запрос в AdGuard по протоколу DoH через внутренний HTTP на `/dns-query/<CLIENT>`, где `<CLIENT>` — `az-local` или `az-world`. Порт DoH AdGuard по умолчанию — `3000`.
@@ -863,11 +842,11 @@ flowchart TB
 5. При успешном прямом разрешении `dnsmap` проверяет IPv4-адреса по базе ASN MaxMind. Если хотя бы один адрес совпал с номером ASN, подстрокой организации или regex организации, все IPv4-адреса ответа подменяются для этого узла выхода. При отсутствии совпадений CoreDNS получает исходный `REFUSED`.
 6. При подмене `dnsmap` удаляет CNAME-записи, заменяет A-записи виртуальными адресами под исходным именем запроса и устанавливает TTL 300 секунд. Для виртуальных адресов создаются DNAT-правила к реальным адресам.
 
-Пустой ответ не создаёт подменных адресов. Ошибка установки правил подмены возвращает `SERVFAIL`. Пулы адресов и файлы правил описаны в разделе [Правила маршрутизации: include, exclude и ASN](#правила-маршрутизации-include-exclude-и-asn).
+Для запроса `HTTPS` при ответе `REFUSED` от ClientID узла `dnsmap` выполняет отдельный запрос `A` для проверки ASN. Из возвращаемых записей HTTPS удаляются подсказки IPv4 и IPv6. Записи, для которых эти подсказки обязательны, отбрасываются. Пустой ответ не создаёт подменных адресов. Ошибка установки правил подмены возвращает `SERVFAIL`. Пулы адресов и файлы правил описаны в разделе [Правила маршрутизации: include, exclude и ASN](#правила-маршрутизации-include-exclude-и-asn).
 
 ### Разрешение CNAME и прямые исключения
 
-CoreDNS передаёт ответы без повторных запросов каждой CNAME-цели. `dnsmap` проверяет полученные IPv4-адреса по правилам ASN MaxMind, поэтому для маршрутизации CDN finalizer больше не нужен.
+CoreDNS передаёт ответы без повторных запросов каждой CNAME-цели. Для маршрутизации CDN `dnsmap` проверяет полученные IPv4-адреса по правилам ASN MaxMind.
 
 Общий `lists/exclude.txt` подключает списки Steam, PlayStation и Rockstar из v2fly. Фильтр AdGuard **Direct Access Rules** создаёт rewrite-правила `REFUSED` с `important` для `az-local`, `az-world` и `az-resolver`, перекрывая обычные Custom/Dist include и останавливая ASN-маршрутизацию. Затем CoreDNS получает прямой ответ через AdGuard. Независимые IP-маршруты продолжают действовать. Новый список служит только источником правил AdGuard и не удаляет строки из include-списков.
 
@@ -1411,7 +1390,7 @@ docker compose --env-file compose.swarm.env config | docker run --pull always --
 | Сервис | Проверки и сроки при запуске | Проверки в работе и причины перезапуска | Фоновые процессы и задачи |
 | --- | --- | --- | --- |
 | `az-local`, `az-world` | <ul><li>До 8 мин на появление маркера инициализации dnsmap.</li></ul> | <ul><li>Раз в минуту `nslookup` ждёт от локального dnsmap ответ `127.0.0.1` на запрос `healthcheck.invalid.`.</li><li>Если WARP включён, его подключение тоже проверяется раз в минуту.</li><li>Три ошибки подряд в любой из проверок вызывают перезапуск.</li><li>Выход dnsmap также завершает основной процесс.</li></ul> | <ul><li>`routes`</li><li>API</li><li>iperf3</li><li>dnsmap, запускаемый скриптом приложения.</li><li>`warp-svc`, если включён WARP.</li><li>zapret2, если он включён.</li><li>Проверка изменений конфигурации и списков каждые 30 с.</li><li>Запуск `doall` каждые 6 ч с первой попыткой через 6 ч.</li></ul> |
-| AdGuard | <ul><li>До 60 с на DNS-регистрацию зависимостей, затем запуск с доступными адресами.</li><li>До 5 мин на инициализацию.</li><li>До 5 мин на успешный DNS-запрос в рамках общего лимита.</li></ul> | <ul><li>BusyBox `nslookup` обращается к локальному AdGuard раз в минуту, по умолчанию с запросом к `example.org`.</li><li>Три ошибки подряд вызывают перезапуск, в том числе если недоступны основные и резервные DNS-серверы и запрос не разрешается.</li></ul> | <ul><li>`routes`.</li><li>Фоновое обслуживание каждые 10 с.<ul><li>Сверка адресов клиентов.</li><li>Переинициализация DNS при изменении зависимостей.</li><li>Обновление фильтров при изменении их конфигурации.</li></ul></li></ul> |
+| AdGuard | <ul><li>До 60 с на DNS-регистрацию зависимостей, затем запуск с доступными адресами.</li><li>До 5 мин на инициализацию.</li><li>До 5 мин на проверку локального TCP-порта 53 в рамках общего лимита.</li></ul> | <ul><li>Проверка локального TCP-порта 53 раз в минуту.</li><li>Три ошибки подключения подряд вызывают перезапуск. Недоступность основных и резервных DNS-серверов сама по себе не влияет на эту проверку.</li></ul> | <ul><li>`routes`.</li><li>Фоновое обслуживание каждые 10 с.<ul><li>Сверка адресов клиентов.</li><li>Переинициализация DNS при изменении зависимостей.</li><li>Обновление фильтров при изменении их конфигурации.</li></ul></li></ul> |
 | CoreDNS | <ul><li>До 1 мин на формирование Corefile из доступных адресов.</li><li>До 30 с на проверку локального HTTP `/health` на порту 8080.</li></ul> | <ul><li>Проверка `/health` каждые 5 с.</li><li>Три ошибки подряд вызывают перезапуск.</li><li>CoreDNS проверяет сбойные upstream-серверы каждую секунду.</li><li>После восстановления связи серверы автоматически получают прежний приоритет.</li></ul> | <ul><li>Поиск адресов upstream-серверов каждые 5 с.</li><li>Если все адреса недоступны, сохраняется прежний Corefile.</li><li>При изменении файла CoreDNS перечитывает его.</li></ul> |
 | HTTPS | <ul><li>До 2 мин на настройку Caddy.</li><li>До 30 с на проверку локального HTTP `/healthz` на порту 2018.</li></ul> | <ul><li>Проверка `/healthz` каждые 5 с.</li><li>Три ошибки подряд вызывают перезапуск.</li></ul> | <ul><li>Синхронизация сертификата ocserv каждые 10 с.</li><li>При необходимости используется резервный сертификат.</li><li>При ошибке перезагрузки конфигурации Caddy попытка повторяется.</li></ul> |
 | WireGuard и AmneziaWG | <ul><li>До 8 мин на появление маркера инициализации.</li><li>После первичной настройки базы запрашивается перезапуск, чтобы загрузить настройки.</li></ul> | <ul><li>Проверка контрольной суммы списков IP каждые 10 с.</li><li>Одна ошибка вызывает перезапуск для применения маршрутов.</li></ul> | <ul><li>`routes --vpn`.</li><li>Docktinel следит за BIRD при `BGP_ENABLE=true`.</li></ul> |
