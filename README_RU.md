@@ -2,7 +2,7 @@
 
 # AntiZapret VPN в Docker
 
-[![AdGuard Home v1.0.0-b.2](https://img.shields.io/badge/AdGuard%20Home-v1.0.0--b.2-68BC71?style=flat-square&logo=adguard&logoColor=white)](services/adguard/Dockerfile)
+[![AdGuard Home v1.0.0](https://img.shields.io/badge/AdGuard%20Home-v1.0.0-68BC71?style=flat-square&logo=adguard&logoColor=white)](services/adguard/Dockerfile)
 [![wg-easy 15.5.0](https://img.shields.io/badge/wg--easy-15.5.0-88171A?style=flat-square&logo=wireguard&logoColor=white)](https://github.com/wg-easy/wg-easy/releases/tag/v15.5.0)
 [![OpenVPN 2.7.9](https://img.shields.io/badge/OpenVPN-2.7.9-EA7E20?style=flat-square&logo=openvpn&logoColor=white)](services/openvpn/Dockerfile)
 [![AmneziaWG tools 3.1.20260812](docs/badges/amneziawg.svg)](https://github.com/amnezia-vpn/amneziawg-tools/releases/tag/v3.1.20260812)
@@ -12,6 +12,7 @@
 [![Caddy 2.11.9](https://img.shields.io/badge/Caddy-2.11.9-1F88C0?style=flat-square&logo=caddy&logoColor=white)](services/https/Dockerfile)
 [![ocserv 1.6.0](https://img.shields.io/badge/ocserv-1.6.0-16803C?style=flat-square)](services/ocserv/Dockerfile)
 [![Cloudflare WARP 2026.8.2115.0](https://img.shields.io/badge/Cloudflare%20WARP-2026.8.2115.0-F38020?style=flat-square&logo=cloudflare&logoColor=white)](services/antizapret/Dockerfile)
+[![Docktinel 0.2.0](https://img.shields.io/badge/Docktinel-0.2.0-2496ED?style=flat-square)](https://github.com/xtrime-ru/docktinel)
 
 Версии компонентов, используемых в проекте.
 
@@ -522,6 +523,10 @@ services:
    - Socks
    Замените его на контейнер proxy и переименуйте переменные окружения. См. пример: https://github.com/xtrime-ru/antizapret-vpn-docker/blob/v6/docker-compose.override.sample.yml#L63-L93
    Убедитесь, что используете надежный пароль, потому что теперь HTTPS прокси доступен из интернета.
+
+Если вы добавляли в AdGuard Home свои правила с `dnsrewrite=SERVFAIL` для
+пропуска узла выхода VPN, замените в них `dnsrewrite=SERVFAIL` на
+`dnsrewrite=REFUSED`. Два штатных правила обновляются автоматически.
 
 ## Сброс:
 Удалить все настройки, VPN-конфигурации и вернуть начальное состояние сервиса:
