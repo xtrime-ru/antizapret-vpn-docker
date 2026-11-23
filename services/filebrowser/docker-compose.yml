@@ -7,7 +7,7 @@ services:
       - DOCKTINEL_STARTUP_TIMEOUT=10m
     hostname: filebrowser.antizapret
     restart: unless-stopped
-    image: xtrime/antizapret-vpn-filebrowser:6.12.4
+    image: xtrime/antizapret-vpn-filebrowser:6.12.3
     build: 
       context: .
       args:

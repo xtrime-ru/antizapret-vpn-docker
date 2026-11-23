@@ -3,7 +3,7 @@ ARG COREDNS_VERSION=1.15.0
 
 FROM ${DOCKTINEL_IMAGE} AS docktinel
 
-FROM xtrime/antizapret-vpn:6.12.7 AS antizapret
+FROM xtrime/antizapret-vpn:6.12.6 AS antizapret
 
 FROM golang:1.27 AS builder
 ARG COREDNS_VERSION

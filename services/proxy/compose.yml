@@ -2,7 +2,7 @@ services:
   proxy:
     entrypoint: ["/usr/local/lib/docktinel/entrypoint"]
     command: ["/init.sh"]
-    image: xtrime/antizapret-vpn-proxy:6.12.4
+    image: xtrime/antizapret-vpn-proxy:6.12.3
     init: true
     stop_grace_period: 30s
     healthcheck:
