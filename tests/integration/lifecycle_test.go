@@ -1,13 +1,16 @@
 package integration
 
 import (
+	"bytes"
 	"context"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/moby/moby/api/pkg/stdcopy"
 	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/client"
 )
 
 func TestCoreDNSMaintenanceFailureAndRecovery(t *testing.T) {
@@ -47,19 +50,25 @@ exec /usr/local/lib/docktinel/entrypoint sh -c 'touch /tmp/application-started; 
 	f.mustExec("test", "!", "-e", "/tmp/application-started")
 	f.mustExec("touch", "/tmp/dependency")
 	f.runtime()
-	f.mustExec("test", "-e", "/tmp/application-started")
+	eventually(t, func(ctx context.Context) (int, error) {
+		_, code, err := f.exec(ctx, "test", "-e", "/tmp/application-started")
+		return code, err
+	}, func(code int) bool { return code == 0 })
 	f.mustExec("rm", "/tmp/dependency")
 	f.waitExit()
 }
 
-func TestHealthcheckStopsApplicationAfterDaemonDies(t *testing.T) {
+func TestContainerExitsAfterDaemonDies(t *testing.T) {
 	f := newFixture(t, "coredns", `echo ':' > /etc/docktinel/tasks.sh
 exec /usr/local/lib/docktinel/entrypoint sleep infinity`)
 	state := f.runtime()
-	f.mustExec("sh", "-c", "kill -KILL "+strconv.Itoa(state.Daemon.PID))
-	// Missing daemon identity is detected independently of the live HTTP API.
-	f.expectUnhealthy("--max-age", "1s", "--stop-grace", "100ms")
-	f.waitExit()
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	// Docker can close the exec stream before reporting the signal command's result.
+	_, _, _ = f.exec(ctx, "kill", "-KILL", strconv.Itoa(state.Daemon.PID))
+	if code := f.waitExit(); code != 137 {
+		t.Fatalf("container exit code = %d, want 137", code)
+	}
 }
 
 func TestAdGuardReadinessWithUpstreamUnavailable(t *testing.T) {
@@ -135,9 +144,9 @@ chmod +x /usr/local/bin/getent`)
 }
 
 func TestAntizapretTaskRegistration(t *testing.T) {
-	f := newFixture(t, "antizapret", `docktinel daemon &
-. /usr/local/lib/docktinel/tasks.sh
-. /etc/docktinel/tasks.sh`)
+	f := newFixture(t, "antizapret", `. /usr/local/lib/docktinel/tasks.sh
+. /etc/docktinel/tasks.sh
+docktinel config validate`)
 	if code := f.waitExit(); code != 0 {
 		t.Fatalf("task registration exited %d", code)
 	}
@@ -148,6 +157,52 @@ func TestFileBrowserReadiness(t *testing.T) {
 	f.runtime()
 	f.mustExec("wget", "-q", "--spider", "http://127.0.0.1:80/health")
 	f.mustExec("docktinel", "healthcheck")
+}
+
+func TestAntizapretShutdownTasks(t *testing.T) {
+	f := newFixture(t, "antizapret", `mkdir -p /root/antizapret/result /root/antizapret/iptables
+printf 'mine az-local\n' > /dev/shm/.doall_owner
+cp /dev/shm/.doall_owner /root/antizapret/result/.doall_owner
+touch /dev/shm/.doall_lock /dev/shm/.zapret_started
+echo 'export ZAPRET_CONFIG=/tmp/active-zapret.conf' > /etc/default/antizapret
+cat > /opt/zapret2/init.d/sysv/zapret2 <<'SH'
+#!/bin/sh
+test "$1" = stop && test "$ZAPRET_CONFIG" = /tmp/active-zapret.conf && touch /tmp/zapret-stopped
+SH
+cat > /usr/local/bin/iptables-save <<'SH'
+#!/bin/sh
+printf '%s\n' '-A dnsmap -j ACCEPT' '-A OUTPUT -j ACCEPT'
+SH
+chmod +x /opt/zapret2/init.d/sysv/zapret2 /usr/local/bin/iptables-save
+. /usr/local/lib/docktinel/tasks.sh
+. /etc/docktinel/tasks.sh
+python3 -c 'import json, sys; p = sys.argv[1]; d = json.load(open(p)); d["tasks"] = [t for t in d["tasks"] if t["phase"] == "shutdown"]; json.dump(d, open(p, "w"))' "$DOCKTINEL_CONFIG"
+docktinel add job verify-cleanup --phase shutdown -- sh -ec '
+    test ! -e /root/antizapret/result/.doall_owner
+    test ! -e /dev/shm/.doall_owner
+    test ! -e /dev/shm/.doall_lock
+    test -f /tmp/zapret-stopped
+    test "$(cat "/root/antizapret/iptables/$(hostname -s).rules")" = "-A dnsmap -j ACCEPT"
+    echo cleanup-verified
+'
+exec docktinel daemon`)
+	f.runtime()
+	f.stop()
+
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	logs, err := f.cli.ContainerLogs(ctx, f.id, client.ContainerLogsOptions{ShowStdout: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer logs.Close()
+	var output bytes.Buffer
+	if _, err := stdcopy.StdCopy(&output, &output, logs); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output.String(), "cleanup-verified") {
+		t.Fatalf("shutdown did not complete all cleanup steps: %s", &output)
+	}
 }
 
 func TestVPNStartupAndHealthDoNotDependOnAdGuard(t *testing.T) {

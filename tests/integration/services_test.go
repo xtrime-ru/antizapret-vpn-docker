@@ -135,7 +135,6 @@ func TestFirewallPreservesRulesAndRecovers(t *testing.T) {
 		return &container.HostConfig{
 			CapAdd:      []string{"NET_ADMIN"},
 			NetworkMode: container.NetworkMode("container:" + holder.id),
-			PidMode:     container.PidMode("container:" + holder.id),
 			VolumesFrom: []string{holder.id},
 		}
 	}
@@ -183,13 +182,6 @@ printf '203.0.113.0/24\n' > /tmp/feed-v4`)
 		firewallHost(), "V4_FILE=blacklist-v4.txt", "V6_FILE=blacklist-v6.txt",
 		"V4_URL=file:///tmp/feed-v4", "V6_URL=file:///tmp/feed-v6")
 	replacement.runtime()
-	stop := func(f *fixture) {
-		state := f.runtime()
-		ctx, cancel := context.WithCancel(t.Context())
-		defer cancel()
-		_, _, _ = f.exec(ctx, "kill", "-TERM", strconv.Itoa(state.Main.PID))
-		f.waitExit()
-	}
 	// The predecessor can neither take over nor clear the replacement's rules.
 	f.mustExec("/root/refresh.sh", "--restore")
 	f.mustExec("/root/refresh.sh", "--clear")
@@ -201,12 +193,12 @@ printf '#!/bin/sh\nexit 4\n' > /tmp/xtables-busy/iptables
 chmod +x /tmp/xtables-busy/iptables
 if PATH=/tmp/xtables-busy:$PATH /root/refresh.sh --clear; then exit 1; fi
 /root/block.sh check`)
-	stop(replacement)
+	replacement.stop()
 	f.mustExec("/root/refresh.sh", "--restore")
 	for _, set := range []string{"az_firewall_v4", "az_firewall_v6"} {
 		holder.mustExec("sh", "-ec", `if ipset list "$1"; then exit 1; fi`, "sh", set)
 	}
-	stop(f)
+	f.stop()
 	holder.mustExec("iptables", "-C", "DOCKER-USER", "-m", "conntrack", "--ctstate", "ESTABLISHED,RELATED", "-j", "ACCEPT")
 	holder.mustExec("sh", "-ec", `test -z "$(ip6tables -S DOCKER-USER | grep -- '-A DOCKER-USER')"`)
 

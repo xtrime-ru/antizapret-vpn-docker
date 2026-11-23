@@ -2,17 +2,16 @@ services:
   coredns:
     entrypoint: ["/usr/local/lib/docktinel/entrypoint"]
     command: ["/coredns", "-conf", "/Corefile"]
-    image: xtrime/antizapret-vpn-coredns:6.12.4
+    image: xtrime/antizapret-vpn-coredns:6.12.5
     hostname: coredns.antizapret
     restart: unless-stopped
     init: true
     environment:
-      - TINI_KILL_PROCESS_GROUP=1
       - DOCKTINEL_STARTUP_TIMEOUT=10m
     build: 
       context: .
       args:
-        DOCKTINEL_IMAGE: ${DOCKTINEL_IMAGE:-ghcr.io/xtrime-ru/docktinel:0.2.0}
+        DOCKTINEL_IMAGE: ${DOCKTINEL_IMAGE:-ghcr.io/xtrime-ru/docktinel:0.3.0}
       x-bake:
         platforms:
           - linux/amd64

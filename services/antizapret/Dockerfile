@@ -1,4 +1,4 @@
-ARG DOCKTINEL_IMAGE=ghcr.io/xtrime-ru/docktinel:0.2.0
+ARG DOCKTINEL_IMAGE=ghcr.io/xtrime-ru/docktinel:0.3.0
 
 FROM ${DOCKTINEL_IMAGE} AS docktinel
 
@@ -79,6 +79,7 @@ RUN python3 -B -m unittest discover -v
 FROM test-dnsmap AS runtime-files
 COPY ./root /runtime/root
 COPY ./init.sh ./healthcheck.sh ./refresh-state.sh /runtime/
+COPY --chmod=0755 ./shutdown.sh /runtime/
 
 RUN <<-"EOF" bash -ex
     for list in /runtime/root/antizapret/config/*-custom.txt; do rm -f $list; done

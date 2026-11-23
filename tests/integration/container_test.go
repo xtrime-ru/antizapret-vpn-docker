@@ -19,9 +19,6 @@ import (
 type sentinelStatus struct {
 	Phase string `json:"phase"`
 	State string `json:"state"`
-	Main  struct {
-		PID int `json:"pid"`
-	} `json:"main"`
 	Tasks []struct {
 		Name    string `json:"name"`
 		Process *struct {
@@ -211,6 +208,18 @@ func (f *fixture) runtime() sentinelStatus {
 		return err == nil, err
 	}, func(healthy bool) bool { return healthy })
 	return state
+}
+
+func (f *fixture) stop() {
+	f.t.Helper()
+	ctx, cancel := context.WithTimeout(f.t.Context(), 35*time.Second)
+	defer cancel()
+	if _, err := f.cli.ContainerStop(ctx, f.id, client.ContainerStopOptions{Timeout: new(30)}); err != nil {
+		f.t.Fatal(err)
+	}
+	if code := f.waitExit(); code != 0 {
+		f.t.Fatalf("container exit code = %d, want 0", code)
+	}
 }
 
 func (f *fixture) waitExit() int64 {

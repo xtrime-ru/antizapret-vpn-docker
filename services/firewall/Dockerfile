@@ -1,4 +1,4 @@
-ARG DOCKTINEL_IMAGE=ghcr.io/xtrime-ru/docktinel:0.2.1
+ARG DOCKTINEL_IMAGE=ghcr.io/xtrime-ru/docktinel:0.3.0
 
 FROM ${DOCKTINEL_IMAGE} AS docktinel
 

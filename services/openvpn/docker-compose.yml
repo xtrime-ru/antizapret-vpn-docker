@@ -12,11 +12,11 @@ services:
       - net.ipv4.conf.all.src_valid_mark=1
     devices:
       - /dev/net/tun:/dev/net/tun
-    image: xtrime/antizapret-vpn-openvpn:6.12.3
+    image: xtrime/antizapret-vpn-openvpn:6.12.4
     build:
       context: .
       args:
-        DOCKTINEL_IMAGE: ${DOCKTINEL_IMAGE:-ghcr.io/xtrime-ru/docktinel:0.2.0}
+        DOCKTINEL_IMAGE: ${DOCKTINEL_IMAGE:-ghcr.io/xtrime-ru/docktinel:0.3.0}
       x-bake:
         platforms:
           - linux/amd64
@@ -47,7 +47,6 @@ services:
       placement:
         constraints: [ node.labels.location == local ]
     environment:
-      - TINI_KILL_PROCESS_GROUP=1
       - DOCKTINEL_STARTUP_TIMEOUT=10m
       - OBFUSCATE_TYPE=1
       - |
@@ -69,7 +68,7 @@ services:
     cap_add:
       - NET_ADMIN
       - SYS_MODULE
-    image: xtrime/antizapret-vpn-openvpn-ui:6.12.2
+    image: xtrime/antizapret-vpn-openvpn-ui:6.12.3
     stop_grace_period: 30s
     healthcheck:
       test: ["CMD", "docktinel", "healthcheck", "--startup-grace", "10m"]
@@ -81,7 +80,7 @@ services:
     build:
       context: .
       args:
-        DOCKTINEL_IMAGE: ${DOCKTINEL_IMAGE:-ghcr.io/xtrime-ru/docktinel:0.2.0}
+        DOCKTINEL_IMAGE: ${DOCKTINEL_IMAGE:-ghcr.io/xtrime-ru/docktinel:0.3.0}
       dockerfile: Dockerfile-ui
       x-bake:
         platforms:
@@ -94,7 +93,6 @@ services:
       - $PWD/config/openvpn/pki:/usr/share/easy-rsa/pki
       - $PWD/config/openvpn:/etc/openvpn
     environment:
-      - TINI_KILL_PROCESS_GROUP=1
       - DOCKTINEL_STARTUP_TIMEOUT=10m
       - OPENVPN_ADMIN_USERNAME=admin
       - OPENVPN_ADMIN_PASSWORD=gagaZush

@@ -62,13 +62,6 @@ function configure_doall_owner () {
     echo "DoAll result volume is owned by $owner. This container will reload dnsmap only."
 }
 
-function cleanup_doall_owner () {
-    if [ -f "$DOALL_LOCAL_OWNER_FILE" ] && [ "$(cat "$DOALL_OWNER_FILE" 2>/dev/null || true)" = "$(cat "$DOALL_LOCAL_OWNER_FILE" 2>/dev/null || true)" ]; then
-        rm -f "$DOALL_OWNER_FILE"
-    fi
-    rm -f "$DOALL_LOCAL_OWNER_FILE" /dev/shm/.doall_lock
-}
-
 function generated_lists_available () {
     [ -z "${IPS_URL:-}" ] || [ -s /root/antizapret/result/ips.txt ] || return 1
     [ -z "${IPS_WORLD_URL:-}" ] || [ -s /root/antizapret/result/ips-world.txt ] || return 1
@@ -77,7 +70,6 @@ function generated_lists_available () {
 }
 
 configure_doall_owner
-trap cleanup_doall_owner EXIT HUP INT QUIT PIPE TERM
 
 . /usr/local/lib/docktinel/state.sh
 checksum_files /root/antizapret/result/* /root/antizapret/config/custom/* > /dev/shm/.config_md5
@@ -119,24 +111,6 @@ if [ "$IPTABLES_SAVE_DISABLED" != "1" ] && [ -f "$IPTABLES_SAVE" ]; then
 fi
 set -x
 
-function save_iptables () {
-    [ "$IPTABLES_SAVE_DISABLED" = "1" ] && return 0
-    echo "saving iptables..."
-    iptables-save -t "nat" | grep -E "^-A $CHAIN " > /tmp/iptables.rules && mv -f /tmp/iptables.rules "$IPTABLES_SAVE" && echo "iptables saved"
-}
-
-ZAPRET_STARTED=0
-function stop_services () {
-    trap - EXIT HUP INT QUIT PIPE TERM
-    cleanup_doall_owner
-    if [ "$ZAPRET_STARTED" = "1" ]; then
-        /opt/zapret2/init.d/sysv/zapret2 stop || true
-    fi
-    save_iptables || true
-}
-
-trap stop_services EXIT HUP INT QUIT PIPE TERM
-
 if [ "$ZAPRET_ENABLED" = "1" ]; then
     if [ -s "$ZAPRET_CONFIG" ]; then
         # Regenerate only known, unmodified bundled configs; keep custom rules.
@@ -152,7 +126,7 @@ if [ "$ZAPRET_ENABLED" = "1" ]; then
         cp /root/zapret2/config.default "$ZAPRET_CONFIG"
     fi
     /opt/zapret2/init.d/sysv/zapret2 start
-    ZAPRET_STARTED=1
+    touch /dev/shm/.zapret_started
 fi
 
 if [ "$WARP_ENABLED" = "1" ]; then
@@ -211,7 +185,4 @@ if ! timeout --kill-after=5s 5m /usr/bin/doall; then
     fi
 fi
 
-/usr/bin/dnsmap -a 0.0.0.0 --iprange "$AZ_SUBNET" --asn-file "$ASN_FILES" &
-DNSMAP_PID=$!
-trap 'stop_services; kill -TERM "$DNSMAP_PID" 2>/dev/null || true; exit 0' HUP INT QUIT PIPE TERM
-wait "$DNSMAP_PID"
+exec /usr/bin/dnsmap -a 0.0.0.0 --iprange "$AZ_SUBNET" --asn-file "$ASN_FILES"

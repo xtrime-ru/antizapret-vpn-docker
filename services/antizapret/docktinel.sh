@@ -8,3 +8,4 @@ docktinel add process iperf -- /usr/bin/iperf3 -s -1
 docktinel add job refresh-state --interval 30s --timeout 6m --lock lists -- /refresh-state.sh
 docktinel add job refresh-lists --interval 6h --grace 6h --timeout 10m \
     --lock lists -- /usr/bin/doall
+docktinel add job cleanup --phase shutdown --timeout 10s -- /shutdown.sh

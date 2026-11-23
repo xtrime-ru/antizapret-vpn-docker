@@ -4,7 +4,7 @@ services:
     command: ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
     init: true
     restart: unless-stopped
-    image: xtrime/antizapret-vpn-https:6.12.3
+    image: xtrime/antizapret-vpn-https:6.12.4
     stop_grace_period: 30s
     healthcheck:
       test: ["CMD", "docktinel", "healthcheck", "--startup-grace", "10m"]
@@ -16,7 +16,7 @@ services:
     build: 
       context: .
       args:
-        DOCKTINEL_IMAGE: ${DOCKTINEL_IMAGE:-ghcr.io/xtrime-ru/docktinel:0.2.0}
+        DOCKTINEL_IMAGE: ${DOCKTINEL_IMAGE:-ghcr.io/xtrime-ru/docktinel:0.3.0}
       x-bake:
         platforms:
           - linux/amd64
@@ -33,7 +33,6 @@ services:
       - "8143:8143"
       - "8243:8243"
     environment:
-      - TINI_KILL_PROCESS_GROUP=1
       - DOCKTINEL_STARTUP_TIMEOUT=10m
       # Optional domain for HTTPS services. Public IPv4 is used when empty.
       - PROXY_DOMAIN=

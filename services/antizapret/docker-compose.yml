@@ -2,7 +2,7 @@ services:
   antizapret:
     entrypoint: ["/usr/local/lib/docktinel/entrypoint"]
     command: ["/init.sh"]
-    image: xtrime/antizapret-vpn:6.12.5
+    image: xtrime/antizapret-vpn:6.12.6
     restart: unless-stopped
     init: true
     cap_add:
@@ -19,7 +19,7 @@ services:
     build: 
       context: .
       args:
-        DOCKTINEL_IMAGE: ${DOCKTINEL_IMAGE:-ghcr.io/xtrime-ru/docktinel:0.2.0}
+        DOCKTINEL_IMAGE: ${DOCKTINEL_IMAGE:-ghcr.io/xtrime-ru/docktinel:0.3.0}
       x-bake:
         platforms:
           - linux/amd64
@@ -47,7 +47,6 @@ services:
       - $PWD/config/adguard/conf:/opt/adguardhome/conf
       - $PWD/config/adguard/work:/opt/adguardhome/work
     environment:
-      - TINI_KILL_PROCESS_GROUP=1
       - DOCKTINEL_STARTUP_TIMEOUT=10m
       - |
         ROUTES=

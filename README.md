@@ -12,7 +12,7 @@
 [![Caddy 2.11.9](https://img.shields.io/badge/Caddy-2.11.9-1F88C0?style=flat-square&logo=caddy&logoColor=white)](https://github.com/caddyserver/caddy/releases/tag/v2.11.9)
 [![ocserv 1.6.0](https://img.shields.io/badge/ocserv-1.6.0-16803C?style=flat-square)](https://gitlab.com/openconnect/ocserv/-/tags/1.6.0)
 [![Cloudflare WARP 2026.8.2115.0](https://img.shields.io/badge/Cloudflare%20WARP-2026.8.2115.0-F38020?style=flat-square&logo=cloudflare&logoColor=white)](https://developers.cloudflare.com/cloudflare-one/team-and-resources/devices/cloudflare-one-client/download/#linux)
-[![Docktinel 0.2.0](https://img.shields.io/badge/Docktinel-0.2.0-2496ED?style=flat-square)](https://github.com/xtrime-ru/docktinel)
+[![Docktinel 0.3.0](https://img.shields.io/badge/Docktinel-0.3.0-2496ED?style=flat-square)](https://github.com/xtrime-ru/docktinel)
 
 Component versions used in this project.
 
