@@ -48,6 +48,11 @@ echo called >> /tmp/generations
 SH
 cat > /tmp/mock/curl <<'SH'
 #!/bin/sh
+[ "$1" = --noproxy ] && [ "$2" = '*' ] || exit 98
+if [ -f /tmp/change-on-update ]; then
+    printf replacement > /root/antizapret/config/custom/new.txt
+    rm /tmp/change-on-update
+fi
 [ ! -f /tmp/fail-api ]
 SH
 chmod +x /tmp/mock/*
@@ -72,14 +77,23 @@ printf changed > /root/antizapret/config/custom/new.txt
 touch /tmp/fail-api
 if /refresh-state.sh; then exit 1; fi
 cmp /dev/shm/.config_metadata /tmp/snapshot
+[[ "$(wc -l < /tmp/generations)" == 2 ]]
 rm /tmp/fail-api
 /refresh-state.sh
-[[ "$(wc -l < /tmp/generations)" == 3 ]]
+[[ "$(wc -l < /tmp/generations)" == 2 ]]
 /refresh-state.sh
+[[ "$(wc -l < /tmp/generations)" == 2 ]]
+cp /dev/shm/.config_metadata /tmp/snapshot
+printf another-change > /root/antizapret/config/custom/new.txt
+touch /tmp/change-on-update
+if /refresh-state.sh; then exit 1; fi
+cmp /dev/shm/.config_metadata /tmp/snapshot
 [[ "$(wc -l < /tmp/generations)" == 3 ]]
-rm /root/antizapret/config/custom/new.txt
 /refresh-state.sh
 [[ "$(wc -l < /tmp/generations)" == 4 ]]
+rm /root/antizapret/config/custom/new.txt
+/refresh-state.sh
+[[ "$(wc -l < /tmp/generations)" == 5 ]]
 `)
 }
 
