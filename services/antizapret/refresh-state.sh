@@ -18,7 +18,7 @@ prepared=/dev/shm/.config_prepared_md5
 if [[ "$old" != "$new" && "$new" != "$(cat "$prepared" 2>/dev/null || true)" ]]; then
     echo "refresh-state: config files changed"
     custom_metadata=$(files_metadata /root/antizapret/config/custom/* | md5sum)
-    timeout --kill-after=5s 5m doall || retry 'doall failed'
+    timeout --foreground --kill-after=5s 5m doall || retry 'doall failed'
     metadata=$(config_metadata)
     new=$(input_checksum)
     [[ "$custom_metadata" == "$(files_metadata /root/antizapret/config/custom/* | md5sum)" &&

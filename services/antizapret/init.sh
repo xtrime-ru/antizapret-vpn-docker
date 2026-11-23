@@ -179,7 +179,7 @@ PY
     iptables -t mangle -A FORWARD -o CloudflareWARP -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
 fi
 
-if ! timeout --kill-after=5s 5m /usr/bin/doall; then
+if ! timeout --foreground --kill-after=5s 5m /usr/bin/doall; then
     if generated_lists_available; then
         echo 'doall failed during startup, continuing with existing lists'
     else
