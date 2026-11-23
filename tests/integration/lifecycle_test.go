@@ -163,7 +163,7 @@ func TestAntizapretShutdownTasks(t *testing.T) {
 	f := newFixture(t, "antizapret", `mkdir -p /root/antizapret/result /root/antizapret/iptables
 printf 'mine az-local\n' > /dev/shm/.doall_owner
 cp /dev/shm/.doall_owner /root/antizapret/result/.doall_owner
-touch /dev/shm/.doall_lock /dev/shm/.zapret_started
+touch /dev/shm/.zapret_started
 echo 'export ZAPRET_CONFIG=/tmp/active-zapret.conf' > /etc/default/antizapret
 cat > /opt/zapret2/init.d/sysv/zapret2 <<'SH'
 #!/bin/sh
@@ -180,7 +180,6 @@ python3 -c 'import json, sys; p = sys.argv[1]; d = json.load(open(p)); d["tasks"
 docktinel add job verify-cleanup --phase shutdown -- sh -ec '
     test ! -e /root/antizapret/result/.doall_owner
     test ! -e /dev/shm/.doall_owner
-    test ! -e /dev/shm/.doall_lock
     test -f /tmp/zapret-stopped
     test "$(cat "/root/antizapret/iptables/$(hostname -s).rules")" = "-A dnsmap -j ACCEPT"
     echo cleanup-verified

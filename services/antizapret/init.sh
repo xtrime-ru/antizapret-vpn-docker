@@ -48,19 +48,22 @@ DOALL_OWNER_FILE="/root/antizapret/result/.doall_owner"
 DOALL_LOCAL_OWNER_FILE="/dev/shm/.doall_owner"
 DOALL_OWNER_ID="$(date +%s%N)-$(head -c 8 /dev/urandom | od -An -tx1 | tr -d ' \n')"
 
-function configure_doall_owner () {
+function configure_doall_owner () (
     [ -n "$DOALL_DISABLED" ] && return 0
 
     echo "$DOALL_OWNER_ID $CLIENT" > "$DOALL_LOCAL_OWNER_FILE"
 
+    exec 9>>"${DOALL_OWNER_FILE}.lock"
+    flock 9
     owner="$(awk '{print $2}' "$DOALL_OWNER_FILE" 2>/dev/null || true)"
     if [ -z "$owner" ] || [ "$owner" = "$CLIENT" ]; then
-        cp -f "$DOALL_LOCAL_OWNER_FILE" "$DOALL_OWNER_FILE"
+        cp -f "$DOALL_LOCAL_OWNER_FILE" "${DOALL_OWNER_FILE}.tmp"
+        mv -f "${DOALL_OWNER_FILE}.tmp" "$DOALL_OWNER_FILE"
         return 0
     fi
 
     echo "DoAll result volume is owned by $owner. This container will reload dnsmap only."
-}
+)
 
 function generated_lists_available () {
     [ -z "${IPS_URL:-}" ] || [ -s /root/antizapret/result/ips.txt ] || return 1

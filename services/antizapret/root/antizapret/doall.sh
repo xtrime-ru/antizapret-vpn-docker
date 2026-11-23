@@ -22,26 +22,18 @@ function cached_downloads_available () {
 
 LOCAL_OWNER_FILE="/dev/shm/.doall_owner"
 RESULT_OWNER_FILE="/root/antizapret/result/.doall_owner"
+exec 9>>"${RESULT_OWNER_FILE}.lock"
+flock 9
 LOCAL_OWNER="$(cat "$LOCAL_OWNER_FILE" 2>/dev/null || true)"
 RESULT_OWNER="$(cat "$RESULT_OWNER_FILE" 2>/dev/null || true)"
 
 if [ -n "$DOALL_DISABLED" ] || { [ -n "$RESULT_OWNER" ] && [ "$LOCAL_OWNER" != "$RESULT_OWNER" ]; }; then
+    exec 9>&-
     echo "DoAll disabled or owner mismatch. Reloading dnsmap only..."
     /opt/api/app --publish-config-md5
     reload_dnsmap
     exit 0
 fi
-
-lock_file="/dev/shm/.doall_lock"
-while [ -f "$lock_file" ]; do
-  echo "DoAll already running. Waiting..."
-  sleep 5
-done
-
-touch "$lock_file"
-
-trap 'trap - EXIT; rm -f $lock_file' \
-    EXIT HUP INT QUIT PIPE TERM
 
 download_failed=false
 echo "run download.sh" && ./download.sh || download_failed=true
