@@ -2,11 +2,11 @@ services:
   adguard:
     entrypoint: ["/usr/local/lib/docktinel/entrypoint"]
     command: ["/root/entrypoint.sh", "--no-check-update", "-c", "/opt/adguardhome/conf/AdGuardHome.yaml", "-w", "/opt/adguardhome/work"]
-    image: xtrime/antizapret-vpn-adguard:6.12.6
+    image: xtrime/antizapret-vpn-adguard:6.12.7
     build:
       context: .
       args:
-        DOCKTINEL_IMAGE: ${DOCKTINEL_IMAGE:-ghcr.io/xtrime-ru/docktinel:0.3.0}
+        DOCKTINEL_IMAGE: ${DOCKTINEL_IMAGE:-ghcr.io/xtrime-ru/docktinel:0.3.1}
       x-bake:
         platforms:
           - linux/amd64

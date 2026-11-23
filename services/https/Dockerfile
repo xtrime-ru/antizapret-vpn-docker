@@ -1,9 +1,9 @@
 ARG CADDY_VERSION="2.11.9"
-ARG DOCKTINEL_IMAGE=ghcr.io/xtrime-ru/docktinel:0.3.0
+ARG DOCKTINEL_IMAGE=ghcr.io/xtrime-ru/docktinel:0.3.1
 
 FROM ${DOCKTINEL_IMAGE} AS docktinel
 
-FROM xtrime/antizapret-vpn:6.12.6 AS antizapret
+FROM xtrime/antizapret-vpn:6.12.7 AS antizapret
 
 FROM caddy:${CADDY_VERSION}-builder AS builder
 

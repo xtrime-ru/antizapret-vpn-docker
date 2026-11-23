@@ -2,7 +2,7 @@ services:
   proxy:
     entrypoint: ["/usr/local/lib/docktinel/entrypoint"]
     command: ["/init.sh"]
-    image: xtrime/antizapret-vpn-proxy:6.12.3
+    image: xtrime/antizapret-vpn-proxy:6.12.4
     init: true
     stop_grace_period: 30s
     healthcheck:
@@ -16,7 +16,7 @@ services:
       context: .
       args:
         - IMAGE=ghcr.io/tarampampam/3proxy:2
-        - DOCKTINEL_IMAGE=${DOCKTINEL_IMAGE:-ghcr.io/xtrime-ru/docktinel:0.3.0}
+        - DOCKTINEL_IMAGE=${DOCKTINEL_IMAGE:-ghcr.io/xtrime-ru/docktinel:0.3.1}
       x-bake:
         platforms:
           - linux/amd64
