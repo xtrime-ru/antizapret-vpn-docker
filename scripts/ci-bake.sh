@@ -2,7 +2,7 @@
 set -euo pipefail
 
 shared=false
-if [[ "$SERVICE" != antizapret && "$SERVICE" != cloak ]] &&
+if [[ "$SERVICE" != antizapret && "$SERVICE" != cloak && "$SERVICE" != firewall ]] &&
    grep -qiE '^FROM[[:space:]].*[[:space:]]AS[[:space:]]+service-runtime([[:space:]]|$)' services/antizapret/Dockerfile; then
     shared=true
 fi

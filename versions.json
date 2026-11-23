@@ -58,7 +58,7 @@
     {
       "name": "firewall",
       "repository": "antizapret-vpn-firewall",
-      "version": "6.12.2",
+      "version": "6.12.3",
       "source": "services/firewall",
       "compose": "docker-compose.yml",
       "target": "firewall",

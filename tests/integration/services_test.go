@@ -135,30 +135,28 @@ func TestFirewallPreservesRulesAndRecovers(t *testing.T) {
 		return &container.HostConfig{
 			CapAdd:      []string{"NET_ADMIN"},
 			NetworkMode: container.NetworkMode("container:" + holder.id),
+			PidMode:     container.PidMode("container:" + holder.id),
 			VolumesFrom: []string{holder.id},
 		}
 	}
 	f := fixtureWithHost(t, "firewall", `iptables -N DOCKER-USER
 ip6tables -N DOCKER-USER
+iptables -A DOCKER-USER -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
 printf '192.0.2.0/24\n' > /root/blacklist-v4.txt
 printf '2001:db8:1::/48\n' > /root/blacklist-v6.txt
 printf '198.51.100.0/24\n' > /tmp/feed-v4
-exec /usr/local/lib/docktinel/entrypoint /root/entrypoint.sh`, firewallHost(), "V4_FILE=blacklist-v4.txt", "V6_FILE=blacklist-v6.txt", "V4_URL=file:///tmp/feed-v4", "V6_URL=file:///tmp/feed-v6", "INTERVAL=1s")
+exec /root/entrypoint.sh`, firewallHost(), "V4_FILE=blacklist-v4.txt", "V6_FILE=blacklist-v6.txt", "V4_URL=file:///tmp/feed-v4", "V6_URL=file:///tmp/feed-v6", "INTERVAL=1s")
 	f.runtime()
 	f.waitState("degraded")
 	f.mustExec("ipset", "test", "az_firewall_v4", "192.0.2.1")
 	f.mustExec("grep", "192.0.2.0/24", "/root/blacklist-v4.txt")
 	f.mustExec("docktinel", "healthcheck")
-	// A downloaded but malformed second family must also preserve both active sets.
-	f.mustExec("sh", "-ec", `printf invalid > /tmp/feed-v6`)
-	ctx, cancel := context.WithCancel(t.Context())
-	_, code, _ := f.exec(ctx, "/root/refresh.sh")
-	cancel()
-	if code == 0 {
-		t.Fatal("malformed list was accepted")
+	for _, feed := range []string{" \t\n", "invalid"} {
+		f.mustExec("sh", "-ec", `printf '%s' "$1" > /tmp/feed-v6
+if /root/refresh.sh; then exit 1; fi`, "sh", feed)
+		f.mustExec("ipset", "test", "az_firewall_v4", "192.0.2.1")
+		f.mustExec("ipset", "test", "az_firewall_v6", "2001:db8:1::1")
 	}
-	f.mustExec("ipset", "test", "az_firewall_v4", "192.0.2.1")
-	f.mustExec("ipset", "test", "az_firewall_v6", "2001:db8:1::1")
 	f.mustExec("sh", "-ec", `printf '2001:db8:2::/48\n' > /tmp/feed-v6`)
 	f.waitState("healthy")
 	f.mustExec("ipset", "test", "az_firewall_v4", "198.51.100.1")
@@ -168,7 +166,7 @@ exec /usr/local/lib/docktinel/entrypoint /root/entrypoint.sh`, firewallHost(), "
 cat > /usr/sbin/ipset <<'SH'
 #!/bin/sh
 if [ "$1" = swap ]; then
- case "$2" in az_firewall_v6_new_*) exit 1;; esac
+ case "$2" in az_firewall_v6_new) exit 1;; esac
 fi
 exec /usr/sbin/ipset.real "$@"
 SH
@@ -181,21 +179,38 @@ printf '203.0.113.0/24\n' > /tmp/feed-v4`)
 	f.waitState("healthy")
 	f.mustExec("ipset", "test", "az_firewall_v4", "203.0.113.1")
 	f.mustExec("docktinel", "healthcheck")
-	state := f.runtime()
-	ctx, cancel = context.WithCancel(t.Context())
-	_, _, _ = f.exec(ctx, "kill", "-TERM", strconv.Itoa(state.Main.PID))
-	cancel()
-	f.waitExit()
-	for _, set := range []string{"az_firewall_v4", "az_firewall_v6"} {
-		ctx, cancel = context.WithCancel(t.Context())
-		_, code, _ = holder.exec(ctx, "ipset", "list", set)
-		cancel()
-		if code == 0 {
-			t.Fatalf("firewall left %s active after shutdown", set)
-		}
+	replacement := fixtureWithHost(t, "firewall", "",
+		firewallHost(), "V4_FILE=blacklist-v4.txt", "V6_FILE=blacklist-v6.txt",
+		"V4_URL=file:///tmp/feed-v4", "V6_URL=file:///tmp/feed-v6")
+	replacement.runtime()
+	stop := func(f *fixture) {
+		state := f.runtime()
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+		_, _, _ = f.exec(ctx, "kill", "-TERM", strconv.Itoa(state.Main.PID))
+		f.waitExit()
 	}
+	// The predecessor can neither take over nor clear the replacement's rules.
+	f.mustExec("/root/refresh.sh", "--restore")
+	f.mustExec("/root/refresh.sh", "--clear")
+	replacement.mustExec("/root/block.sh", "check")
+	replacement.mustExec("ipset", "test", "az_firewall_v4", "203.0.113.1")
+	replacement.mustExec("ipset", "test", "az_firewall_v6", "2001:db8:2::1")
+	replacement.mustExec("sh", "-ec", `mkdir -p /tmp/xtables-busy
+printf '#!/bin/sh\nexit 4\n' > /tmp/xtables-busy/iptables
+chmod +x /tmp/xtables-busy/iptables
+if PATH=/tmp/xtables-busy:$PATH /root/refresh.sh --clear; then exit 1; fi
+/root/block.sh check`)
+	stop(replacement)
+	f.mustExec("/root/refresh.sh", "--restore")
+	for _, set := range []string{"az_firewall_v4", "az_firewall_v6"} {
+		holder.mustExec("sh", "-ec", `if ipset list "$1"; then exit 1; fi`, "sh", set)
+	}
+	stop(f)
+	holder.mustExec("iptables", "-C", "DOCKER-USER", "-m", "conntrack", "--ctstate", "ESTABLISHED,RELATED", "-j", "ACCEPT")
+	holder.mustExec("sh", "-ec", `test -z "$(ip6tables -S DOCKER-USER | grep -- '-A DOCKER-USER')"`)
 
-	recreated := fixtureWithHost(t, "firewall", `exec /usr/local/lib/docktinel/entrypoint /root/entrypoint.sh`,
+	recreated := fixtureWithHost(t, "firewall", "",
 		firewallHost(), "V4_FILE=blacklist-v4.txt", "V6_FILE=blacklist-v6.txt",
 		"V4_URL=file:///tmp/feed-v4", "V6_URL=file:///tmp/feed-v6", "INTERVAL=1s")
 	recreated.runtime()

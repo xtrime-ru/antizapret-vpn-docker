@@ -4,10 +4,9 @@ volumes:
 
 services:
   firewall:
-    entrypoint: ["/usr/local/lib/docktinel/entrypoint"]
-    command: ["/root/entrypoint.sh"]
+    entrypoint: ["/root/entrypoint.sh"]
     restart: unless-stopped
-    image: xtrime/antizapret-vpn-firewall:6.12.2
+    image: xtrime/antizapret-vpn-firewall:6.12.3
     init: true
     stop_grace_period: 30s
     healthcheck:
@@ -20,7 +19,7 @@ services:
     build:
       context: .
       args:
-        DOCKTINEL_IMAGE: ${DOCKTINEL_IMAGE:-ghcr.io/xtrime-ru/docktinel:0.2.0}
+        DOCKTINEL_IMAGE: ${DOCKTINEL_IMAGE:-ghcr.io/xtrime-ru/docktinel:0.2.1}
       x-bake:
         platforms:
           - linux/amd64

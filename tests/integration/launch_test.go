@@ -134,7 +134,11 @@ func TestServiceLaunchPolicy(t *testing.T) {
 		t.Run(service, func(t *testing.T) {
 			requireService(t, service)
 			launch := loadComposeLaunch(t, service)
-			if !launch.Init || !slices.Equal(launch.Entrypoint, []string{"/usr/local/lib/docktinel/entrypoint"}) || len(launch.Command) == 0 {
+			entrypoint := "/usr/local/lib/docktinel/entrypoint"
+			if service == "firewall" {
+				entrypoint = "/root/entrypoint.sh"
+			}
+			if !launch.Init || !slices.Equal(launch.Entrypoint, []string{entrypoint}) || (service != "firewall" && len(launch.Command) == 0) {
 				t.Fatalf("incomplete Compose launch policy: %+v", launch)
 			}
 			if !slices.Contains(launch.Healthcheck.Test, "docktinel") {
