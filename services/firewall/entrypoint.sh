@@ -1,11 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 
-# Assign the launch order before waiting on the lock used to apply rules.
+# Allocate the generation under the same lock used to apply rules.
 (
     cache=/var/lib/antizapret-firewall
     mkdir -p "$cache"
-    exec 9>"$cache/generation.lock"
+    exec 9>>"$cache/lock"
     flock 9
     generation=0
     if [ -f "$cache/generation" ]; then

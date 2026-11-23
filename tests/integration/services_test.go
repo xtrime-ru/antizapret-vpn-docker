@@ -220,6 +220,48 @@ if PATH=/tmp/xtables-busy:$PATH /root/refresh.sh --clear; then exit 1; fi
 	recreated.mustExec("docktinel", "healthcheck")
 }
 
+func TestFirewallDownloadDoesNotBlockCleanup(t *testing.T) {
+	f := fixtureWithHost(t, "firewall", "exec sleep 600", &container.HostConfig{
+		CapAdd: []string{"NET_ADMIN"},
+	})
+	f.mustExec("bash", "-ec", `
+iptables -N DOCKER-USER
+ip6tables -N DOCKER-USER
+printf '1\n' > /run/antizapret-firewall-generation
+printf '192.0.2.0/24\n' > /root/blacklist-v4.txt
+printf '2001:db8:1::/48\n' > /root/blacklist-v6.txt
+printf '198.51.100.0/24\n' > /tmp/feed-v4
+printf '2001:db8:2::/48\n' > /tmp/feed-v6
+export V4_FILE=blacklist-v4.txt V6_FILE=blacklist-v6.txt
+export V4_URL=file:///tmp/feed-v4 V6_URL=file:///tmp/feed-v6
+/root/refresh.sh --restore
+
+mkdir /tmp/mock
+cat > /tmp/mock/curl <<'SH'
+#!/bin/sh
+touch /tmp/downloading
+until [ -f /tmp/resume ]; do sleep 0.05; done
+exec /usr/bin/curl "$@"
+SH
+chmod +x /tmp/mock/curl
+PATH=/tmp/mock:$PATH /root/refresh.sh &
+refresh=$!
+trap 'touch /tmp/resume' EXIT
+timeout 2s sh -c 'until [ -f /tmp/downloading ]; do sleep 0.05; done'
+timeout 2s /root/refresh.sh --clear
+test "$(cat /var/lib/antizapret-firewall/applied-generation)" = '1 cleared'
+
+printf '2\n' > /run/antizapret-firewall-generation
+/root/refresh.sh --restore
+touch /tmp/resume
+wait "$refresh"
+test "$(cat /var/lib/antizapret-firewall/applied-generation)" = '2 active'
+ipset test az_firewall_v4 192.0.2.1
+ipset test az_firewall_v6 2001:db8:1::1
+if ipset test az_firewall_v4 198.51.100.1; then exit 1; fi
+`)
+}
+
 func TestFirewallCleansPartialFirstApply(t *testing.T) {
 	f := fixtureWithHost(t, "firewall", "exec sleep 600", &container.HostConfig{
 		CapAdd: []string{"NET_ADMIN"},

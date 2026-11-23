@@ -4,7 +4,7 @@ cd /root
 cache=/var/lib/antizapret-firewall
 action=${1:-}
 mkdir -p "$cache"
-exec 9>"$cache/lock"
+exec 9>>"$cache/lock"
 if [[ "$action" == --check ]]; then
     # A refresh already in progress owns the rules until it releases the lock.
     status=0
@@ -20,20 +20,23 @@ fi
 
 read -r generation < /run/antizapret-firewall-generation
 owner_file="$cache/applied-generation"
-latest=0 state=
-if [[ -f "$owner_file" ]]; then
-    read -r latest state < "$owner_file"
-fi
-if (( generation < latest )); then
-    # A predecessor may observe the rules but must never change them.
-    [[ "$action" != --check ]] || ./block.sh check
-    exit
-fi
-if [[ "$action" != --restore ]]; then
-    [[ "$generation" == "$latest" && "$state" != cleared ]] || exit 0
-elif [[ "$generation" == "$latest" && "$state" == cleared ]]; then
-    exit 0
-fi
+check_generation() {
+    latest=0 state=
+    if [[ -f "$owner_file" ]]; then
+        read -r latest state < "$owner_file"
+    fi
+    if (( generation < latest )); then
+        # A predecessor may observe the rules but must never change them.
+        [[ "$action" != --check ]] || ./block.sh check
+        exit
+    fi
+    if [[ "$generation" == "$latest" ]]; then
+        [[ "$state" != cleared ]] || exit 0
+    else
+        [[ "$action" == --restore ]] || exit 0
+    fi
+}
+check_generation
 
 if [[ "$action" == --clear ]]; then
     # Keep the generation so an older task cannot restore after cleanup.
@@ -73,6 +76,8 @@ if [[ "$action" == --check || ( "$action" == --restore && -s "$archive" ) ]]; th
     echo 'Could not apply cached firewall lists, trying available lists' >&2
 fi
 
+# Release the lock while preparing the next pair of lists.
+exec 9>&-
 if [[ "$action" == --restore && -s "$V4_FILE" && -s "$V6_FILE" ]]; then
     cp -- "$V4_FILE" "$staged/v4"
     cp -- "$V6_FILE" "$staged/v6"
@@ -85,6 +90,9 @@ test -s "$staged/v6"
 tar -cf "$staged/lists.tar" -C "$staged" v4 v6
 
 # Publish both families in a single rename, only after the rules are applied.
+exec 9>>"$cache/lock"
+flock 9
+check_generation
 apply_rules
 mv -f -- "$staged/lists.tar" "$archive"
 mv -f -- "$staged/v4" "$V4_FILE"
