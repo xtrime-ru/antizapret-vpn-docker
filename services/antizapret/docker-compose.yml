@@ -5,6 +5,9 @@ services:
     image: xtrime/antizapret-vpn:6.12.7
     restart: unless-stopped
     init: true
+    deploy:
+      update_config:
+        order: stop-first
     cap_add:
       - NET_ADMIN
       - MKNOD

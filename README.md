@@ -1298,7 +1298,7 @@ You can define these variables in docker-compose.override.yml file for your need
 - `CLIENT=az-local` - AdGuard ClientID used by dnsmap. Set to `az-world` on the world node.
 - `AZ_SUBNET=14.16.0.0/15` - subnet for virtual addresses of blocked hosts. The world node uses `14.18.0.0/15`.
 - `ROUTES` - container names and their routed addresses/subnets, used to maintain routes between VPN services, DNS and exit nodes.
-- `DOALL_DISABLED=` - skip list generation inside the container. Normally leave unset: init uses a shared `result` owner file so Docker Compose generates lists only once, while Swarm nodes generate them independently on their local volumes.
+- `DOALL_DISABLED=` - skip list generation inside the container. Run one generator per `result` directory. If multiple containers share a directory, set `DOALL_DISABLED=1` on every reader. Swarm nodes with separate local directories can generate lists independently.
 - `IPTABLES_SAVE_DISABLED=` - skip iptables rules restore on startup and save on shutdown.
 - `WARP_ENABLED=0` - set to `1` to route exit-node traffic through Cloudflare WARP.
 - `WARP_PROTOCOL=WireGuard` - tunnel protocol: `WireGuard` or `MASQUE` (case-sensitive).

@@ -20,20 +20,16 @@ function cached_downloads_available () {
     [ -z "${ASN_WORLD_URL:-}" ] || [ -s config/include-asn-world-dist.txt ] || return 1
 }
 
-LOCAL_OWNER_FILE="/dev/shm/.doall_owner"
-RESULT_OWNER_FILE="/root/antizapret/result/.doall_owner"
-exec 9>>"${RESULT_OWNER_FILE}.lock"
-flock 9
-LOCAL_OWNER="$(cat "$LOCAL_OWNER_FILE" 2>/dev/null || true)"
-RESULT_OWNER="$(cat "$RESULT_OWNER_FILE" 2>/dev/null || true)"
-
-if [ -n "$DOALL_DISABLED" ] || { [ -n "$RESULT_OWNER" ] && [ "$LOCAL_OWNER" != "$RESULT_OWNER" ]; }; then
-    exec 9>&-
-    echo "DoAll disabled or owner mismatch. Reloading dnsmap only..."
+if [ -n "$DOALL_DISABLED" ]; then
+    echo "DoAll disabled. Reloading dnsmap only..."
     /opt/api/app --publish-config-md5
     reload_dnsmap
     exit 0
 fi
+
+# Retain the existing lock path across image upgrades.
+exec 9>>result/.doall_owner.lock
+flock 9
 
 download_failed=false
 echo "run download.sh" && ./download.sh || download_failed=true

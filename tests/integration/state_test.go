@@ -5,7 +5,49 @@ import (
 	"testing"
 
 	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/client"
 )
+
+func TestAntizapretDoallRecoversAfterSIGKILL(t *testing.T) {
+	f := newFixture(t, "antizapret", `
+cd /root/antizapret
+mkdir -p result
+if [ ! -f result/.doall_owner ]; then
+    printf 'old-token az-world\n' > result/.doall_owner
+    exec 9>>result/.doall_owner.lock
+    flock 9
+    touch result/.locked
+    exec sleep infinity
+fi
+printf 'CLIENT=az-local\nDOALL_DISABLED=\n' > /etc/default/antizapret
+printf '#!/bin/sh\nexit 0\n' > download.sh
+cat > parse.sh <<'SH'
+#!/bin/sh
+printf '192.0.2.0/24\n' > result/ips.txt
+SH
+chmod +x download.sh parse.sh
+/usr/bin/doall
+exec sleep infinity
+`)
+	eventually(t, func(ctx context.Context) (int, error) {
+		_, code, err := f.exec(ctx, "test", "-f", "/root/antizapret/result/.locked")
+		return code, err
+	}, func(code int) bool { return code == 0 })
+	f.mustExec("sh", "-ec", "if flock -n /root/antizapret/result/.doall_owner.lock true; then exit 1; fi")
+	if _, err := f.cli.ContainerKill(t.Context(), f.id, client.ContainerKillOptions{Signal: "SIGKILL"}); err != nil {
+		t.Fatal(err)
+	}
+	if code := f.waitExit(); code != 137 {
+		t.Fatalf("container exit code = %d, want 137", code)
+	}
+	if _, err := f.cli.ContainerStart(t.Context(), f.id, client.ContainerStartOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, func(ctx context.Context) (string, error) {
+		output, _, err := f.exec(ctx, "cat", "/root/antizapret/result/ips.txt")
+		return output, err
+	}, func(output string) bool { return output == "192.0.2.0/24\n" })
+}
 
 func TestAntizapretGeneratedListMarkers(t *testing.T) {
 	f := newFixture(t, "antizapret", "exec sleep infinity")
