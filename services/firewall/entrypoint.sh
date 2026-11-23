@@ -21,7 +21,7 @@ export DOCKTINEL_CONFIG="${DOCKTINEL_CONFIG:-/dev/shm/docktinel.json}"
 docktinel add job initial-rules --phase startup --deadline 3m --timeout 130s \
     --failure restart-container -- /root/refresh.sh --restore
 docktinel add check ready --phase after-start --deadline 30s --interval 1s -- /root/block.sh check
-docktinel add check live --interval 5s -- /root/block.sh check
+docktinel add check live --interval 5s --timeout 130s -- /root/refresh.sh --check
 interval=${INTERVAL:-3h}
 case "$interval" in *[!0-9]*) ;; *) interval="${interval}s" ;; esac
 docktinel add job refresh-lists --interval "$interval" --timeout 130s -- /root/refresh.sh

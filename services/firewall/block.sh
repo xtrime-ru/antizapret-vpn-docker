@@ -26,7 +26,13 @@ rules() {
     if [[ "$action" == clear ]] || ! "$bin" -w 2 -C DOCKER-USER "${established[@]}" -j ACCEPT 2>/dev/null; then
         rule "$bin" -I "${established[@]}" -m comment --comment antizapret-firewall -j ACCEPT
     fi
+    if [[ "$action" == clear ]] && ! ipset list -terse "$set" >/dev/null 2>&1; then
+        return 0
+    fi
     rule "$bin" -A -m set --match-set "$set" src -j DROP
+    if [[ "$action" == clear ]]; then
+        ipset destroy "$set"
+    fi
 }
 
 discard_staged_sets() {
@@ -38,11 +44,6 @@ case "$action" in
     clear)
         rules iptables "$v4"
         rules ip6tables "$v6"
-        for set in "$v4" "$v6"; do
-            if ipset list -terse "$set" >/dev/null 2>&1; then
-                ipset destroy "$set"
-            fi
-        done
         discard_staged_sets
         exit 0
         ;;

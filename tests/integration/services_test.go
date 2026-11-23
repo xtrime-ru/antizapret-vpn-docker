@@ -188,6 +188,14 @@ printf '203.0.113.0/24\n' > /tmp/feed-v4`)
 	replacement.mustExec("/root/block.sh", "check")
 	replacement.mustExec("ipset", "test", "az_firewall_v4", "203.0.113.1")
 	replacement.mustExec("ipset", "test", "az_firewall_v6", "2001:db8:2::1")
+	// Losing both managed rule sets must not require a container restart.
+	replacement.mustExec("flock", "/var/lib/antizapret-firewall/lock", "/root/block.sh", "clear")
+	eventually(t, func(ctx context.Context) (bool, error) {
+		_, code, err := replacement.exec(ctx, "sh", "-ec",
+			"/root/block.sh check && ipset test az_firewall_v4 203.0.113.1 && ipset test az_firewall_v6 2001:db8:2::1")
+		return code == 0 && err == nil, err
+	}, func(recovered bool) bool { return recovered })
+	replacement.mustExec("iptables", "-C", "DOCKER-USER", "-m", "conntrack", "--ctstate", "ESTABLISHED,RELATED", "-j", "ACCEPT")
 	replacement.mustExec("sh", "-ec", `mkdir -p /tmp/xtables-busy
 printf '#!/bin/sh\nexit 4\n' > /tmp/xtables-busy/iptables
 chmod +x /tmp/xtables-busy/iptables
@@ -210,6 +218,35 @@ if PATH=/tmp/xtables-busy:$PATH /root/refresh.sh --clear; then exit 1; fi
 	recreated.mustExec("ipset", "test", "az_firewall_v4", "203.0.113.1")
 	recreated.mustExec("ipset", "test", "az_firewall_v6", "2001:db8:2::1")
 	recreated.mustExec("docktinel", "healthcheck")
+}
+
+func TestFirewallCleansPartialFirstApply(t *testing.T) {
+	f := fixtureWithHost(t, "firewall", "exec sleep 600", &container.HostConfig{
+		CapAdd: []string{"NET_ADMIN"},
+	})
+	f.mustExec("bash", "-ec", `
+iptables -N DOCKER-USER
+ip6tables -N DOCKER-USER
+iptables -A DOCKER-USER -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+printf '1\n' > /run/antizapret-firewall-generation
+printf '192.0.2.0/24\n' > /root/blacklist-v4.txt
+printf '2001:db8:1::/48\n' > /root/blacklist-v6.txt
+mkdir /tmp/mock
+cat > /tmp/mock/ip6tables <<'SH'
+#!/bin/sh
+[ "$3" != -A ] || exit 4
+exec /usr/sbin/ip6tables "$@"
+SH
+chmod +x /tmp/mock/ip6tables
+export V4_FILE=blacklist-v4.txt V6_FILE=blacklist-v6.txt
+if PATH=/tmp/mock:$PATH /root/refresh.sh --restore; then exit 1; fi
+test "$(cat /var/lib/antizapret-firewall/applied-generation)" = '1 pending'
+iptables -C DOCKER-USER -m set --match-set az_firewall_v4 src -j DROP
+/root/refresh.sh --clear
+test "$(cat /var/lib/antizapret-firewall/applied-generation)" = '1 cleared'
+iptables -C DOCKER-USER -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+if ipset list az_firewall_v4 || ipset list az_firewall_v6; then exit 1; fi
+`)
 }
 
 func TestAntizapretZapretLoadsBundledRules(t *testing.T) {
