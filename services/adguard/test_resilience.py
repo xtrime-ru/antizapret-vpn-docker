@@ -112,8 +112,8 @@ class DependencyWaitTests(unittest.TestCase):
 class ConfigMigrationTests(unittest.TestCase):
     def migrate(self, config, **settings):
         script = (ROOT / "entrypoint.sh").read_text()
-        expression = "\n    (.dns.upstream_dns" + script.split(
-            "yq -i '\n    (.dns.upstream_dns", 1
+        expression = "\n    del(" + script.split(
+            "yq -i '\n    del(", 1
         )[1].split("' /opt/adguardhome/conf/AdGuardHome.yaml", 1)[0]
         result = subprocess.run(
             [os.environ.get("YQ", "yq"), "-o=json", expression], input=json.dumps(config),
@@ -148,7 +148,11 @@ class ConfigMigrationTests(unittest.TestCase):
         config["filters"] = [{"url": url}]
 
         migrated = self.migrate(config)
-        self.assertEqual(migrated["user_rules"], [rule.replace("SERVFAIL", "REFUSED") for rule in defaults] + custom)
+        expected = [rule.replace("SERVFAIL", "REFUSED") for rule in defaults] + custom + [
+            '||*^$dnsrewrite=REFUSED,client=az-ipv6-local',
+            '||*^$dnsrewrite=REFUSED,client=az-ipv6-world',
+        ]
+        self.assertEqual(migrated["user_rules"], expected)
         self.assertEqual(migrated["filters"], config["filters"])
         self.assertEqual(self.migrate(migrated), migrated)
 
@@ -157,11 +161,25 @@ class ConfigMigrationTests(unittest.TestCase):
             with self.subTest(fallback=fallback):
                 config = self.migrate(self.config(fallback))
                 self.assertEqual(config["dns"]["upstream_timeout"], "5s")
+                self.assertFalse(config["dns"].get("aaaa_disabled", True))
                 self.assertEqual(set(config["dns"]["fallback_dns"]), {
                     "https://1.1.1.1/dns-query", "https://8.8.8.8/dns-query",
                     "[/*.antizapret/]127.0.0.11",
                 })
                 self.assertTrue(all("" not in c["ids"] for c in config["clients"]["persistent"]))
+
+    def test_ipv6_egress_catchall_rules_added(self):
+        config = self.config()
+        config["user_rules"] = [
+            '||*^$dnsrewrite=SERVFAIL,client=az-local',
+            '||*^$dnsrewrite=SERVFAIL,client=az-world',
+        ]
+        migrated = self.migrate(config)
+        self.assertIn('||*^$dnsrewrite=REFUSED,client=az-ipv6-local', migrated["user_rules"])
+        self.assertIn('||*^$dnsrewrite=REFUSED,client=az-ipv6-world', migrated["user_rules"])
+        # Idempotent: running again doesn't duplicate
+        migrated2 = self.migrate(migrated)
+        self.assertEqual(migrated2["user_rules"], migrated["user_rules"])
 
     def test_custom_fallback_preserved_and_migration_idempotent(self):
         config = self.migrate(self.config(["https://dns.example/dns-query"]))
@@ -169,6 +187,21 @@ class ConfigMigrationTests(unittest.TestCase):
             "https://dns.example/dns-query", "[/*.antizapret/]127.0.0.11",
         })
         self.assertEqual(self.migrate(config), config)
+
+    def test_ipv6_egress_domains_filters_removed(self):
+        config = self.config()
+        config["filters"] = [
+            {"url": "http://az-local.antizapret/list/?allow=1&client=az-ipv6-local&filter_custom=0&filter_dist=0&file=/root/antizapret/config/custom/ipv6-egress-domains-local.txt&dnsrewrite=SERVFAIL&suffix=1"},
+            {"url": "http://az-world.antizapret/list/?allow=1&client=az-ipv6-world&filter_custom=0&filter_dist=0&file=/root/antizapret/config/custom/ipv6-egress-domains-world.txt&dnsrewrite=SERVFAIL&suffix=1"},
+            {"url": "http://az-local.antizapret/list/?exclude=1&regex=1&file=/root/antizapret/config/custom/exclude-hosts-custom.txt"},
+        ]
+        migrated = self.migrate(config)
+        self.assertEqual(len(migrated["filters"]), 1)
+        self.assertEqual(migrated["filters"][0]["url"],
+            "http://az-local.antizapret/list/?exclude=1&regex=1&file=/root/antizapret/config/custom/exclude-hosts-custom.txt")
+        # Idempotent: running again doesn't remove anything else
+        migrated2 = self.migrate(migrated)
+        self.assertEqual(migrated2["filters"], migrated["filters"])
 
 
 class DNSReloadTests(unittest.TestCase):

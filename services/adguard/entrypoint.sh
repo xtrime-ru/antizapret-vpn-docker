@@ -96,8 +96,10 @@ AZ_LOCAL_HOST="$AZ_LOCAL_HOST" \
 AZ_WORLD_CLIENT_IDS="$AZ_WORLD_CLIENT_IDS" \
 COREDNS_HOST="$COREDNS_HOST" \
 yq -i '
+    del(.filters[] | select(.url | contains("ipv6-egress-domains-"))) |
     (.dns.upstream_dns[] | select(. == "coredns")) = "coredns.antizapret" |
     .dns.upstream_timeout = "5s" |
+    .dns.aaaa_disabled = false |
     .dns.fallback_dns = (.dns.fallback_dns // []) |
     (.dns.fallback_dns | select(length == 0)) = ["https://1.1.1.1/dns-query", "https://8.8.8.8/dns-query"] |
     .dns.fallback_dns = ((.dns.fallback_dns + ["[/*.antizapret/]127.0.0.11"]) | unique) |
@@ -111,7 +113,13 @@ yq -i '
     (.clients.persistent[] | select(.name == "az-world") | .ids) = env(AZ_WORLD_CLIENT_IDS) |
     (.clients.persistent[] | select(.name == "coredns") | .ids) = (["coredns", strenv(COREDNS_HOST)] | map(select(. != ""))) |
     (.user_rules[] | select(@base64 == ("||*^$dnsrewrite=SERVFAIL,client=az-local" | @base64))) = "||*^$dnsrewrite=REFUSED,client=az-local" |
-    (.user_rules[] | select(@base64 == ("||*^$dnsrewrite=SERVFAIL,client=az-world" | @base64))) = "||*^$dnsrewrite=REFUSED,client=az-world"
+    (.user_rules[] | select(@base64 == ("||*^$dnsrewrite=SERVFAIL,client=az-world" | @base64))) = "||*^$dnsrewrite=REFUSED,client=az-world" |
+    (.user_rules[] | select(@base64 == ("||*^$dnsrewrite=SERVFAIL,client=az-ipv6-local" | @base64))) = "||*^$dnsrewrite=REFUSED,client=az-ipv6-local" |
+    (.user_rules[] | select(@base64 == ("||*^$dnsrewrite=SERVFAIL,client=az-ipv6-world" | @base64))) = "||*^$dnsrewrite=REFUSED,client=az-ipv6-world" |
+    (.user_rules | select(any_c(. == "||*^$dnsrewrite=REFUSED,client=az-ipv6-local") | not)) += ["||*^$dnsrewrite=REFUSED,client=az-ipv6-local"] |
+    (.user_rules | select(any_c(. == "||*^$dnsrewrite=REFUSED,client=az-ipv6-world") | not)) += ["||*^$dnsrewrite=REFUSED,client=az-ipv6-world"] |
+    (.clients.persistent | select(any_c(.name == "az-ipv6-local") | not)) += [{"name": "az-ipv6-local", "ids": ["az-ipv6-local"], "tags": [], "upstreams": ["https://cloudflare-dns.com/dns-query", "https://dns.google/dns-query", "https://dns11.quad9.net/dns-query"], "use_global_settings": true, "use_global_blocked_services": true}] |
+    (.clients.persistent | select(any_c(.name == "az-ipv6-world") | not)) += [{"name": "az-ipv6-world", "ids": ["az-ipv6-world"], "tags": [], "upstreams": ["https://cloudflare-dns.com/dns-query", "https://dns.google/dns-query", "https://dns11.quad9.net/dns-query"], "use_global_settings": true, "use_global_blocked_services": true}]
     ' /opt/adguardhome/conf/AdGuardHome.yaml || exit 1
 
 if ! yq -e '.clients.persistent[] | select(.name == "az-resolver")' /opt/adguardhome/conf/AdGuardHome.yaml >/dev/null; then

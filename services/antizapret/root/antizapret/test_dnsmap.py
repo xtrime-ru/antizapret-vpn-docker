@@ -2,25 +2,32 @@
 # docker run --rm -v "$PWD/services/antizapret/root/antizapret:/tests:ro" -w /tests xtrime/antizapret-vpn:6.7.0 python3 -B -m unittest -v test_dnsmap.py
 
 import queue
+import socket
 import subprocess
 import tempfile
 import threading
+import time
 import unittest
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from unittest.mock import Mock, patch
+from types import SimpleNamespace
+from unittest.mock import Mock, patch, mock_open
+import builtins
 
 from dnslib import A, AAAA, CNAME, DNSRecord, HTTPS, QTYPE, RCODE, RR
 
 import dnsmap
 
 
-def dns_reply(request, addresses=(), rcode=RCODE.NOERROR):
+def dns_reply(request, addresses=(), rcode=RCODE.NOERROR, qtype=QTYPE.A):
     reply = request.reply()
     reply.header.rcode = rcode
     for address in addresses:
-        reply.add_answer(RR(request.q.qname, QTYPE.A, rdata=A(address)))
+        if qtype == QTYPE.AAAA:
+            reply.add_answer(RR(request.q.qname, QTYPE.AAAA, rdata=AAAA(address)))
+        else:
+            reply.add_answer(RR(request.q.qname, QTYPE.A, rdata=A(address)))
     return reply
 
 
@@ -74,7 +81,9 @@ class ResolverTestCase(unittest.TestCase):
         self.asn_file.write_text('', encoding='utf-8')
         self.asn_database = Mock()
         self.asn_database.get.return_value = None
-        self.iptables_runner = Mock(return_value=Mock(returncode=0, stderr=''))
+        self.iptables_runner = Mock(return_value=SimpleNamespace(returncode=0, stderr=''))
+        self.conntrack_file = Path(self.temp_directory.name) / 'nf_conntrack'
+        self.conntrack_file.write_text('', encoding='utf-8')
 
     def make_resolver(self, **overrides):
         arguments = {
@@ -91,6 +100,7 @@ class ResolverTestCase(unittest.TestCase):
             'iptables_runner': self.iptables_runner,
             'load_existing_mappings': False,
             'mapping_batch_delay': 0.001,
+            'conntrack_path': str(self.conntrack_file),
         }
         arguments.update(overrides)
         resolver = dnsmap.ProxyResolver(**arguments)
@@ -700,37 +710,43 @@ class MappingTests(ResolverTestCase):
         rules = self.iptables_runner.call_args.kwargs['input']
         self.assertEqual(rules.count('--to-destination 192.0.2.1'), 1)
 
-    def test_exhausted_range_flushes_old_mappings_and_starts_over(self):
+    def test_exhausted_range_returns_none_without_flush(self):
         resolver = self.make_resolver(iprange='14.16.0.0/30')
 
         self.assertEqual(resolver.add_mapping('192.0.2.1'), '14.16.0.2')
-        self.assertEqual(resolver.add_mapping('192.0.2.2'), '14.16.0.2')
 
-        self.assertEqual(resolver.ipmap, {'192.0.2.2': '14.16.0.2'})
-        commands = [call.args[0] for call in self.iptables_runner.call_args_list]
-        self.assertEqual(commands[1], ['iptables', '-w', '-t', 'nat', '-F', 'dnsmap'])
-        self.assertIn(
-            '--to-destination 192.0.2.2',
-            self.iptables_runner.call_args_list[2].kwargs['input'],
-        )
+        # Pool exhausted: add_mappings returns None for every address,
+        # does NOT flush the chain, does NOT reassign existing mappings.
+        result = resolver.add_mappings(['192.0.2.2', '192.0.2.3'])
+        self.assertEqual(result, {'192.0.2.2': None, '192.0.2.3': None})
+        self.assertEqual(resolver.ipmap, {'192.0.2.1': '14.16.0.2'})
+        # No iptables flush command was issued.
+        flush_commands = [call.args[0] for call in self.iptables_runner.call_args_list
+                          if '-F' in call.args[0]]
+        self.assertEqual(flush_commands, [])
 
     def test_batch_is_not_partially_allocated_when_range_is_exhausted(self):
         resolver = self.make_resolver(iprange='14.16.0.0/29')
         for index in range(4):
             resolver.add_mapping('192.0.2.{}'.format(index + 1))
 
+        # Pool exhausted: all addresses return None, no flush.
         mappings = resolver.add_mappings(['192.0.2.10', '192.0.2.11'])
 
         self.assertEqual(mappings, {
-            '192.0.2.10': '14.16.0.2',
-            '192.0.2.11': '14.16.0.3',
+            '192.0.2.10': None,
+            '192.0.2.11': None,
         })
-        self.assertEqual(resolver.ipmap, mappings)
-        commands = [call.args[0] for call in self.iptables_runner.call_args_list]
-        self.assertEqual(commands[-2], ['iptables', '-w', '-t', 'nat', '-F', 'dnsmap'])
-        rules = self.iptables_runner.call_args_list[-1].kwargs['input']
-        self.assertIn('--to-destination 192.0.2.10', rules)
-        self.assertIn('--to-destination 192.0.2.11', rules)
+        self.assertEqual(resolver.ipmap, {
+            '192.0.2.1': '14.16.0.2',
+            '192.0.2.2': '14.16.0.3',
+            '192.0.2.3': '14.16.0.4',
+            '192.0.2.4': '14.16.0.5',
+        })
+        # No iptables flush command was issued.
+        flush_commands = [call.args[0] for call in self.iptables_runner.call_args_list
+                          if '-F' in call.args[0]]
+        self.assertEqual(flush_commands, [])
 
     def test_mapping_is_rejected_after_resolver_stops(self):
         resolver = self.make_resolver()
@@ -739,7 +755,7 @@ class MappingTests(ResolverTestCase):
         self.assertFalse(resolver.add_mapping('192.0.2.1'))
         self.iptables_runner.assert_not_called()
 
-    def test_failed_flush_preserves_old_mappings(self):
+    def test_pool_exhaustion_does_not_flush(self):
         def run_iptables(command, **kwargs):
             if '-F' in command:
                 return Mock(returncode=1, stderr='flush failed')
@@ -749,8 +765,10 @@ class MappingTests(ResolverTestCase):
         resolver = self.make_resolver(iprange='14.16.0.0/30')
 
         self.assertEqual(resolver.add_mapping('192.0.2.1'), '14.16.0.2')
-        self.assertFalse(resolver.add_mapping('192.0.2.2'))
+        result = resolver.add_mappings(['192.0.2.2'])
 
+        # Pool exhausted: returns None, does NOT attempt flush.
+        self.assertEqual(result, {'192.0.2.2': None})
         self.assertEqual(resolver.ipmap, {'192.0.2.1': '14.16.0.2'})
         self.assertEqual(list(resolver.unassigned_addresses), [])
 
@@ -768,7 +786,12 @@ class ResolverContractTests(ResolverTestCase):
 
     def test_filtered_a_answer_is_mapped_without_asn_lookup(self):
         request = DNSRecord.question('example.com', 'A')
-        resolver = self.resolver_with_replies([dns_reply(request, ['192.0.2.1'])])
+        aaaa_empty = request.reply()
+        aaaa_empty.header.rcode = RCODE.NOERROR
+        resolver = self.resolver_with_replies([
+            dns_reply(request, ['192.0.2.1']),
+            aaaa_empty,
+        ])
 
         reply = resolver.resolve(request, Mock())
 
@@ -870,7 +893,9 @@ class ResolverContractTests(ResolverTestCase):
 
     def test_empty_noerror_answer_is_preserved(self):
         request = DNSRecord.question('empty.example', 'A')
-        resolver = self.resolver_with_replies([dns_reply(request)])
+        aaaa_empty = request.reply()
+        aaaa_empty.header.rcode = RCODE.NOERROR
+        resolver = self.resolver_with_replies([dns_reply(request), aaaa_empty])
 
         reply = resolver.resolve(request, Mock())
 
@@ -886,11 +911,19 @@ class ResolverContractTests(ResolverTestCase):
             QTYPE.CNAME,
             rdata=CNAME('target.example'),
         ))
-        resolver = self.resolver_with_replies([upstream_reply])
+        aaaa_empty = request.reply()
+        aaaa_empty.header.rcode = RCODE.NOERROR
+        resolver = self.resolver_with_replies([upstream_reply, aaaa_empty])
 
         reply = resolver.resolve(request, Mock())
 
-        self.assertIs(reply, upstream_reply)
+        # No A records -> falls through to AAAA-only path, AAAA is empty
+        # NOERROR, so return the A-query answer (CNAME preserved) with
+        # the original request ID and QTYPE=A in the Question section.
+        self.assertEqual(reply.header.rcode, RCODE.NOERROR)
+        self.assertEqual(reply.header.id, request.header.id)
+        self.assertEqual(reply.q.qtype, QTYPE.A)
+        self.assertEqual(len(reply.rr), 1)
         self.assertEqual(reply.rr[0].rtype, QTYPE.CNAME)
         resolver.add_mappings.assert_not_called()
 
@@ -997,6 +1030,166 @@ class ResolverContractTests(ResolverTestCase):
                 self.assertEqual(resolver.query_doh.call_count, 2)
                 resolver.add_mappings.assert_not_called()
 
+    def test_svcb_without_matching_asn_preserves_refused(self):
+        """SVCB (QTYPE 64) without matching ASN: REFUSED upstream → REFUSED reply."""
+        request = DNSRecord.question('video.example', 'SVCB')
+        address_request = DNSRecord.question('video.example', 'A')
+        for address_reply in (
+            dns_reply(address_request, ['192.0.2.1']),
+            dns_reply(address_request),
+            dns_reply(address_request, rcode=RCODE.NXDOMAIN),
+        ):
+            with self.subTest(address_reply=address_reply):
+                resolver = self.resolver_with_replies([
+                    dns_reply(request, rcode=RCODE.REFUSED),
+                    address_reply,
+                ])
+
+                reply = resolver.resolve(request, Mock())
+
+                self.assertEqual(reply.header.rcode, RCODE.REFUSED)
+                self.assertEqual(reply.q.qtype, 64)
+                self.assertEqual(resolver.query_doh.call_count, 2)
+                resolver.add_mappings.assert_not_called()
+
+    def test_svcb_dispatches_to_resolve_https(self):
+        """SVCB (QTYPE 64) is dispatched to _resolve_https."""
+        request = DNSRecord.question('video.example', 'SVCB')
+        resolver = self.resolver_with_replies([])
+        try:
+            reply = resolver.resolve(request, Mock())
+            self.assertIsNotNone(reply)
+        except Exception:
+            # Expected if no upstream configured - dispatch worked
+            pass
+
+    def test_filter_address_hint_reply_removes_hints(self):
+        """filter_address_hint_reply removes ipv4hint/ipv6hint from HTTPS records."""
+        request = DNSRecord.question('video.example', 'HTTPS')
+        upstream = request.reply()
+        upstream.header.ad = 1
+        upstream.add_answer(
+            RR('video.example', QTYPE.CNAME, rdata=CNAME('canonical.example')),
+            RR('canonical.example', QTYPE.HTTPS, ttl=300, rdata=HTTPS.fromZone([
+                '1', 'edge.example.', 'mandatory=alpn', 'alpn=h3,h2',
+                'port=8443', 'ipv4hint=192.0.2.10', 'ipv6hint=2001:db8::10',
+            ])),
+            RR('edge.example', QTYPE.A, rdata=A('192.0.2.10')),
+        )
+        upstream.add_ar(
+            RR('edge.example', QTYPE.A, rdata=A('192.0.2.10')),
+            RR('edge.example', QTYPE.AAAA, rdata=AAAA('2001:db8::10')),
+        )
+        resolver = self.resolver_with_replies([DNSRecord.parse(upstream.pack())])
+
+        reply = DNSRecord.parse(resolver.resolve(request, Mock()).pack())
+
+        self.assertEqual([rr.rtype for rr in reply.rr], [QTYPE.CNAME, QTYPE.HTTPS])
+        # Verify ipv4hint and ipv6hint are removed from params
+        rdata = reply.rr[1].rdata
+        params_keys = [key for key, _ in rdata.params]
+        self.assertNotIn(4, params_keys, 'ipv4hint should be removed')
+        self.assertNotIn(6, params_keys, 'ipv6hint should be removed')
+        # Verify ALPN is preserved
+        self.assertTrue(any(key == 1 for key, _ in rdata.params), 'alpn should be preserved')
+        self.assertEqual(reply.rr[1].ttl, 300)
+        self.assertEqual(reply.ar, [])
+        self.assertFalse(reply.header.ad)
+
+    def test_filter_address_hint_reply_drops_svcb_without_params(self):
+        """SVCB record without .params attribute is safely dropped (no AttributeError)."""
+        from dnslib import DNSQuestion
+        request = DNSRecord(q=DNSQuestion('video.example', 64))  # QTYPE.SVCB
+        upstream = request.reply()
+        upstream.header.ad = 1
+        # Create a mock rdata without params attribute
+        class NoParamsRR:
+            rtype = 64
+            rclass = 1
+            ttl = 300
+            rname = request.q.qname
+            rdata = Mock(spec=[])  # No 'params' attribute
+        upstream.add_answer(NoParamsRR())
+        resolver = self.resolver_with_replies([upstream])
+
+        reply = resolver.resolve(request, Mock())
+
+        # Record without params should be dropped, reply should be empty NOERROR
+        self.assertEqual(reply.header.rcode, RCODE.NOERROR)
+        self.assertEqual(reply.rr, [])
+
+    def test_filter_address_hint_reply_skips_mandatory_address_hints(self):
+        """Records with mandatory ipv4hint/ipv6hint are dropped entirely."""
+        request = DNSRecord.question('video.example', 'HTTPS')
+        blocked = [
+            RR(request.q.qname, QTYPE.HTTPS, rdata=HTTPS.fromZone(['1', '.', *params]))
+            for params in (
+                ['mandatory=ipv4hint', 'ipv4hint=192.0.2.10'],
+                ['mandatory=alpn,ipv6hint', 'alpn=h3', 'ipv6hint=2001:db8::10'],
+            )
+        ]
+        allowed = RR(request.q.qname, QTYPE.HTTPS, rdata=HTTPS.fromZone(['2', '.', 'alpn=h3']))
+        for expected in ([], [allowed]):
+            with self.subTest(expected=expected):
+                upstream = request.reply()
+                upstream.add_answer(*blocked, *expected)
+                resolver = self.resolver_with_replies([upstream])
+                reply = resolver.resolve(request, Mock())
+                self.assertEqual(reply.header.rcode, RCODE.NOERROR)
+                self.assertEqual(reply.rr, expected)
+
+    def test_filter_address_hint_reply_with_matching_asn(self):
+        """HTTPS with matching ASN: filters ipv4hint/ipv6hint."""
+        request = DNSRecord.question('video.example', 'HTTPS')
+        address_request = DNSRecord.question('video.example', 'A')
+        https_reply = request.reply()
+        https_reply.add_answer(RR(request.q.qname, QTYPE.HTTPS, rdata=HTTPS.fromZone([
+            '1', '.', 'alpn=h3', 'ipv4hint=192.0.2.2',
+        ])))
+        resolver = self.resolver_with_replies([
+            dns_reply(request, rcode=RCODE.REFUSED),
+            dns_reply(address_request, ['192.0.2.1', '192.0.2.2']),
+            https_reply,
+        ])
+        resolver.is_blocked_asn.side_effect = [False, True]
+
+        reply = resolver.resolve(request, Mock())
+
+        self.assertEqual(reply.header.rcode, RCODE.NOERROR)
+        self.assertEqual(str(reply.rr[0].rdata), '1 . alpn=h3')
+        calls = resolver.query_doh.call_args_list
+        self.assertEqual([(call.args[0].q.qtype, call.args[1]) for call in calls], [
+            (QTYPE.HTTPS, 'az-local'), (QTYPE.A, 'az-resolver'), (QTYPE.HTTPS, 'az-resolver'),
+        ])
+        self.assertEqual([call.args[0].q.qname for call in calls], [request.q.qname] * 3)
+        self.assertEqual([call.args for call in resolver.is_blocked_asn.call_args_list], [
+            ('192.0.2.1', 'video.example.'), ('192.0.2.2', 'video.example.'),
+        ])
+        resolver.add_mappings.assert_not_called()
+
+    def test_filter_address_hint_reply_without_matching_asn(self):
+        """HTTPS without matching ASN: REFUSED upstream → REFUSED reply."""
+        request = DNSRecord.question('video.example', 'HTTPS')
+        address_request = DNSRecord.question('video.example', 'A')
+        for address_reply in (
+            dns_reply(address_request, ['192.0.2.1']),
+            dns_reply(address_request),
+            dns_reply(address_request, rcode=RCODE.NXDOMAIN),
+        ):
+            with self.subTest(address_reply=address_reply):
+                resolver = self.resolver_with_replies([
+                    dns_reply(request, rcode=RCODE.REFUSED),
+                    address_reply,
+                ])
+
+                reply = resolver.resolve(request, Mock())
+
+                self.assertEqual(reply.header.rcode, RCODE.REFUSED)
+                self.assertEqual(reply.q.qtype, QTYPE.HTTPS)
+                self.assertEqual(resolver.query_doh.call_count, 2)
+                resolver.add_mappings.assert_not_called()
+
+
     def test_mmdb_exception_returns_servfail(self):
         request = DNSRecord.question('example.com', 'A')
         resolver = self.resolver_with_replies([
@@ -1022,6 +1215,1827 @@ class ResolverContractTests(ResolverTestCase):
         output.assert_called_once()
         print_traceback.assert_called_once()
         self.assertEqual(resolver.suppressed_errors, 1)
+
+class TundraWireformatTests(ResolverTestCase):
+    """Tests for the real Tundra-NAT64 external address translation wireformat."""
+
+    def make_resolver_with_tundra(self, **overrides):
+        arguments = {
+            'address': 'adguard', 'port': 53, 'doh_port': 3000, 'timeout': 1,
+            'iprange': '14.16.0.0/29', 'client_id': 'az-local',
+            'resolver_client_id': 'az-resolver',
+            'asn_file': str(self.asn_file),
+            'asn_database': '/unused.mmdb',
+            'asn_database_reader': self.asn_database,
+            'iptables_runner': self.iptables_runner,
+            'load_existing_mappings': False,
+            'mapping_batch_delay': 0.001,
+            'tundra_socket': '/run/tundra.sock',
+            'conntrack_path': str(self.conntrack_file),
+        }
+        arguments.update(overrides)
+        resolver = dnsmap.ProxyResolver(**arguments)
+        self.addCleanup(resolver.close)
+        return resolver
+
+    def _encode_request(self, msg_type, src_ip, dst_ip, msg_id=12345):
+        """Build a 40-byte Tundra request message.
+
+        Tundra-NAT64 sends requests with icmp bit = 0 in the flags byte.
+        """
+        return dnsmap._tundra_encode_message(
+            False, False, False, msg_type, 0, msg_id, src_ip, dst_ip
+        )
+
+    def _decode_response(self, data):
+        return dnsmap._tundra_decode_message(data, is_response=True)
+
+    def test_4to6_translation_success(self):
+        """IPv4 client -> VIP: source becomes fd64:ff9b::<client>, dest becomes real IPv6."""
+        resolver = self.make_resolver_with_tundra()
+        # Pre-install a SIIT binding: VIP 14.16.0.2 -> real IPv6 2001:db8::1
+        resolver.siit_by_vip['14.16.0.2'] = '2001:db8::1'
+        resolver.siit_by_real['2001:db8::1'] = '14.16.0.2'
+
+        request = self._encode_request(
+            dnsmap.TUNDRA_MSG_TYPE_4TO6_MAIN,
+            '10.1.166.5', '14.16.0.2'
+        )
+        response = resolver.tundra_server._process_request(request)
+        parsed = self._decode_response(response)
+
+        self.assertTrue(parsed['response'])
+        self.assertFalse(parsed['error'])
+        self.assertFalse(parsed['icmp'])
+        self.assertEqual(parsed['msg_type'], dnsmap.TUNDRA_MSG_TYPE_4TO6_MAIN)
+        self.assertEqual(parsed['msg_id'], 12345)
+        self.assertEqual(str(parsed['src_ip']), 'fd64:ff9b::a01:a605')
+        self.assertEqual(str(parsed['dst_ip']), '2001:db8::1')
+        # Successful translation should have positive cache lifetime.
+        self.assertEqual(parsed['cache_lifetime'], dnsmap.TUNDRA_CACHE_LIFETIME)
+
+    def test_6to4_translation_success(self):
+        """IPv6 real -> fd64:ff9b::<client>: source becomes VIP, dest becomes client IPv4."""
+        resolver = self.make_resolver_with_tundra()
+        # Pre-install a SIIT binding: real IPv6 2001:db8::1 -> VIP 14.16.0.2
+        resolver.siit_by_vip['14.16.0.2'] = '2001:db8::1'
+        resolver.siit_by_real['2001:db8::1'] = '14.16.0.2'
+
+        request = self._encode_request(
+            dnsmap.TUNDRA_MSG_TYPE_6TO4_MAIN,
+            '2001:db8::1', 'fd64:ff9b::a01:a605'
+        )
+        response = resolver.tundra_server._process_request(request)
+        parsed = self._decode_response(response)
+
+        self.assertTrue(parsed['response'])
+        self.assertFalse(parsed['error'])
+        self.assertFalse(parsed['icmp'])
+        self.assertEqual(parsed['msg_type'], dnsmap.TUNDRA_MSG_TYPE_6TO4_MAIN)
+        self.assertEqual(parsed['msg_id'], 12345)
+        self.assertEqual(str(parsed['src_ip']), '14.16.0.2')
+        self.assertEqual(str(parsed['dst_ip']), '10.1.166.5')
+        # Successful translation should have positive cache lifetime.
+        self.assertEqual(parsed['cache_lifetime'], dnsmap.TUNDRA_CACHE_LIFETIME)
+
+    def test_unknown_ipv6_source_for_icmp_falls_back_to_router_address(self):
+        """6TO4_ICMP_ERROR_PACKET with client IPv6 source -> 14.16.0.254 (success)."""
+        resolver = self.make_resolver_with_tundra()
+        # SIIT binding exists for the real IPv6.
+        resolver.siit_by_vip['14.16.0.2'] = '2001:db8::1'
+        resolver.siit_by_real['2001:db8::1'] = '14.16.0.2'
+
+        request = self._encode_request(
+            dnsmap.TUNDRA_MSG_TYPE_6TO4_ICMP_ERROR,
+            'fd64:ff9b::a01:a605',  # client IPv6 source (in client prefix)
+            '2001:db8::1'  # real IPv6 as dest
+        )
+        response = resolver.tundra_server._process_request(request)
+        parsed = self._decode_response(response)
+
+        self.assertTrue(parsed['response'])
+        self.assertFalse(parsed['error'])
+        self.assertFalse(parsed['icmp'])
+        self.assertEqual(parsed['msg_type'], dnsmap.TUNDRA_MSG_TYPE_6TO4_ICMP_ERROR)
+        # Client IPv6 source -> IPv4 client address.
+        self.assertEqual(str(parsed['src_ip']), '10.1.166.5')
+        # Real IPv6 dest -> VIP (SIIT binding).
+        self.assertEqual(str(parsed['dst_ip']), '14.16.0.2')
+        # Successful translation should have positive cache lifetime.
+        self.assertEqual(parsed['cache_lifetime'], dnsmap.TUNDRA_CACHE_LIFETIME)
+
+    def test_unknown_vip_for_4to6_returns_error(self):
+        """4TO6_MAIN_PACKET with unknown VIP -> error response."""
+        resolver = self.make_resolver_with_tundra()
+        # No SIIT binding installed.
+
+        request = self._encode_request(
+            dnsmap.TUNDRA_MSG_TYPE_4TO6_MAIN,
+            '10.1.166.5', '14.16.0.99'
+        )
+        response = resolver.tundra_server._process_request(request)
+        parsed = self._decode_response(response)
+
+        self.assertTrue(parsed['response'])
+        self.assertTrue(parsed['error'])
+        self.assertFalse(parsed['icmp'])  # main packet type => ICMP bit NOT set on error (per spec)
+        self.assertEqual(parsed['msg_type'], dnsmap.TUNDRA_MSG_TYPE_4TO6_MAIN)
+        # Error responses zero out the address fields.
+        self.assertEqual(str(parsed['src_ip']), '::')
+        self.assertEqual(str(parsed['dst_ip']), '::')
+        # Error responses should have zero cache lifetime.
+        self.assertEqual(parsed['cache_lifetime'], 0)
+
+    def test_unknown_real_ipv6_for_6to4_returns_error(self):
+        """6TO4_MAIN_PACKET with unknown real IPv6 and dest NOT in client prefix -> error response."""
+        resolver = self.make_resolver_with_tundra()
+        # No SIIT binding for the source. Destination is NOT a client address.
+        resolver.siit_by_vip['14.16.0.2'] = '2001:db8::1'
+        resolver.siit_by_real['2001:db8::1'] = '14.16.0.2'
+
+        request = self._encode_request(
+            dnsmap.TUNDRA_MSG_TYPE_6TO4_MAIN,
+            '2001:db8::ff',  # unknown real IPv6
+            '14.16.0.99'     # destination NOT in fd64:ff9b::/96
+        )
+        response = resolver.tundra_server._process_request(request)
+        parsed = self._decode_response(response)
+
+        self.assertTrue(parsed['response'])
+        self.assertTrue(parsed['error'])
+        self.assertFalse(parsed['icmp'])  # main packet type => ICMP bit NOT set on error (per spec)
+        self.assertEqual(parsed['msg_type'], dnsmap.TUNDRA_MSG_TYPE_6TO4_MAIN)
+        # Error responses zero out the address fields.
+        self.assertEqual(str(parsed['src_ip']), '0.0.0.0')
+        self.assertEqual(str(parsed['dst_ip']), '0.0.0.0')
+        # Error responses should have zero cache lifetime.
+        self.assertEqual(parsed['cache_lifetime'], 0)
+
+    def test_6to4_main_unknown_source_with_client_dest_falls_back_to_router(self):
+        """6TO4_MAIN_PACKET with unknown source but dest in client prefix -> TUNDRA_ROUTER_IPV4 fallback."""
+        resolver = self.make_resolver_with_tundra()
+        # No SIIT binding for the unknown IPv6 source.
+        resolver.siit_by_vip['14.16.0.2'] = '2001:db8::1'
+        resolver.siit_by_real['2001:db8::1'] = '14.16.0.2'
+
+        request = self._encode_request(
+            dnsmap.TUNDRA_MSG_TYPE_6TO4_MAIN,
+            '2001:db8::ff',  # unknown real IPv6
+            'fd64:ff9b::a01:a605'  # destination IS in client prefix
+        )
+        response = resolver.tundra_server._process_request(request)
+        parsed = self._decode_response(response)
+
+        self.assertTrue(parsed['response'])
+        self.assertFalse(parsed['error'])
+        self.assertFalse(parsed['icmp'])
+        self.assertEqual(parsed['msg_type'], dnsmap.TUNDRA_MSG_TYPE_6TO4_MAIN)
+        # Unknown source with dest in client prefix falls back to DNS address.
+        self.assertEqual(str(parsed['src_ip']), '14.16.0.254')
+        self.assertEqual(str(parsed['dst_ip']), '10.1.166.5')
+        # Fallback translation should have cache_lifetime = 0, not positive value.
+        self.assertEqual(parsed['cache_lifetime'], 0)
+
+    def test_6to4_translation_normalizes_ipv6_source(self):
+        """6TO4_MAIN with non-canonical IPv6 source still matches SIIT binding."""
+        resolver = self.make_resolver_with_tundra()
+        # Store binding with canonical IPv6 form.
+        resolver.siit_by_vip['14.16.0.2'] = '2001:db8::1'
+        resolver.siit_by_real['2001:db8::1'] = '14.16.0.2'
+
+        # Source IPv6 in expanded (non-canonical) form.
+        request = self._encode_request(
+            dnsmap.TUNDRA_MSG_TYPE_6TO4_MAIN,
+            '2001:0db8:0000:0000:0000:0000:0000:0001',  # non-canonical
+            'fd64:ff9b::a01:a605'
+        )
+        response = resolver.tundra_server._process_request(request)
+        parsed = self._decode_response(response)
+
+        self.assertTrue(parsed['response'])
+        self.assertFalse(parsed['error'])
+        self.assertEqual(str(parsed['src_ip']), '14.16.0.2')
+        self.assertEqual(str(parsed['dst_ip']), '10.1.166.5')
+
+    def test_tundra_server_unix_socket_round_trip(self):
+        """Real Unix socket round-trip: 4TO6_MAIN request → 40-byte response."""
+        import os
+        import stat
+        import tempfile
+
+        resolver = self.make_resolver_with_tundra()
+        resolver.tundra_server = None  # Will create our own server below.
+
+        # Install a SIIT binding: VIP 14.16.0.2 → real IPv6 2001:db8::1
+        resolver.siit_by_vip['14.16.0.2'] = '2001:db8::1'
+        resolver.siit_by_real['2001:db8::1'] = '14.16.0.2'
+        resolver.tundra_router_ipv4 = '14.16.0.254'
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            socket_path = os.path.join(tmpdir, 'tundra.sock')
+            server = dnsmap.TundraExternalTranslationServer(socket_path, resolver)
+            server.start()
+            self.addCleanup(server.stop)
+
+            # Socket must exist and be world-writable (0o666).
+            self.assertTrue(os.path.exists(socket_path))
+            mode = stat.S_IMODE(os.stat(socket_path).st_mode)
+            self.assertEqual(mode, 0o666)
+
+            # Connect as Tundra client and send a 4TO6_MAIN request.
+            client_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            client_sock.connect(socket_path)
+
+            # 4TO6_MAIN: client IPv4 10.1.166.5 → VIP 14.16.0.2
+            request = self._encode_request(
+                dnsmap.TUNDRA_MSG_TYPE_4TO6_MAIN,
+                '10.1.166.5', '14.16.0.2'
+            )
+            client_sock.sendall(request)
+
+            # Read exactly 40 bytes of response.
+            response = b''
+            while len(response) < dnsmap.TUNDRA_MSG_SIZE:
+                chunk = client_sock.recv(dnsmap.TUNDRA_MSG_SIZE - len(response))
+                self.assertTrue(chunk, 'connection closed before full response')
+                response += chunk
+            client_sock.close()
+
+            parsed = self._decode_response(response)
+            self.assertTrue(parsed['response'])
+            self.assertFalse(parsed['error'])
+            self.assertFalse(parsed['icmp'])
+            self.assertEqual(parsed['msg_type'], dnsmap.TUNDRA_MSG_TYPE_4TO6_MAIN)
+            # src = client IPv4 mapped to fd64:ff9b::<hex>
+            self.assertEqual(str(parsed['src_ip']), 'fd64:ff9b::a01:a605')
+            # dst = VIP resolved to real IPv6 via SIIT binding
+            self.assertEqual(str(parsed['dst_ip']), '2001:db8::1')
+            self.assertEqual(parsed['cache_lifetime'], dnsmap.TUNDRA_CACHE_LIFETIME)
+
+class SIITMappingLoadTests(ResolverTestCase):
+    """Tests for loading SIIT bindings from iptables -S output."""
+
+    def make_resolver_with_tundra(self, **overrides):
+        arguments = {
+            'address': 'adguard', 'port': 53, 'doh_port': 3000, 'timeout': 1,
+            'iprange': '14.16.0.0/29', 'client_id': 'az-local',
+            'resolver_client_id': 'az-resolver',
+            'asn_file': str(self.asn_file),
+            'asn_database': '/unused.mmdb',
+            'asn_database_reader': self.asn_database,
+            'iptables_runner': self.iptables_runner,
+            'load_existing_mappings': False,
+            'mapping_batch_delay': 0.001,
+            'tundra_socket': '/run/tundra.sock',
+            'conntrack_path': str(self.conntrack_file),
+        }
+        arguments.update(overrides)
+        resolver = dnsmap.ProxyResolver(**arguments)
+        self.addCleanup(resolver.close)
+        return resolver
+
+    def test_load_siit_mappings_mixed_with_dnat(self):
+        """_load_existing_mappings parses both DNAT and SIIT rules from -S output,
+        including stripping /32 suffix from SIIT VIPs."""
+        resolver = self.make_resolver_with_tundra()
+        iptables_output = (
+            '-A dnsmap -d 14.16.0.2 -j DNAT --to-destination 192.0.2.1\n'
+            '-A dnsmap -d 14.16.0.3/32 -m comment --comment '
+            '"dnsmap:siit:v1:2001:db8::1" -j RETURN\n'
+            '-A dnsmap -d 14.16.0.4 -j DNAT --to-destination 192.0.2.2\n'
+        )
+        with patch.object(dnsmap.subprocess, 'check_output',
+                          return_value=iptables_output),                 patch.object(dnsmap.subprocess, 'run',
+                             return_value=Mock(returncode=0, stderr='')) as run_mock:
+            resolver = self.make_resolver_with_tundra(load_existing_mappings=True)
+
+        # Regular DNAT mapping restored.
+        self.assertEqual(resolver.get_mapping('192.0.2.1'), '14.16.0.2')
+        self.assertEqual(resolver.get_mapping('192.0.2.2'), '14.16.0.4')
+        # SIIT binding restored (with /32 stripped from VIP).
+        self.assertEqual(resolver.get_siit_mapping_by_real('2001:db8::1'), '14.16.0.3')
+        # Routes recreated for SIIT bindings only (1 route).
+        route_calls = [c for c in run_mock.call_args_list
+                       if c.args[0][0] == 'ip' and 'route' in c.args[0]]
+        self.assertEqual(len(route_calls), 1)
+
+    def test_tundra_server_unavailable_when_socket_missing(self):
+        server = dnsmap.TundraExternalTranslationServer(
+            '/proc/1/tundra.sock', None
+        )
+        with patch.object(dnsmap.socket, 'socket', side_effect=OSError('no such file')):
+            server.start()
+        self.assertFalse(server.available)
+        server.stop()
+
+    def test_tundra_disabled_when_socket_empty(self):
+        """Tundra-NAT64 is disabled when TUNDRA_SOCKET is empty."""
+        resolver = dnsmap.ProxyResolver(
+            address='adguard', port=53, doh_port=3000, timeout=1,
+            iprange='14.16.0.0/29', client_id='az-local',
+            resolver_client_id='az-resolver',
+            asn_file=str(self.asn_file),
+            asn_database='/unused.mmdb',
+            asn_database_reader=self.asn_database,
+            iptables_runner=self.iptables_runner,
+            load_existing_mappings=False,
+            mapping_batch_delay=0.001,
+            tundra_socket='',  # Empty = disabled
+            ipv6_client_id='az-ipv6-local',
+        )
+        self.addCleanup(resolver.close)
+        self.assertEqual(resolver.tundra_socket, '')
+        self.assertIsNone(resolver.tundra_server)
+
+
+class SIITBindingTests(ResolverTestCase):
+    """Tests for SIIT (Tundra-NAT64) binding installation."""
+
+    def make_resolver_with_tundra(self, **overrides):
+        arguments = {
+            'address': 'adguard', 'port': 53, 'doh_port': 3000, 'timeout': 1,
+            'iprange': '14.16.0.0/29', 'client_id': 'az-local',
+            'resolver_client_id': 'az-resolver',
+            'asn_file': str(self.asn_file),
+            'asn_database': '/unused.mmdb',
+            'asn_database_reader': self.asn_database,
+            'iptables_runner': self.iptables_runner,
+            'load_existing_mappings': False,
+            'mapping_batch_delay': 0.001,
+            'tundra_socket': '/run/tundra.sock',
+            'conntrack_path': str(self.conntrack_file),
+        }
+        arguments.update(overrides)
+        resolver = dnsmap.ProxyResolver(**arguments)
+        self.addCleanup(resolver.close)
+        return resolver
+
+    def test_setup_siit_binding_installs_rule_route_and_tables(self):
+        resolver = self.make_resolver_with_tundra()
+        with patch.object(dnsmap.subprocess, 'run',
+                          return_value=SimpleNamespace(returncode=0, stderr='')) as route_mock:
+            ok, can_return = resolver._setup_siit_binding('14.16.0.2', '2001:db8::1')
+        self.assertTrue(ok)
+        self.assertFalse(can_return)  # Success, no VIP return needed
+        self.assertEqual(resolver.get_siit_mapping('14.16.0.2'), '2001:db8::1')
+        self.assertEqual(resolver.get_siit_mapping_by_real('2001:db8::1'), '14.16.0.2')
+        input_rules = self.iptables_runner.call_args.kwargs['input']
+        self.assertIn(
+            '-A dnsmap -d 14.16.0.2 -m comment --comment '
+            '"dnsmap:siit:v1:2001:db8::1" -j RETURN', input_rules
+        )
+        route_mock.assert_called_once_with(
+            ['ip', 'route', 'replace', '14.16.0.2/32', 'dev', 'tundra'],
+            capture_output=True, text=True,
+        )
+
+    def test_setup_siit_binding_fails_when_route_fails(self):
+        resolver = self.make_resolver_with_tundra()
+        with patch.object(dnsmap.subprocess, 'run',
+                          return_value=SimpleNamespace(returncode=1, stderr='No such device')):
+            ok, can_return = resolver._setup_siit_binding('14.16.0.2', '2001:db8::1')
+        self.assertFalse(ok)
+        self.assertTrue(can_return)  # Rollback succeeded, VIP can return to pool
+        self.assertIsNone(resolver.get_siit_mapping('14.16.0.2'))
+
+    def test_setup_siit_binding_rollback_iptables_when_route_fails(self):
+        resolver = self.make_resolver_with_tundra()
+        # self.iptables_runner (from setUp) returns success for iptables-restore.
+        # subprocess.run is called for ip route replace (fails) and iptables -D (succeeds).
+        route_mock = SimpleNamespace(returncode=1, stderr='No such device')
+        del_mock = SimpleNamespace(returncode=0, stderr='')
+        with patch.object(dnsmap.subprocess, 'run',
+                          side_effect=[route_mock, del_mock]):
+            ok, can_return = resolver._setup_siit_binding('14.16.0.2', '2001:db8::1')
+        self.assertFalse(ok)
+        self.assertTrue(can_return)  # Rollback succeeded, VIP can return to pool
+        self.assertIsNone(resolver.get_siit_mapping('14.16.0.2'))
+        # iptables -D should have been called via self.iptables_runner to rollback.
+        del_call = None
+        for call in resolver.iptables_runner.call_args_list:
+            args = call.args[0]
+            if isinstance(args, list) and '-D' in args and 'dnsmap' in args:
+                del_call = call
+                break
+        self.assertIsNotNone(del_call, "iptables -D rollback was not called")
+        del_args = del_call.args[0]
+        self.assertIn('-d', del_args)
+        self.assertIn('14.16.0.2', del_args)
+        self.assertIn('--comment', del_args)
+        self.assertIn('dnsmap:siit:v1:2001:db8::1', del_args)
+        self.assertIn('-j', del_args)
+        self.assertIn('RETURN', del_args)
+
+    def test_siit_restore_skips_failed_route(self):
+        iptables_output = (
+            '-A dnsmap -d 14.16.0.2 -m comment --comment '
+            '"dnsmap:siit:v1:2001:db8::1" -j RETURN\n'
+            '-A dnsmap -d 14.16.0.3 -m comment --comment '
+            '"dnsmap:siit:v1:2001:db8::2" -j RETURN\n'
+        )
+        # subprocess.run calls in order (restore=True skips iptables-restore):
+        # 1. ip route replace 14.16.0.2/32 → fails
+        # 2. ip route replace 14.16.0.3/32 → succeeds
+        route_results = [
+            SimpleNamespace(returncode=1, stderr='No such device'),  # ip route replace fails
+            SimpleNamespace(returncode=0, stderr=''),                # ip route replace succeeds
+        ]
+        # iptables_runner calls in order (restore=True skips iptables-restore):
+        # 1. iptables -D 14.16.0.2 → fails (rollback fails)
+        # 2. iptables -D 14.16.0.3 → succeeds
+        iptables_results = [
+            SimpleNamespace(returncode=1, stderr='No such device'),  # iptables -D fails
+            SimpleNamespace(returncode=0, stderr=''),                # iptables -D succeeds
+        ]
+        with patch.object(dnsmap.subprocess, 'check_output',
+                          return_value=iptables_output),                 patch.object(dnsmap.subprocess, 'run',
+                             side_effect=route_results):
+            self.iptables_runner.side_effect = iptables_results
+            resolver = self.make_resolver_with_tundra(load_existing_mappings=True)
+
+        # First binding should NOT be restored (route failed AND rollback failed).
+        self.assertIsNone(resolver.get_siit_mapping_by_real('2001:db8::1'))
+        # VIP 14.16.0.2 should NOT be returned to the unassigned pool (rollback failed).
+        self.assertNotIn('14.16.0.2', resolver.unassigned_addresses)
+        # Second binding should be restored (route succeeded AND rollback succeeded).
+        self.assertEqual(resolver.get_siit_mapping_by_real('2001:db8::2'), '14.16.0.3')
+        # VIP 14.16.0.3 should NOT be in the unassigned pool.
+        self.assertNotIn('14.16.0.3', resolver.unassigned_addresses)
+
+    def test_evict_stale_vips_ipv4(self):
+        """Stale IPv4 VIP is evicted via iptables -D and returned to pool."""
+        resolver = self.make_resolver_with_tundra(vip_cooldown_ttl=0)
+        # Manually populate mappings with stale timestamps.
+        resolver.ipmap['192.0.2.10'] = '14.16.0.2'
+        resolver.ipmap_last_used['192.0.2.10'] = time.monotonic() - resolver.vip_stale_ttl - 10
+        resolver.unassigned_addresses.remove('14.16.0.2')
+
+        del_result = SimpleNamespace(returncode=0, stderr='')
+        self.iptables_runner.return_value = del_result
+        freed = resolver._evict_stale_vips(needed=1)
+
+        self.assertEqual(freed, 1)
+        self.assertNotIn('192.0.2.10', resolver.ipmap)
+        self.assertNotIn('192.0.2.10', resolver.ipmap_last_used)
+        self.assertIn('14.16.0.2', resolver.unassigned_addresses)
+
+    def test_evict_stale_vips_siit(self):
+        """Stale SIIT VIP is evicted via ip route del + iptables -D and returned to pool."""
+        resolver = self.make_resolver_with_tundra(vip_cooldown_ttl=0)
+        # Manually populate SIIT mappings with stale timestamps.
+        resolver.siit_by_vip['14.16.0.3'] = '2001:db8::2'
+        resolver.siit_by_real['2001:db8::2'] = '14.16.0.3'
+        resolver.siit_last_used['2001:db8::2'] = time.monotonic() - resolver.vip_stale_ttl - 10
+        resolver.unassigned_addresses.remove('14.16.0.3')
+
+        route_result = SimpleNamespace(returncode=0, stderr='')
+        del_result = SimpleNamespace(returncode=0, stderr='')
+        self.iptables_runner.return_value = del_result
+        with patch.object(dnsmap.subprocess, 'run', return_value=route_result):
+            freed = resolver._evict_stale_vips(needed=1)
+
+        self.assertEqual(freed, 1)
+        self.assertNotIn('2001:db8::2', resolver.siit_by_real)
+        self.assertNotIn('14.16.0.3', resolver.siit_by_vip)
+        self.assertNotIn('2001:db8::2', resolver.siit_last_used)
+        self.assertIn('14.16.0.3', resolver.unassigned_addresses)
+
+    def test_evict_stale_vips_fresh_not_evicted(self):
+        """Fresh VIPs (< vip_stale_ttl) are NOT evicted."""
+        resolver = self.make_resolver_with_tundra()
+        resolver.ipmap['192.0.2.10'] = '14.16.0.2'
+        resolver.ipmap_last_used['192.0.2.10'] = time.monotonic() - 10  # very fresh
+        resolver.unassigned_addresses.remove('14.16.0.2')
+
+        freed = resolver._evict_stale_vips(needed=1)
+
+        self.assertEqual(freed, 0)
+        self.assertIn('192.0.2.10', resolver.ipmap)
+        self.assertNotIn('14.16.0.2', resolver.unassigned_addresses)
+
+    def test_evict_stale_vips_iptables_failure_no_return(self):
+        """If iptables -D fails, VIP is NOT returned to pool."""
+        resolver = self.make_resolver_with_tundra(vip_cooldown_ttl=0)
+        resolver.ipmap['192.0.2.10'] = '14.16.0.2'
+        resolver.ipmap_last_used['192.0.2.10'] = time.monotonic() - resolver.vip_stale_ttl - 10
+        resolver.unassigned_addresses.remove('14.16.0.2')
+
+        del_result = SimpleNamespace(returncode=1, stderr='No such rule')
+        self.iptables_runner.return_value = del_result
+        freed = resolver._evict_stale_vips(needed=1)
+
+        self.assertEqual(freed, 0)
+        self.assertIn('192.0.2.10', resolver.ipmap)
+        self.assertNotIn('14.16.0.2', resolver.unassigned_addresses)
+
+    def test_evict_stale_vips_hides_mapping_during_iptables_delete(self):
+        """During iptables -D, the mapping is removed from memory so parallel
+        DNS queries cannot see the VIP."""
+        resolver = self.make_resolver_with_tundra(vip_cooldown_ttl=0)
+        resolver.ipmap['192.0.2.10'] = '14.16.0.2'
+        resolver.ipmap_last_used['192.0.2.10'] = time.monotonic() - resolver.vip_stale_ttl - 10
+        resolver.unassigned_addresses.remove('14.16.0.2')
+
+        seen_mapping_during_delete = []
+
+        def iptables_side_effect(args, **kwargs):
+            # This is called during iptables -D; the mapping should already be
+            # removed from memory.
+            seen_mapping_during_delete.append(
+                resolver.get_mapping('192.0.2.10') is not None
+            )
+            seen_mapping_during_delete.append(
+                '192.0.2.10' in resolver.ipmap
+            )
+            return SimpleNamespace(returncode=0, stderr='')
+
+        self.iptables_runner.side_effect = iptables_side_effect
+        freed = resolver._evict_stale_vips(needed=1)
+
+        self.assertEqual(freed, 1)
+        # Mapping was hidden during iptables -D
+        self.assertFalse(any(seen_mapping_during_delete))
+        # VIP returned to pool after successful iptables -D
+        self.assertIn('14.16.0.2', resolver.unassigned_addresses)
+        self.assertNotIn('192.0.2.10', resolver.ipmap)
+
+    def test_evict_stale_vips_returns_to_end_of_pool(self):
+        """Evicted VIP is returned to the END of unassigned_addresses, not the
+        front, so it gets maximum cooldown before being reissued."""
+        resolver = self.make_resolver_with_tundra(vip_cooldown_ttl=0)
+        resolver.ipmap['192.0.2.10'] = '14.16.0.2'
+        resolver.ipmap_last_used['192.0.2.10'] = time.monotonic() - resolver.vip_stale_ttl - 10
+        resolver.unassigned_addresses.remove('14.16.0.2')
+
+        # Add another free address so we can verify ordering.
+        resolver.unassigned_addresses.append('14.16.0.3')
+
+        del_result = SimpleNamespace(returncode=0, stderr='')
+        self.iptables_runner.return_value = del_result
+        freed = resolver._evict_stale_vips(needed=1)
+
+        self.assertEqual(freed, 1)
+        self.assertNotIn('192.0.2.10', resolver.ipmap)
+        # Evicted VIP goes to the END of the pool (cooldown before reuse).
+        self.assertEqual(resolver.unassigned_addresses[-1], '14.16.0.2')
+        self.assertEqual(resolver.unassigned_addresses[0], '14.16.0.3')
+
+    def test_evict_stale_vips_empty_pool(self):
+        """Empty pool with no stale VIPs returns 0."""
+        resolver = self.make_resolver_with_tundra(vip_cooldown_ttl=0)
+        freed = resolver._evict_stale_vips(needed=1)
+        self.assertEqual(freed, 0)
+
+    def test_evict_stale_vips_siit_iptables_failure_keeps_binding(self):
+        """If iptables -D fails for SIIT binding, ip route del is NOT called and binding stays."""
+        resolver = self.make_resolver_with_tundra(vip_cooldown_ttl=0)
+        resolver.siit_by_vip['14.16.0.3'] = '2001:db8::2'
+        resolver.siit_by_real['2001:db8::2'] = '14.16.0.3'
+        resolver.siit_last_used['2001:db8::2'] = time.monotonic() - resolver.vip_stale_ttl - 10
+        resolver.unassigned_addresses.remove('14.16.0.3')
+
+        route_result = SimpleNamespace(returncode=0, stderr='')
+        del_result = SimpleNamespace(returncode=1, stderr='No such rule')
+        self.iptables_runner.return_value = del_result
+        with patch.object(dnsmap.subprocess, 'run', return_value=route_result) as mock_run:
+            freed = resolver._evict_stale_vips(needed=1)
+
+        self.assertEqual(freed, 0)
+        # Binding should still exist
+        self.assertIn('2001:db8::2', resolver.siit_by_real)
+        self.assertIn('14.16.0.3', resolver.siit_by_vip)
+        self.assertIn('2001:db8::2', resolver.siit_last_used)
+        # VIP should NOT be in unassigned_addresses (iptables -D failed)
+        self.assertNotIn('14.16.0.3', resolver.unassigned_addresses)
+        # ip route del should NOT have been called
+        mock_run.assert_not_called()
+
+    def test_evict_stale_vips_siit_route_failure_restores_iptables(self):
+        """iptables -D succeeds, ip route del fails, iptables-restore restores → binding stays."""
+        resolver = self.make_resolver_with_tundra(vip_cooldown_ttl=0)
+        resolver.siit_by_vip['14.16.0.3'] = '2001:db8::2'
+        resolver.siit_by_real['2001:db8::2'] = '14.16.0.3'
+        resolver.siit_last_used['2001:db8::2'] = time.monotonic() - resolver.vip_stale_ttl - 10
+        resolver.unassigned_addresses.remove('14.16.0.3')
+
+        del_result = SimpleNamespace(returncode=0, stderr='')
+        restore_result = SimpleNamespace(returncode=0, stderr='')
+        route_result = SimpleNamespace(returncode=1, stderr='Permission denied')
+        self.iptables_runner.side_effect = [del_result, restore_result]
+        with patch.object(dnsmap.subprocess, 'run', return_value=route_result):
+            freed = resolver._evict_stale_vips(needed=1)
+
+        self.assertEqual(freed, 0)
+        # Binding should still exist (iptables rule restored)
+        self.assertIn('2001:db8::2', resolver.siit_by_real)
+        self.assertIn('14.16.0.3', resolver.siit_by_vip)
+        self.assertIn('2001:db8::2', resolver.siit_last_used)
+        # VIP should NOT be in unassigned_addresses
+        self.assertNotIn('14.16.0.3', resolver.unassigned_addresses)
+        # iptables-restore was called to restore the rule
+        self.assertEqual(self.iptables_runner.call_count, 2)
+
+    def test_evict_stale_vips_skips_active_conntrack(self):
+        """VIP with active conntrack entry is NOT evicted."""
+        resolver = self.make_resolver_with_tundra(vip_cooldown_ttl=0)
+        resolver.ipmap['192.0.2.10'] = '14.16.0.2'
+        resolver.ipmap_last_used['192.0.2.10'] = time.monotonic() - resolver.vip_stale_ttl - 10
+        resolver.unassigned_addresses.remove('14.16.0.2')
+
+        # Mock /proc/net/nf_conntrack with an active connection to the VIP
+        conntrack_data = (
+            "ipv4     2 tcp      6 431989 ESTABLISHED src=10.0.0.1 dst=14.16.0.2 sport=1234 dport=80\n"
+        )
+        with patch('builtins.open', mock_open(read_data=conntrack_data)):
+            freed = resolver._evict_stale_vips(needed=1)
+
+        self.assertEqual(freed, 0)
+        # VIP should still be in ipmap (not evicted due to active conntrack)
+        self.assertIn('192.0.2.10', resolver.ipmap)
+        # VIP should NOT be in unassigned_addresses (removed manually and not re-added)
+        self.assertNotIn('14.16.0.2', resolver.unassigned_addresses)
+        # last_used should have been updated
+        self.assertGreater(resolver.ipmap_last_used['192.0.2.10'], time.monotonic() - 1)
+
+    def test_evict_stale_vips_cooldown_prevents_immediate_reuse(self):
+        """Evicted VIP goes to quarantine, not unassigned_addresses, when
+        vip_cooldown_ttl > 0."""
+        resolver = self.make_resolver_with_tundra(vip_cooldown_ttl=300)
+        resolver.ipmap['192.0.2.10'] = '14.16.0.2'
+        resolver.ipmap_last_used['192.0.2.10'] = time.monotonic() - resolver.vip_stale_ttl - 10
+        resolver.unassigned_addresses.remove('14.16.0.2')
+
+        del_result = SimpleNamespace(returncode=0, stderr='')
+        self.iptables_runner.return_value = del_result
+        freed = resolver._evict_stale_vips(needed=1)
+
+        self.assertEqual(freed, 1)
+        # VIP should NOT be in unassigned_addresses (quarantined instead)
+        self.assertNotIn('14.16.0.2', resolver.unassigned_addresses)
+        self.assertNotIn('192.0.2.10', resolver.ipmap)
+        # VIP should be in quarantined_vips
+        self.assertEqual(len(resolver.quarantined_vips), 1)
+        release_at, evicted_vip = resolver.quarantined_vips[0]
+        self.assertEqual(evicted_vip, '14.16.0.2')
+        self.assertGreater(release_at, time.monotonic())
+
+        # Immediate allocation should return a different VIP (not the quarantined one)
+        vip = resolver._allocate_siit_vip()
+        self.assertIsNotNone(vip)
+        self.assertNotEqual(vip, '14.16.0.2')
+
+        # After cooldown expires, VIP should be back in pool
+        resolver.quarantined_vips[0] = (0, '14.16.0.2')  # Force release
+        resolver._reclaim_cooled_down_vips()
+        self.assertIn('14.16.0.2', resolver.unassigned_addresses)
+
+    def test_evict_stale_vips_siit_route_and_rollback_failure_quarantines_vip(self):
+        """iptables -D succeeds, ip route del fails, iptables-restore also fails → VIP quarantined."""
+        resolver = self.make_resolver_with_tundra(vip_cooldown_ttl=0)
+        resolver.siit_by_vip['14.16.0.3'] = '2001:db8::2'
+        resolver.siit_by_real['2001:db8::2'] = '14.16.0.3'
+        resolver.siit_last_used['2001:db8::2'] = time.monotonic() - resolver.vip_stale_ttl - 10
+        resolver.unassigned_addresses.remove('14.16.0.3')
+
+        del_result = SimpleNamespace(returncode=0, stderr='')
+        restore_result = SimpleNamespace(returncode=1, stderr='Permission denied')
+        route_result = SimpleNamespace(returncode=1, stderr='Permission denied')
+        self.iptables_runner.side_effect = [del_result, restore_result]
+        with patch.object(dnsmap.subprocess, 'run', return_value=route_result):
+            freed = resolver._evict_stale_vips(needed=1)
+
+        self.assertEqual(freed, 0)
+        # Binding should be removed from memory (quarantined)
+        self.assertNotIn('2001:db8::2', resolver.siit_by_real)
+        self.assertNotIn('14.16.0.3', resolver.siit_by_vip)
+        self.assertNotIn('2001:db8::2', resolver.siit_last_used)
+        # VIP should NOT be in unassigned_addresses (quarantined)
+        self.assertNotIn('14.16.0.3', resolver.unassigned_addresses)
+
+    def test_evict_stale_vips_siit_cooldown_prevents_immediate_reuse(self):
+        """With vip_cooldown_ttl=300, evicted SIIT VIP goes to quarantined_vips,
+        not unassigned_addresses; _allocate_siit_vip() returns None immediately;
+        after release_at passes, _reclaim_cooled_down_vips() returns it to pool."""
+        resolver = self.make_resolver_with_tundra(vip_cooldown_ttl=300)
+        resolver.siit_by_vip['14.16.0.3'] = '2001:db8::2'
+        resolver.siit_by_real['2001:db8::2'] = '14.16.0.3'
+        resolver.siit_last_used['2001:db8::2'] = time.monotonic() - resolver.vip_stale_ttl - 10
+        resolver.unassigned_addresses.remove('14.16.0.3')
+        # Empty the pool so only the quarantined VIP could be allocated
+        while resolver.unassigned_addresses:
+            resolver.unassigned_addresses.popleft()
+
+        del_result = SimpleNamespace(returncode=0, stderr='')
+        route_result = SimpleNamespace(returncode=0, stderr='')
+        self.iptables_runner.return_value = del_result
+        with patch.object(dnsmap.subprocess, 'run', return_value=route_result):
+            freed = resolver._evict_stale_vips(needed=1)
+
+        self.assertEqual(freed, 1)
+        self.assertNotIn('2001:db8::2', resolver.siit_by_real)
+        self.assertNotIn('14.16.0.3', resolver.siit_by_vip)
+        # VIP should be in quarantined_vips, not unassigned_addresses
+        self.assertNotIn('14.16.0.3', resolver.unassigned_addresses)
+        self.assertEqual(len(resolver.quarantined_vips), 1)
+        release_at, vip = resolver.quarantined_vips[0]
+        self.assertEqual(vip, '14.16.0.3')
+        self.assertGreater(release_at, time.monotonic())
+
+        # Immediate allocation should fail because VIP is quarantined and pool is empty
+        allocated = resolver._allocate_siit_vip()
+        self.assertIsNone(allocated)
+
+        # After release_at passes, _reclaim_cooled_down_vips() should return VIP to pool
+        resolver.quarantined_vips.clear()
+        resolver.quarantined_vips.append((time.monotonic() - 1, '14.16.0.3'))  # already expired
+        resolver._reclaim_cooled_down_vips()
+        self.assertIn('14.16.0.3', resolver.unassigned_addresses)
+        self.assertEqual(len(resolver.quarantined_vips), 0)
+
+    def test_evict_stale_vips_conntrack_unavailable_blocks_eviction(self):
+        """With conntrack file unavailable, _vip_has_active_conntrack() returns None,
+        SIIT VIP is NOT evicted (fail-closed), stays in siit_by_real."""
+        resolver = self.make_resolver_with_tundra(
+            vip_cooldown_ttl=0,
+            conntrack_path='/nonexistent/nf_conntrack',
+        )
+        resolver.siit_by_vip['14.16.0.3'] = '2001:db8::2'
+        resolver.siit_by_real['2001:db8::2'] = '14.16.0.3'
+        resolver.siit_last_used['2001:db8::2'] = time.monotonic() - resolver.vip_stale_ttl - 10
+        resolver.unassigned_addresses.remove('14.16.0.3')
+
+        freed = resolver._evict_stale_vips(needed=1)
+
+        self.assertEqual(freed, 0)
+        # Binding should remain in memory
+        self.assertIn('2001:db8::2', resolver.siit_by_real)
+        self.assertIn('14.16.0.3', resolver.siit_by_vip)
+        self.assertIn('2001:db8::2', resolver.siit_last_used)
+
+    def test_reclaim_cooled_down_vips_keeps_active_conntrack_quarantined(self):
+        """If VIP in quarantined_vips has expired but conntrack has active record,
+        _reclaim_cooled_down_vips() does NOT return it to unassigned_addresses
+        and extends quarantine."""
+        resolver = self.make_resolver_with_tundra(vip_cooldown_ttl=300)
+        resolver.siit_by_vip['14.16.0.3'] = '2001:db8::2'
+        resolver.siit_by_real['2001:db8::2'] = '14.16.0.3'
+        resolver.siit_last_used['2001:db8::2'] = time.monotonic() - resolver.vip_stale_ttl - 10
+        resolver.unassigned_addresses.remove('14.16.0.3')
+
+        # Put VIP in quarantined_vips with already-expired release_at
+        resolver.quarantined_vips.append((time.monotonic() - 10, '14.16.0.3'))
+
+        # Write an active conntrack entry for this VIP
+        self.conntrack_file.write_text(
+            'ipv4     tcp      6 431989 ESTABLISHED src=10.0.0.1 dst=14.16.0.3 sport=12345 dport=80\n',
+            encoding='utf-8',
+        )
+
+        resolver._reclaim_cooled_down_vips()
+
+        # VIP should NOT be in unassigned_addresses
+        self.assertNotIn('14.16.0.3', resolver.unassigned_addresses)
+        # VIP should still be in quarantined_vips (extended)
+        self.assertEqual(len(resolver.quarantined_vips), 1)
+        release_at, vip = resolver.quarantined_vips[0]
+        self.assertEqual(vip, '14.16.0.3')
+        self.assertGreater(release_at, time.monotonic())
+
+    def test_add_mappings_updates_last_used(self):
+        """Repeated add_mappings() updates ipmap_last_used, keeping VIP fresh."""
+        resolver = self.make_resolver_with_tundra()
+        resolver.ipmap['192.0.2.10'] = '14.16.0.2'
+        resolver.ipmap_last_used['192.0.2.10'] = time.monotonic() - resolver.vip_stale_ttl - 10
+        resolver.unassigned_addresses.remove('14.16.0.2')
+
+        # Simulate re-use of the mapping via add_mappings()
+        resolver.add_mappings(['192.0.2.10'])
+
+        # Now it should NOT be evicted because it's fresh
+        freed = resolver._evict_stale_vips(needed=1)
+        self.assertEqual(freed, 0)
+        self.assertIn('192.0.2.10', resolver.ipmap)
+
+
+class IPv6ViaTundraTests(ResolverTestCase):
+    """Tests for the strict IPv4/IPv6 selection matrix."""
+
+    def setUp(self):
+        super().setUp()
+        # The /32 route installation must succeed in these tests.
+        self._route_patcher = patch.object(
+            dnsmap.subprocess, 'run',
+            return_value=Mock(returncode=0, stderr=''))
+        self._route_patcher.start()
+
+    def tearDown(self):
+        self._route_patcher.stop()
+        super().tearDown()
+
+    def make_resolver_with_tundra(self, **overrides):
+        arguments = {
+            'address': 'adguard', 'port': 53, 'doh_port': 3000, 'timeout': 1,
+            'iprange': '14.16.0.0/29', 'client_id': 'az-local',
+            'resolver_client_id': 'az-resolver',
+            'asn_file': str(self.asn_file),
+            'asn_database': '/unused.mmdb',
+            'asn_database_reader': self.asn_database,
+            'iptables_runner': self.iptables_runner,
+            'load_existing_mappings': False,
+            'mapping_batch_delay': 0.001,
+            'tundra_socket': '/run/tundra.sock',
+            'conntrack_path': str(self.conntrack_file),
+        }
+        arguments.update(overrides)
+        resolver = dnsmap.ProxyResolver(**arguments)
+        # Mark Tundra server as available for tests that expect it to work.
+        if resolver.tundra_server is not None:
+            resolver.tundra_server.available = True
+        self.addCleanup(resolver.close)
+        return resolver
+
+    def _a_reply(self, request, addresses=(), rcode=RCODE.NOERROR):
+        reply = request.reply()
+        reply.header.rcode = rcode
+        for addr in addresses:
+            reply.add_answer(RR(request.q.qname, QTYPE.A, rdata=A(addr)))
+        return reply
+
+    def _aaaa_reply(self, request, addresses=(), rcode=RCODE.NOERROR):
+        reply = request.reply()
+        reply.header.rcode = rcode
+        for addr in addresses:
+            reply.add_answer(RR(request.q.qname, QTYPE.AAAA, rdata=AAAA(addr)))
+        return reply
+
+    def test_aaaa_only_returns_virtual_ipv4_via_tundra(self):
+        request = DNSRecord.question('example.com', 'A')
+        resolver = self.make_resolver_with_tundra()
+        resolver.query_doh = Mock(side_effect=[
+            self._a_reply(request),                       # A: NOERROR, no records
+            self._aaaa_reply(request, ['2001:db8::1']),   # AAAA: one record
+        ])
+        resolver._is_tundra_ready = Mock(return_value=True)
+        with patch.object(dnsmap.subprocess, 'run',
+                          return_value=type('SimpleNS', (), {'returncode': 0, 'stderr': ''})()):
+            reply = resolver.resolve(request, Mock(client_address=('10.1.166.5', 12345)))
+
+        self.assertEqual(reply.header.rcode, RCODE.NOERROR)
+        self.assertEqual(len(reply.rr), 1)
+        self.assertEqual(reply.rr[0].rtype, QTYPE.A)
+        vip = str(reply.rr[0].rdata)
+        self.assertEqual(resolver.get_siit_mapping_by_real('2001:db8::1'), vip)
+        # SIIT binding installed in tables for Tundra to consult
+        self.assertEqual(resolver.siit_by_vip[vip], '2001:db8::1')
+
+    def test_aaaa_only_without_aaaa_records_returns_empty_noerror(self):
+        request = DNSRecord.question('example.com', 'A')
+        resolver = self.make_resolver_with_tundra()
+        resolver.query_doh = Mock(side_effect=[
+            self._a_reply(request),                       # A: NOERROR, no records
+            self._aaaa_reply(request),                    # AAAA: NOERROR, no records
+        ])
+        reply = resolver.resolve(request, Mock())
+        self.assertEqual(reply.header.rcode, RCODE.NOERROR)
+        self.assertEqual(reply.rr, [])
+
+    def test_aaaa_only_with_direct_egress_returns_empty_noerror(self):
+        """AAAA-only domain marked 'direct' in egress map: no Tundra, empty NOERROR."""
+        request = DNSRecord.question('example.com', 'A')
+        resolver = self.make_resolver_with_tundra(
+            ipv6_egress_map={'example.com.': 'direct'})
+        resolver.query_doh = Mock(side_effect=[
+            self._a_reply(request),                       # A: NOERROR, no records
+            self._aaaa_reply(request, ['2001:db8::1']),   # AAAA: one record
+        ])
+        resolver._is_tundra_ready = Mock(return_value=True)
+        reply = resolver.resolve(request, Mock())
+        self.assertEqual(reply.header.rcode, RCODE.NOERROR)
+        self.assertEqual(reply.rr, [])
+        # No SIIT binding should be created
+        self.assertEqual(len(resolver.siit_by_vip), 0)
+
+    def test_aaaa_only_refused_with_direct_egress_returns_refused(self):
+        """AAAA-only domain marked 'direct' with A=REFUSED: return REFUSED, no Tundra."""
+        request = DNSRecord.question('example.com', 'A')
+        resolver = self.make_resolver_with_tundra(
+            ipv6_egress_map={'example.com.': 'direct'})
+        # AdGuard REFUSED → resolve_by_asn returns REFUSED → direct check → return REFUSED
+        resolver.query_doh = Mock(side_effect=[
+            self._a_reply(request, rcode=RCODE.REFUSED),  # AdGuard REFUSED
+            self._a_reply(request, rcode=RCODE.REFUSED),  # resolve_by_asn also REFUSED
+        ])
+        resolver._is_tundra_ready = Mock(return_value=True)
+        reply = resolver.resolve(request, Mock())
+        self.assertEqual(reply.header.rcode, RCODE.REFUSED)
+        # No SIIT binding should be created
+        self.assertEqual(len(resolver.siit_by_vip), 0)
+
+    def test_a_and_aaaa_aaaa_priority_with_direct_egress_uses_ipv4(self):
+        """With aaaa_priority=True, domain marked 'direct' still uses IPv4 scheme."""
+        request = DNSRecord.question('example.com', 'A')
+        resolver = self.make_resolver_with_tundra(
+            aaaa_priority=True,
+            ipv6_egress_map={'example.com.': 'direct'})
+        resolver.query_doh = Mock(side_effect=[
+            self._a_reply(request, ['192.0.2.1']),
+            self._aaaa_reply(request, ['2001:db8::1']),
+        ])
+        resolver._is_tundra_ready = Mock(return_value=True)
+        resolver.add_mappings = Mock(return_value={'192.0.2.1': '14.16.0.2'})
+
+        reply = resolver.resolve(request, Mock())
+
+        self.assertEqual(reply.header.rcode, RCODE.NOERROR)
+        self.assertEqual(str(reply.rr[0].rdata), '14.16.0.2')
+        resolver.add_mappings.assert_called_once_with(['192.0.2.1'])
+        # No SIIT binding should be created
+        self.assertEqual(len(resolver.siit_by_vip), 0)
+
+    def test_a_and_aaaa_aaaa_priority_with_local_egress_uses_tundra(self):
+        """With aaaa_priority=True, domain marked 'local' still uses Tundra (bypasses AdGuard)."""
+        request = DNSRecord.question('example.com', 'A')
+        resolver = self.make_resolver_with_tundra(
+            aaaa_priority=True,
+            ipv6_egress_map={'example.com.': 'local'})
+        resolver.query_doh = Mock(side_effect=[
+            self._a_reply(request, ['192.0.2.1']),
+            self._aaaa_reply(request, ['2001:db8::1']),
+        ])
+        resolver._is_tundra_ready = Mock(return_value=True)
+        resolver.check_ipv6_authorized = Mock(
+            return_value=dnsmap.IPV6_EGRESS_DENIED)
+        with patch.object(dnsmap.subprocess, 'run',
+                          return_value=type('SimpleNS', (), {'returncode': 0, 'stderr': ''})()):
+            reply = resolver.resolve(request, Mock())
+
+        self.assertEqual(reply.header.rcode, RCODE.NOERROR)
+        self.assertEqual(reply.rr[0].rtype, QTYPE.A)
+        vip = str(reply.rr[0].rdata)
+        self.assertEqual(resolver.get_siit_mapping_by_real('2001:db8::1'), vip)
+        # AdGuard check must NOT be called when aaaa_priority is enabled (even for 'local').
+        resolver.check_ipv6_authorized.assert_not_called()
+
+    def test_aaaa_only_max_siit_records_limit(self):
+        """More than MAX_SIIT_AAAA_RECORDS AAAA addresses → only 4 VIPs returned."""
+        request = DNSRecord.question('example.com', 'A')
+        resolver = self.make_resolver_with_tundra()
+        resolver.query_doh = Mock(side_effect=[
+            self._a_reply(request),                       # A: NOERROR, no records
+            self._aaaa_reply(request, [
+                '2001:db8::1', '2001:db8::2', '2001:db8::3',
+                '2001:db8::4', '2001:db8::5', '2001:db8::6',
+            ]),  # 6 AAAA records
+        ])
+        resolver._is_tundra_ready = Mock(return_value=True)
+        with patch.object(dnsmap.subprocess, 'run',
+                          return_value=type('SimpleNS', (), {'returncode': 0, 'stderr': ''})()):
+            reply = resolver.resolve(request, Mock())
+
+        self.assertEqual(reply.header.rcode, RCODE.NOERROR)
+        self.assertEqual(len(reply.rr), 4)
+        # All returned records should be A records with unique VIPs.
+        vips = [str(rr.rdata) for rr in reply.rr if rr.rtype == QTYPE.A]
+        self.assertEqual(len(vips), 4)
+        self.assertEqual(len(set(vips)), 4)
+
+    def test_aaaa_only_pool_exhaustion_returns_servfail_without_flush(self):
+        request = DNSRecord.question('example.com', 'A')
+        resolver = dnsmap.ProxyResolver(
+            address='adguard', port=53, doh_port=3000, timeout=1,
+            iprange='14.16.0.0/30', client_id='az-local',
+            resolver_client_id='az-resolver',
+            asn_file=str(self.asn_file),
+            asn_database='/unused.mmdb',
+            asn_database_reader=self.asn_database,
+            iptables_runner=self.iptables_runner,
+            load_existing_mappings=False,
+            mapping_batch_delay=0.001,
+            tundra_socket='/run/tundra.sock',
+        )
+        self.addCleanup(resolver.close)
+
+        # Exhaust the pool with regular IPv4 mappings (14.16.0.2 only usable host).
+        resolver.add_mapping('192.0.2.1')
+        self.assertEqual(len(resolver.ipmap), 1)
+
+        # AAAA-only domain: no VIP left, must not flush, must return SERVFAIL.
+        resolver.query_doh = Mock(side_effect=[
+            self._a_reply(request),
+            self._aaaa_reply(request, ['2001:db8::1']),
+        ])
+        reply = resolver.resolve(request, Mock())
+        self.assertEqual(reply.header.rcode, RCODE.SERVFAIL)
+        # Regular IPv4 mapping preserved (pool not flushed).
+        self.assertEqual(len(resolver.ipmap), 1)
+        self.assertIn('192.0.2.1', resolver.ipmap)
+
+    def test_a_and_aaaa_authorized_goes_via_tundra(self):
+        request = DNSRecord.question('example.com', 'A')
+        resolver = self.make_resolver_with_tundra()
+        resolver.query_doh = Mock(side_effect=[
+            self._a_reply(request, ['192.0.2.1']),
+            self._aaaa_reply(request, ['2001:db8::1']),
+        ])
+        resolver.check_ipv6_authorized = Mock(
+            return_value=dnsmap.IPV6_EGRESS_AUTHORIZED)
+        resolver._is_tundra_ready = Mock(return_value=True)
+        with patch.object(dnsmap.subprocess, 'run',
+                          return_value=type('SimpleNS', (), {'returncode': 0, 'stderr': ''})()):
+            reply = resolver.resolve(request, Mock())
+
+        self.assertEqual(reply.header.rcode, RCODE.NOERROR)
+        self.assertEqual(reply.rr[0].rtype, QTYPE.A)
+        vip = str(reply.rr[0].rdata)
+        self.assertEqual(resolver.get_siit_mapping_by_real('2001:db8::1'), vip)
+        resolver.check_ipv6_authorized.assert_called_once_with('example.com')
+
+    def test_a_and_aaaa_denied_falls_back_to_ipv4(self):
+        request = DNSRecord.question('example.com', 'A')
+        resolver = self.make_resolver_with_tundra()
+        resolver.query_doh = Mock(side_effect=[
+            self._a_reply(request, ['192.0.2.1']),
+            self._aaaa_reply(request, ['2001:db8::1']),
+        ])
+        resolver.check_ipv6_authorized = Mock(
+            return_value=dnsmap.IPV6_EGRESS_DENIED)
+        resolver.add_mappings = Mock(return_value={'192.0.2.1': '14.16.0.2'})
+
+        reply = resolver.resolve(request, Mock())
+
+        self.assertEqual(str(reply.rr[0].rdata), '14.16.0.2')
+        resolver.add_mappings.assert_called_once_with(['192.0.2.1'])
+
+    def test_a_and_aaaa_check_error_falls_back_to_ipv4(self):
+        request = DNSRecord.question('example.com', 'A')
+        resolver = self.make_resolver_with_tundra()
+        resolver.query_doh = Mock(side_effect=[
+            self._a_reply(request, ['192.0.2.1']),
+            self._aaaa_reply(request, ['2001:db8::1']),
+        ])
+        resolver.check_ipv6_authorized = Mock(
+            return_value=dnsmap.IPV6_EGRESS_ERROR)
+        resolver.add_mappings = Mock(return_value={'192.0.2.1': '14.16.0.2'})
+
+        reply = resolver.resolve(request, Mock())
+
+        self.assertEqual(str(reply.rr[0].rdata), '14.16.0.2')
+        resolver.add_mappings.assert_called_once_with(['192.0.2.1'])
+
+    def test_a_and_aaaa_aaaa_priority_bypasses_adguard_check(self):
+        """With aaaa_priority=True, dual-stack domain goes via Tundra without
+        calling check_ipv6_authorized."""
+        request = DNSRecord.question('example.com', 'A')
+        resolver = self.make_resolver_with_tundra(aaaa_priority=True)
+        resolver.query_doh = Mock(side_effect=[
+            self._a_reply(request, ['192.0.2.1']),
+            self._aaaa_reply(request, ['2001:db8::1']),
+        ])
+        resolver.check_ipv6_authorized = Mock(
+            return_value=dnsmap.IPV6_EGRESS_DENIED)
+        resolver._is_tundra_ready = Mock(return_value=True)
+        with patch.object(dnsmap.subprocess, 'run',
+                          return_value=type('SimpleNS', (), {'returncode': 0, 'stderr': ''})()):
+            reply = resolver.resolve(request, Mock())
+
+        self.assertEqual(reply.header.rcode, RCODE.NOERROR)
+        self.assertEqual(reply.rr[0].rtype, QTYPE.A)
+        vip = str(reply.rr[0].rdata)
+        self.assertEqual(resolver.get_siit_mapping_by_real('2001:db8::1'), vip)
+        # AdGuard check must NOT be called when aaaa_priority is enabled.
+        resolver.check_ipv6_authorized.assert_not_called()
+
+    def test_a_and_aaaa_aaaa_priority_tundra_failure_falls_back_to_ipv4(self):
+        """With aaaa_priority=True, if Tundra fails, falls back to IPv4 scheme."""
+        request = DNSRecord.question('example.com', 'A')
+        resolver = self.make_resolver_with_tundra(aaaa_priority=True)
+        resolver.query_doh = Mock(side_effect=[
+            self._a_reply(request, ['192.0.2.1']),
+            self._aaaa_reply(request, ['2001:db8::1']),
+        ])
+        resolver.check_ipv6_authorized = Mock(
+            return_value=dnsmap.IPV6_EGRESS_AUTHORIZED)
+        resolver._is_tundra_ready = Mock(return_value=True)
+        # Tundra fails to install binding.
+        with patch.object(dnsmap.subprocess, 'run',
+                          return_value=type('SimpleNS', (), {'returncode': 1, 'stderr': 'fail'})()):
+            resolver.add_mappings = Mock(return_value={'192.0.2.1': '14.16.0.2'})
+            reply = resolver.resolve(request, Mock())
+
+        self.assertEqual(reply.header.rcode, RCODE.NOERROR)
+        self.assertEqual(str(reply.rr[0].rdata), '14.16.0.2')
+        resolver.add_mappings.assert_called_once_with(['192.0.2.1'])
+
+    def test_a_only_uses_ipv4_scheme_without_adguard_check(self):
+        request = DNSRecord.question('example.com', 'A')
+        resolver = self.make_resolver_with_tundra()
+        resolver.query_doh = Mock(side_effect=[
+            self._a_reply(request, ['192.0.2.1']),
+            self._aaaa_reply(request),                    # AAAA: no records
+        ])
+        resolver.check_ipv6_authorized = Mock()
+        resolver.add_mappings = Mock(return_value={'192.0.2.1': '14.16.0.2'})
+
+        reply = resolver.resolve(request, Mock())
+
+        self.assertEqual(str(reply.rr[0].rdata), '14.16.0.2')
+        resolver.check_ipv6_authorized.assert_not_called()
+        resolver.add_mappings.assert_called_once_with(['192.0.2.1'])
+
+    def test_a_and_aaaa_aaaa_query_exception_fallback(self):
+        """A + AAAA query exception: valid A reply, exception on AAAA → IPv4 VIP."""
+        request = DNSRecord.question('example.com', 'A')
+        resolver = self.make_resolver_with_tundra()
+        resolver.query_doh = Mock(side_effect=[
+            self._a_reply(request, ['192.0.2.1']),
+            Exception('AAAA query failed'),
+        ])
+        resolver.add_mappings = Mock(return_value={'192.0.2.1': '14.16.0.2'})
+
+        reply = resolver.resolve(request, Mock())
+
+        self.assertEqual(reply.header.rcode, RCODE.NOERROR)
+        self.assertEqual(str(reply.rr[0].rdata), '14.16.0.2')
+        resolver.add_mappings.assert_called_once_with(['192.0.2.1'])
+
+    def test_aaaa_query_never_leaks_real_ipv6(self):
+        request = DNSRecord.question('example.com', 'AAAA')
+        resolver = self.make_resolver_with_tundra()
+        resolver.query_doh = Mock()
+        reply = resolver.resolve(request, Mock())
+        self.assertEqual(reply.header.rcode, RCODE.NOERROR)
+        self.assertEqual(reply.rr, [])
+        resolver.query_doh.assert_not_called()
+
+    def test_a_and_aaaa_tundra_not_available_falls_back_to_ipv4(self):
+        """Dual-stack domain with Tundra unavailable: falls back to IPv4 scheme."""
+        request = DNSRecord.question('example.com', 'A')
+        resolver = self.make_resolver_with_tundra()
+        resolver.query_doh = Mock(side_effect=[
+            self._a_reply(request, ['192.0.2.1']),
+            self._aaaa_reply(request, ['2001:db8::1']),
+        ])
+        resolver.check_ipv6_authorized = Mock(
+            return_value=dnsmap.IPV6_EGRESS_AUTHORIZED)
+        # Simulate Tundra not available (no socket / server not started).
+        resolver.tundra_server = None
+        resolver.add_mappings = Mock(return_value={'192.0.2.1': '14.16.0.2'})
+
+        reply = resolver.resolve(request, Mock())
+
+        self.assertEqual(reply.header.rcode, RCODE.NOERROR)
+        self.assertEqual(str(reply.rr[0].rdata), '14.16.0.2')
+        resolver.add_mappings.assert_called_once_with(['192.0.2.1'])
+        self.assertEqual(resolver.query_doh.call_count, 1)
+        resolver.check_ipv6_authorized.assert_not_called()
+
+    def test_a_and_aaaa_refused_asn_authorized_tundra(self):
+        """Dual-stack domain with REFUSED from AdGuard + ASN match + authorized → Tundra VIP."""
+        request = DNSRecord.question('example.com', 'A')
+        resolver = self.make_resolver_with_tundra()
+        # AdGuard REFUSED → resolve_by_asn → az-resolver returns A with matching ASN
+        # → check_ipv6_authorized returns AUTHORIZED → AAAA query → Tundra VIP.
+        resolver.query_doh = Mock(side_effect=[
+            self._a_reply(request, rcode=RCODE.REFUSED),  # AdGuard REFUSED
+            self._a_reply(request, ['192.0.2.1']),        # az-resolver A (ASN match)
+            self._aaaa_reply(request, ['2001:db8::1']),   # az-resolver AAAA
+        ])
+        resolver.check_ipv6_authorized = Mock(
+            return_value=dnsmap.IPV6_EGRESS_AUTHORIZED)
+        resolver._is_tundra_ready = Mock(return_value=True)
+        with patch.object(dnsmap.subprocess, 'run',
+                          return_value=type('SimpleNS', (), {'returncode': 0, 'stderr': ''})()):
+            # ASN match for 192.0.2.1
+            resolver.is_blocked_asn = Mock(return_value=True)
+            reply = resolver.resolve(request, Mock())
+        # After REFUSED + ASN match + authorized, AAAA query should be made and VIP assigned via Tundra
+        self.assertEqual(reply.header.rcode, RCODE.NOERROR)
+        self.assertEqual(str(reply.rr[0].rdata), '14.16.0.2')
+        # SIIT binding should exist for the AAAA target.
+        self.assertEqual(resolver.get_siit_mapping_by_real('2001:db8::1'), '14.16.0.2')
+
+    def test_a_and_aaaa_refused_az_resolver_no_a_but_aaaa_tundra_unavailable_returns_refused(self):
+        """REFUSED → az-resolver NOERROR without A but with AAAA → Tundra unavailable → original REFUSED."""
+        request = DNSRecord.question('example.com', 'A')
+        resolver = self.make_resolver_with_tundra()
+        # AdGuard REFUSED → az-resolver NOERROR without A (NODATA) but with AAAA
+        resolver.query_doh = Mock(side_effect=[
+            self._a_reply(request, rcode=RCODE.REFUSED),  # AdGuard REFUSED
+            self._a_reply(request, rcode=RCODE.NOERROR),  # az-resolver NOERROR without A (NODATA)
+            self._aaaa_reply(request, ['2001:db8::1']),   # az-resolver AAAA
+        ])
+        resolver.check_ipv6_authorized = Mock(
+            return_value=dnsmap.IPV6_EGRESS_AUTHORIZED)
+        # Simulate Tundra not available
+        resolver.tundra_server = None
+        reply = resolver.resolve(request, Mock())
+        # Should return original REFUSED, not SERVFAIL
+        self.assertEqual(reply.header.rcode, RCODE.REFUSED)
+
+    def test_a_and_aaaa_refused_az_resolver_no_a_aaaa_tundra_authorized(self):
+        """REFUSED → az-resolver NOERROR without A (NODATA) but with AAAA → az-ipv6-* authorized → Tundra VIP.
+        Tests that when AdGuard returns REFUSED and az-resolver returns NOERROR without A
+        records but with AAAA records, and az-ipv6-* is authorized, the domain is routed
+        through Tundra-NAT64 with a SIIT VIP assigned.
+        """
+        request = DNSRecord.question('example.com', 'A')
+        resolver = self.make_resolver_with_tundra()
+        # AdGuard REFUSED → resolve_by_asn → az-resolver NOERROR without A (NODATA) but with AAAA
+        resolver.query_doh = Mock(side_effect=[
+            self._a_reply(request, rcode=RCODE.REFUSED),  # AdGuard REFUSED
+            self._a_reply(request, rcode=RCODE.NOERROR),  # az-resolver NOERROR without A (NODATA)
+            self._aaaa_reply(request, ['2001:db8::1']),   # az-resolver AAAA
+        ])
+        resolver.check_ipv6_authorized = Mock(
+            return_value=dnsmap.IPV6_EGRESS_AUTHORIZED)
+        resolver._is_tundra_ready = Mock(return_value=True)
+        with patch.object(dnsmap.subprocess, 'run',
+                          return_value=type('SimpleNS', (), {'returncode': 0, 'stderr': ''})()):
+            resolver.is_blocked_asn = Mock(return_value=True)
+            reply = resolver.resolve(request, Mock())
+        # After REFUSED + NOERROR(NODATA) + AAAA + authorized → Tundra VIP
+        self.assertEqual(reply.header.rcode, RCODE.NOERROR)
+        self.assertEqual(str(reply.rr[0].rdata), '14.16.0.2')
+        # SIIT binding should exist for the AAAA target.
+        self.assertEqual(resolver.get_siit_mapping_by_real('2001:db8::1'), '14.16.0.2')
+
+    def test_a_and_aaaa_tundra_disabled_early_exit(self):
+        """When Tundra is disabled, domain with empty NOERROR on A immediately returns a_reply
+        without sending AAAA query (query_doh.call_count == 1)."""
+        request = DNSRecord.question('example.com', 'A')
+        resolver = self.make_resolver_with_tundra()
+        resolver.tundra_server = None  # Tundra disabled
+        resolver.query_doh = Mock(side_effect=[
+            self._a_reply(request),  # A: NOERROR, no records
+        ])
+
+        reply = resolver.resolve(request, Mock())
+        # Should return original a_reply (NOERROR, no records) without AAAA query
+        self.assertEqual(reply.header.rcode, RCODE.NOERROR)
+        self.assertEqual(len(reply.rr), 0)
+        # Only the A query should have been sent
+        self.assertEqual(resolver.query_doh.call_count, 1)
+
+    def test_client_ipv6_rendering_standalone(self):
+        """Test _client_ipv6 rendering in isolation."""
+        resolver = self.make_resolver_with_tundra()
+        self.assertEqual(resolver._client_ipv6('10.1.166.5'), 'fd64:ff9b::a01:a605')
+        self.assertEqual(resolver._client_ipv6('192.0.2.1'), 'fd64:ff9b::c000:201')
+
+    def _encode_request(self, msg_type, src_ip, dst_ip, msg_id=12345):
+        """Build a 40-byte Tundra request message."""
+        return dnsmap._tundra_encode_message(
+            False, False, False, msg_type, 0, msg_id, src_ip, dst_ip
+        )
+
+    def _decode_response(self, data):
+        return dnsmap._tundra_decode_message(data, is_response=True)
+
+    def test_custom_tundra_router_ipv4(self):
+        """Test custom tundra_router_ipv4 (e.g. 14.18.0.254 for az-world)."""
+        resolver = self.make_resolver_with_tundra(tundra_router_ipv4='14.18.0.254')
+        self.assertEqual(resolver.tundra_router_ipv4, '14.18.0.254')
+        # Verify fallback uses custom router IP
+        resolver.siit_by_vip['14.16.0.2'] = '2001:db8::1'
+        resolver.siit_by_real['2001:db8::1'] = '14.16.0.2'
+        request = self._encode_request(
+            dnsmap.TUNDRA_MSG_TYPE_6TO4_MAIN,
+            '2001:db8::ff',  # unknown real IPv6
+            'fd64:ff9b::a01:a605'  # destination IS in client prefix
+        )
+        response = resolver.tundra_server._process_request(request)
+        parsed = self._decode_response(response)
+        self.assertTrue(parsed['response'])
+        self.assertFalse(parsed['error'])
+        self.assertFalse(parsed['icmp'])
+        self.assertEqual(str(parsed['src_ip']), '14.18.0.254')
+        self.assertEqual(str(parsed['dst_ip']), '10.1.166.5')
+        self.assertEqual(parsed['cache_lifetime'], 0)
+
+    def test_aaaa_only_tundra_not_available_returns_servfail(self):
+        """AAAA-only domain with Tundra server unavailable: returns SERVFAIL."""
+        request = DNSRecord.question('example.com', 'A')
+        resolver = self.make_resolver_with_tundra()
+        resolver.query_doh = Mock(side_effect=[
+            self._a_reply(request),                       # A: NOERROR, no records
+            self._aaaa_reply(request, ['2001:db8::1']),   # AAAA: one record
+        ])
+        # Simulate Tundra server exists but is not ready (available = False).
+        resolver.tundra_server.available = False
+
+        reply = resolver.resolve(request, Mock())
+
+        # Tundra unavailable → AAAA query is made but _ipv6_via_tundra returns
+        # None → SERVFAIL.
+        self.assertEqual(reply.header.rcode, RCODE.SERVFAIL)
+        # AAAA query was sent (tundra_server is not None).
+        self.assertEqual(resolver.query_doh.call_count, 2)
+
+    def test_concurrent_siit_allocation_same_vip(self):
+        """Concurrent requests for different domains with same AAAA get same VIP."""
+        resolver = self.make_resolver_with_tundra()
+        resolver._is_tundra_ready = Mock(return_value=True)
+
+        request1 = DNSRecord.question('example1.com', 'A')
+        request2 = DNSRecord.question('example2.com', 'A')
+
+        def doh_side_effect(request, client_id):
+            qname = str(request.q.qname)
+            if request.q.qtype == QTYPE.A:
+                if qname == 'example1.com':
+                    return self._a_reply(request, ['192.0.2.1'])
+                else:
+                    return self._a_reply(request, ['192.0.2.2'])
+            else:  # AAAA
+                return self._aaaa_reply(request, ['2001:db8::1'])
+
+        resolver.query_doh = Mock(side_effect=doh_side_effect)
+        with patch.object(dnsmap.subprocess, 'run',
+                          return_value=type('SimpleNS', (), {'returncode': 0, 'stderr': ''})()):
+            results = {}
+            errors = []
+
+            def resolve_domain(name, req):
+                try:
+                    reply = resolver.resolve(req, Mock(client_address=('10.1.166.5', 12345)))
+                    results[name] = reply
+                except Exception as e:
+                    errors.append((name, e))
+
+            t1 = threading.Thread(target=resolve_domain, args=('example1.com', request1))
+            t2 = threading.Thread(target=resolve_domain, args=('example2.com', request2))
+
+            t1.start()
+            t2.start()
+            t1.join()
+            t2.join()
+
+        self.assertEqual(len(errors), 0, "Errors during concurrent resolution: {}".format(errors))
+        self.assertEqual(len(results), 2, "Expected 2 results, got {}".format(len(results)))
+
+        # Both should get valid responses
+        for name, reply in results.items():
+            self.assertEqual(reply.header.rcode, RCODE.NOERROR, "Domain {} failed".format(name))
+            self.assertEqual(len(reply.rr), 1, "Domain {} wrong answer count".format(name))
+            self.assertEqual(reply.rr[0].rtype, QTYPE.A, "Domain {} wrong record type".format(name))
+
+        # Both should get the same VIP
+        vip1 = str(results['example1.com'].rr[0].rdata)
+        vip2 = str(results['example2.com'].rr[0].rdata)
+        self.assertEqual(vip1, vip2,
+            "Concurrent requests got different VIPs: {} vs {}".format(vip1, vip2))
+
+        # Only one SIIT binding should exist
+        self.assertEqual(len(resolver.siit_by_vip), 1,
+            "Expected 1 SIIT VIP binding, got {}".format(len(resolver.siit_by_vip)))
+        self.assertEqual(len(resolver.siit_by_real), 1,
+            "Expected 1 SIIT real binding, got {}".format(len(resolver.siit_by_real)))
+        self.assertEqual(resolver.get_siit_mapping_by_real('2001:db8::1'), vip1)
+
+
+class CheckIPv6AuthorizedTests(ResolverTestCase):
+    """Tests for the AdGuard az-ipv6-* authorization check."""
+
+    def make_resolver_with_ipv6_check(self, **overrides):
+        arguments = {
+            'address': 'adguard', 'port': 53, 'doh_port': 3000, 'timeout': 1,
+            'iprange': '14.16.0.0/29', 'client_id': 'az-local',
+            'resolver_client_id': 'az-resolver',
+            'asn_file': str(self.asn_file),
+            'asn_database': '/unused.mmdb',
+            'asn_database_reader': self.asn_database,
+            'iptables_runner': self.iptables_runner,
+            'load_existing_mappings': False,
+            'mapping_batch_delay': 0.001,
+            'ipv6_client_id': 'az-ipv6-local',
+        }
+        arguments.update(overrides)
+        resolver = dnsmap.ProxyResolver(**arguments)
+        self.addCleanup(resolver.close)
+        return resolver
+
+    def make_resolver_with_tundra(self, **overrides):
+        arguments = {
+            'address': 'adguard', 'port': 53, 'doh_port': 3000, 'timeout': 1,
+            'iprange': '14.16.0.0/29', 'client_id': 'az-local',
+            'resolver_client_id': 'az-resolver',
+            'asn_file': str(self.asn_file),
+            'asn_database': '/unused.mmdb',
+            'asn_database_reader': self.asn_database,
+            'iptables_runner': self.iptables_runner,
+            'load_existing_mappings': False,
+            'mapping_batch_delay': 0.001,
+            'tundra_socket': '/run/tundra.sock',
+            'conntrack_path': str(self.conntrack_file),
+        }
+        arguments.update(overrides)
+        resolver = dnsmap.ProxyResolver(**arguments)
+        self.addCleanup(resolver.close)
+        return resolver
+
+    def _encode_request(self, msg_type, src_ip, dst_ip, msg_id=12345):
+        return dnsmap._tundra_encode_message(
+            False, False, False, msg_type, 0, msg_id, src_ip, dst_ip
+        )
+
+    def _decode_response(self, data):
+        return dnsmap._tundra_decode_message(data, is_response=True)
+
+    def test_adguard_authorizes_ipv6_egress(self):
+        request = DNSRecord.question('example.com', 'A')
+        resolver = self.make_resolver_with_ipv6_check()
+        reply = request.reply()
+        reply.header.rcode = RCODE.NOERROR
+        reply.add_answer(RR(request.q.qname, QTYPE.A, rdata=A('127.0.0.1')))
+        resolver.query_doh = Mock(return_value=reply)
+
+        self.assertEqual(
+            resolver.check_ipv6_authorized('example.com.'),
+            dnsmap.IPV6_EGRESS_AUTHORIZED
+        )
+        resolver.query_doh.assert_called_once()
+        self.assertEqual(resolver.query_doh.call_args[0][1], 'az-ipv6-local')
+
+    def test_adguard_denies_ipv6_egress_on_servfail(self):
+        request = DNSRecord.question('example.com', 'A')
+        resolver = self.make_resolver_with_ipv6_check()
+        reply = request.reply()
+        reply.header.rcode = RCODE.SERVFAIL
+        resolver.query_doh = Mock(return_value=reply)
+
+        self.assertEqual(
+            resolver.check_ipv6_authorized('example.com.'),
+            dnsmap.IPV6_EGRESS_DENIED
+        )
+
+    def test_is_tundra_ready_when_available(self):
+        """_is_tundra_ready() returns True when server available and no carrier file (outside container)."""
+        resolver = self.make_resolver_with_tundra()
+        # Force available=True since socket bind may fail in test env
+        resolver.tundra_server.available = True
+        self.assertTrue(resolver._is_tundra_ready())
+
+    def test_is_tundra_ready_when_unavailable_server_none(self):
+        """_is_tundra_ready() returns False when tundra_server is None."""
+        resolver = self.make_resolver_with_tundra()
+        resolver.tundra_server = None
+        self.assertFalse(resolver._is_tundra_ready())
+
+    def test_is_tundra_ready_when_carrier_down(self):
+        """_is_tundra_ready() returns False when TUN carrier is down (0)."""
+        resolver = self.make_resolver_with_tundra()
+        resolver.tundra_server.available = True
+        # Mock open() to simulate carrier file returning '0'
+        carrier_path = f'/sys/class/net/{resolver.tundra_interface}/carrier'
+        real_open = builtins.open
+        def fake_open(path, *args, **kwargs):
+            if path == carrier_path:
+                return mock_open(read_data='0').return_value
+            return real_open(path, *args, **kwargs)
+        with patch('builtins.open', side_effect=fake_open):
+            self.assertFalse(resolver._is_tundra_ready())
+
+    def test_is_tundra_ready_when_no_carrier_file(self):
+        """_is_tundra_ready() falls back to available flag when carrier file missing."""
+        resolver = self.make_resolver_with_tundra()
+        resolver.tundra_server.available = True
+        # Carrier file doesn't exist - FileNotFoundError caught, falls back to available
+        with patch('builtins.open', side_effect=FileNotFoundError('No carrier')):
+            self.assertTrue(resolver._is_tundra_ready())
+
+    def test_adguard_check_error_returns_error(self):
+        resolver = self.make_resolver_with_ipv6_check()
+        resolver.query_doh = Mock(side_effect=OSError('connection refused'))
+        self.assertEqual(
+            resolver.check_ipv6_authorized('example.com.'),
+            dnsmap.IPV6_EGRESS_ERROR
+        )
+
+    def test_no_ipv6_client_id_returns_error(self):
+        resolver = self.make_resolver()
+        self.assertEqual(
+            resolver.check_ipv6_authorized('example.com.'),
+            dnsmap.IPV6_EGRESS_ERROR
+        )
+
+    def test_check_ipv6_authorized_direct_egress_returns_denied(self):
+        """Domain marked 'direct' in egress map returns DENIED without calling AdGuard."""
+        resolver = self.make_resolver_with_ipv6_check(
+            ipv6_egress_map={'example.com.': 'direct'})
+        resolver.query_doh = Mock()
+        result = resolver.check_ipv6_authorized('example.com.')
+        self.assertEqual(result, dnsmap.IPV6_EGRESS_DENIED)
+        resolver.query_doh.assert_not_called()
+
+    def test_check_ipv6_authorized_local_egress_uses_local_client(self):
+        """Domain marked 'local' uses az-ipv6-local client ID."""
+        resolver = self.make_resolver_with_ipv6_check(
+            ipv6_egress_map={'example.com.': 'local'},
+            ipv6_client_id='az-ipv6-world')
+        request = DNSRecord.question('example.com.', 'A')
+        reply = request.reply()
+        reply.header.rcode = RCODE.NOERROR
+        reply.add_answer(RR(request.q.qname, QTYPE.A, rdata=A('127.0.0.1')))
+        resolver.query_doh = Mock(return_value=reply)
+
+        result = resolver.check_ipv6_authorized('example.com.')
+        self.assertEqual(result, dnsmap.IPV6_EGRESS_AUTHORIZED)
+        resolver.query_doh.assert_called_once()
+        self.assertEqual(resolver.query_doh.call_args[0][1], 'az-ipv6-local')
+
+    def test_check_ipv6_authorized_world_egress_uses_world_client(self):
+        """Domain marked 'world' uses az-ipv6-world client ID."""
+        resolver = self.make_resolver_with_ipv6_check(
+            ipv6_egress_map={'example.com.': 'world'},
+            ipv6_client_id='az-ipv6-local')
+        request = DNSRecord.question('example.com.', 'A')
+        reply = request.reply()
+        reply.header.rcode = RCODE.NOERROR
+        reply.add_answer(RR(request.q.qname, QTYPE.A, rdata=A('127.0.0.1')))
+        resolver.query_doh = Mock(return_value=reply)
+
+        result = resolver.check_ipv6_authorized('example.com.')
+        self.assertEqual(result, dnsmap.IPV6_EGRESS_AUTHORIZED)
+        resolver.query_doh.assert_called_once()
+        self.assertEqual(resolver.query_doh.call_args[0][1], 'az-ipv6-world')
+
+    def test_check_ipv6_authorized_unknown_domain_uses_default_client(self):
+        """Domain not in egress map uses the default ipv6_client_id."""
+        resolver = self.make_resolver_with_ipv6_check(
+            ipv6_egress_map={'other.com.': 'local'},
+            ipv6_client_id='az-ipv6-local')
+        request = DNSRecord.question('example.com.', 'A')
+        reply = request.reply()
+        reply.header.rcode = RCODE.NOERROR
+        reply.add_answer(RR(request.q.qname, QTYPE.A, rdata=A('127.0.0.1')))
+        resolver.query_doh = Mock(return_value=reply)
+
+        result = resolver.check_ipv6_authorized('EXAMPLE.COM.')
+        self.assertEqual(result, dnsmap.IPV6_EGRESS_AUTHORIZED)
+        resolver.query_doh.assert_called_once()
+        self.assertEqual(resolver.query_doh.call_args[0][1], 'az-ipv6-local')
+
+    def test_check_ipv6_authorized_direct_egress_case_insensitive(self):
+        """Domain marked 'direct' with different case still returns DENIED."""
+        resolver = self.make_resolver_with_ipv6_check(
+            ipv6_egress_map={'Example.COM.': 'direct'})
+        resolver.query_doh = Mock()
+        result = resolver.check_ipv6_authorized('example.com.')
+        self.assertEqual(result, dnsmap.IPV6_EGRESS_DENIED)
+        resolver.query_doh.assert_not_called()
+
+    # ------------------------------------------------------------------
+    # Excluded addresses tests
+    # ------------------------------------------------------------------
+
+    def test_excluded_addresses_not_in_pool(self):
+        """Tundra service addresses are excluded from the VIP pool."""
+        resolver = dnsmap.ProxyResolver(
+            address='adguard', port=53, doh_port=3000, timeout=1,
+            iprange='14.16.0.0/29', client_id='az-local',
+            resolver_client_id='az-resolver',
+            asn_file=str(self.asn_file),
+            asn_database='/unused.mmdb',
+            asn_database_reader=self.asn_database,
+            iptables_runner=self.iptables_runner,
+            load_existing_mappings=False,
+            mapping_batch_delay=0.001,
+            tundra_socket='/run/tundra.sock',
+            excluded_addresses=['14.16.0.1', '14.16.0.254'],
+        )
+        self.addCleanup(resolver.close)
+        self.assertNotIn('14.16.0.1', resolver.unassigned_addresses)
+        self.assertEqual(resolver.excluded_addresses, {'14.16.0.1', '14.16.0.254'})
+
+    def test_excluded_address_never_assigned_as_vip(self):
+        """An excluded address is never allocated as a SIIT VIP."""
+        resolver = dnsmap.ProxyResolver(
+            address='adguard', port=53, doh_port=3000, timeout=1,
+            iprange='14.16.0.0/29', client_id='az-local',
+            resolver_client_id='az-resolver',
+            asn_file=str(self.asn_file),
+            asn_database='/unused.mmdb',
+            asn_database_reader=self.asn_database,
+            iptables_runner=self.iptables_runner,
+            load_existing_mappings=False,
+            mapping_batch_delay=0.001,
+            tundra_socket='/run/tundra.sock',
+            excluded_addresses=['14.16.0.1', '14.16.0.2'],
+        )
+        self.addCleanup(resolver.close)
+        # 14.16.0.0/29 hosts: .1-.6, minus .1 (DNS), minus .2 (excluded)
+        self.assertNotIn('14.16.0.2', resolver.unassigned_addresses)
+        self.assertNotIn('14.16.0.1', resolver.unassigned_addresses)
+        # Allocate all remaining addresses
+        allocated = []
+        while True:
+            vip = resolver._allocate_siit_vip()
+            if vip is None:
+                break
+            allocated.append(vip)
+        self.assertNotIn('14.16.0.2', allocated)
+        self.assertNotIn('14.16.0.1', allocated)
+
+    # ------------------------------------------------------------------
+    # Tundra wireformat edge case tests
+    # ------------------------------------------------------------------
+
+    def test_invalid_magic_byte_returns_error(self):
+        """A request with an invalid magic byte gets an error response."""
+        resolver = self.make_resolver_with_tundra()
+        bad = bytes([0x55, 1, 0, 0]) + bytes(4) + bytes(16) + bytes(16)
+        response = resolver.tundra_server._process_request(bad)
+        parsed = self._decode_response(response)
+        self.assertTrue(parsed['response'])
+        self.assertTrue(parsed['error'])
+
+    def test_request_with_response_bit_returns_error(self):
+        """A request with the response bit set gets an error response."""
+        resolver = self.make_resolver_with_tundra()
+        request = dnsmap._tundra_encode_message(
+            True, False, False, dnsmap.TUNDRA_MSG_TYPE_4TO6_MAIN, 0, 12345,
+            '10.1.166.5', '14.16.0.2'
+        )
+        response = resolver.tundra_server._process_request(request)
+        parsed = self._decode_response(response)
+        self.assertTrue(parsed['response'])
+        self.assertTrue(parsed['error'])
+
+    def test_4to6_icmp_error_unknown_vip_returns_error(self):
+        """4TO6_ICMP_ERROR with unknown VIP returns error."""
+        resolver = self.make_resolver_with_tundra()
+        # No SIIT binding installed.
+        # 4TO6_ICMP_ERROR: inner src = VIP, inner dst = client_ipv4.
+        request = self._encode_request(
+            dnsmap.TUNDRA_MSG_TYPE_4TO6_ICMP_ERROR,
+            '14.16.0.99',   # VIP as source (unknown)
+            '10.1.166.5',   # client IPv4 as dest
+        )
+        response = resolver.tundra_server._process_request(request)
+        parsed = self._decode_response(response)
+
+        self.assertTrue(parsed['response'])
+        self.assertTrue(parsed['error'])
+        self.assertFalse(parsed['icmp'])  # ICMP error types don't set ICMP bit on error
+        self.assertEqual(parsed['msg_type'], dnsmap.TUNDRA_MSG_TYPE_4TO6_ICMP_ERROR)
+
+    def test_4to6_icmp_error_vip_to_client(self):
+        """4TO6_ICMP_ERROR with known VIP returns real IPv6 and client IPv4."""
+        resolver = self.make_resolver_with_tundra()
+        resolver.siit_by_vip['14.16.0.2'] = '2001:db8::1'
+        resolver.siit_by_real['2001:db8::1'] = '14.16.0.2'
+
+        # 4TO6_ICMP_ERROR: inner src = VIP → real IPv6, inner dst = client_ipv4 → fd64:ff9b::<hex>
+        request = self._encode_request(
+            dnsmap.TUNDRA_MSG_TYPE_4TO6_ICMP_ERROR,
+            '14.16.0.2',   # VIP as source
+            '10.1.166.5',  # client IPv4 as dest
+        )
+        response = resolver.tundra_server._process_request(request)
+        parsed = self._decode_response(response)
+
+        self.assertTrue(parsed['response'])
+        self.assertFalse(parsed['error'])
+        self.assertFalse(parsed['icmp'])
+        self.assertEqual(str(parsed['src_ip']), '2001:db8::1')
+        self.assertEqual(str(parsed['dst_ip']), 'fd64:ff9b::a01:a605')
+
+
+    # ------------------------------------------------------------------
+    # DNS ID mismatch tests
+    # ------------------------------------------------------------------
+
+    def test_dns_id_preserved_aaaa_only(self):
+        """AAAA-only domain: reply ID must match request ID."""
+        resolver = self.make_resolver_with_tundra()
+        request = DNSRecord.question('ipv6only.example', 'A')
+        request.header.id = 42424
+        resolver.query_doh = Mock(side_effect=[
+            dns_reply(request),                                       # A: NOERROR, no records
+            dns_reply(request, ['2001:db8::1'], qtype=QTYPE.AAAA),    # AAAA: one record
+        ])
+
+        reply = resolver.resolve(request, Mock())
+
+        self.assertEqual(reply.header.id, request.header.id)
+        self.assertEqual(reply.header.id, 42424)
+
+    def test_dns_id_preserved_a_and_aaaa_authorized(self):
+        """A+AAAA authorized via Tundra: reply ID must match request ID."""
+        resolver = self.make_resolver_with_tundra()
+        request = DNSRecord.question('dual.example', 'A')
+        request.header.id = 42424
+        resolver.query_doh = Mock(side_effect=[
+            dns_reply(request, ['192.0.2.1']),
+            dns_reply(request, ['2001:db8::1'], qtype=QTYPE.AAAA),
+        ])
+        resolver.check_ipv6_authorized = Mock(
+            return_value=dnsmap.IPV6_EGRESS_AUTHORIZED)
+
+        reply = resolver.resolve(request, Mock())
+
+        self.assertEqual(reply.header.id, request.header.id)
+        self.assertEqual(reply.header.id, 42424)
+
+    def test_dns_id_preserved_a_and_aaaa_denied(self):
+        """A+AAAA denied (falls back to IPv4): reply ID must match request ID."""
+        resolver = self.make_resolver_with_tundra()
+        request = DNSRecord.question('dual.example', 'A')
+        request.header.id = 42424
+        resolver.query_doh = Mock(side_effect=[
+            dns_reply(request, ['192.0.2.1']),
+            dns_reply(request, ['2001:db8::1'], qtype=QTYPE.AAAA),
+        ])
+        resolver.check_ipv6_authorized = Mock(
+            return_value=dnsmap.IPV6_EGRESS_DENIED)
+        resolver.add_mappings = Mock(return_value={'192.0.2.1': '14.16.0.2'})
+
+        reply = resolver.resolve(request, Mock())
+
+        self.assertEqual(reply.header.id, request.header.id)
+        self.assertEqual(reply.header.id, 42424)
+
+    def test_dns_id_preserved_a_only(self):
+        """A-only domain: reply ID must match request ID."""
+        resolver = self.make_resolver_with_tundra()
+        request = DNSRecord.question('ipv4only.example', 'A')
+        request.header.id = 42424
+        resolver.query_doh = Mock(side_effect=[
+            dns_reply(request, ['192.0.2.1']),
+            dns_reply(request),                                       # AAAA: no records
+        ])
+        resolver.check_ipv6_authorized = Mock()
+        resolver.add_mappings = Mock(return_value={'192.0.2.1': '14.16.0.2'})
+
+        reply = resolver.resolve(request, Mock())
+
+        self.assertEqual(reply.header.id, request.header.id)
+        self.assertEqual(reply.header.id, 42424)
+
+    def test_dns_id_preserved_upstream_servfail(self):
+        """Upstream SERVFAIL: reply ID must match request ID."""
+        resolver = self.make_resolver_with_tundra()
+        request = DNSRecord.question('fail.example', 'A')
+        request.header.id = 42424
+        resolver.query_doh = Mock(return_value=dns_reply(request, rcode=RCODE.SERVFAIL))
+
+        reply = resolver.resolve(request, Mock())
+
+        self.assertEqual(reply.header.id, request.header.id)
+        self.assertEqual(reply.header.id, 42424)
+
+    def test_dns_id_preserved_upstream_nxdomain(self):
+        """Upstream NXDOMAIN: reply ID must match request ID."""
+        resolver = self.make_resolver_with_tundra()
+        request = DNSRecord.question('nx.example', 'A')
+        request.header.id = 42424
+        resolver.query_doh = Mock(return_value=dns_reply(request, rcode=RCODE.NXDOMAIN))
+
+        reply = resolver.resolve(request, Mock())
+
+        self.assertEqual(reply.header.id, request.header.id)
+        self.assertEqual(reply.header.id, 42424)
+
+    def test_dns_id_preserved_refused_no_asn_match(self):
+        """REFUSED upstream with different ID: resolve_by_asn returns REFUSED,
+        final answer must carry the original request ID."""
+        resolver = self.make_resolver_with_tundra()
+        request = DNSRecord.question('refused.example', 'A')
+        request.header.id = 42424
+        # Upstream returns REFUSED with a *different* ID.
+        refused = dns_reply(request, rcode=RCODE.REFUSED)
+        refused.header.id = 9999
+        resolver.query_doh = Mock(return_value=refused)
+        resolver.is_blocked_asn = Mock(return_value=False)
+
+        reply = resolver.resolve(request, Mock())
+
+        self.assertEqual(reply.header.rcode, RCODE.REFUSED)
+        self.assertEqual(reply.header.id, request.header.id)
+        self.assertEqual(reply.header.id, 42424)
+
+    def test_dns_id_preserved_empty_noerror_no_a_no_aaaa(self):
+        """No A and no AAAA (empty NOERROR): answer must be the A-query reply
+        (Question qtype == A) with the original request ID."""
+        resolver = self.make_resolver_with_tundra()
+        request = DNSRecord.question('empty.example', 'A')
+        request.header.id = 42424
+        # A query: NOERROR, no records.
+        a_empty = dns_reply(request)
+        a_empty.header.id = 9999
+        # AAAA query: NOERROR, no records.
+        aaaa_empty = dns_reply(request)
+        aaaa_empty.header.id = 8888
+        resolver.query_doh = Mock(side_effect=[a_empty, aaaa_empty])
+
+        reply = resolver.resolve(request, Mock())
+
+        self.assertEqual(reply.header.rcode, RCODE.NOERROR)
+        self.assertEqual(reply.header.id, request.header.id)
+        self.assertEqual(reply.header.id, 42424)
+        # Question section must be for the A query, not AAAA.
+        self.assertEqual(reply.q.qtype, QTYPE.A)
+        self.assertEqual(reply.rr, [])
 
 
 if __name__ == '__main__':

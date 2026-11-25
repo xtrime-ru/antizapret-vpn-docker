@@ -24,6 +24,24 @@ COPY ./routes .
 RUN go test ./... && \
     CGO_ENABLED=0 GOOS=linux go build -a -tags netgo -ldflags '-w -s -extldflags "-static"' -o routes
 
+# Build Tundra-NAT64 on ubuntu:24.04 (glibc) to match runtime-base.
+# Building on alpine:3.20 (musl) without static linking produces a binary
+# that cannot run in the glibc-based runtime image.
+FROM ubuntu:24.04 AS builder-tundra
+ARG TUNDRA_COMMIT=677e4d28d010daa616217c1071b1ea73edd954bf
+RUN apt-get update -q && apt-get install -qqy --no-install-suggests --no-install-recommends \
+    cmake build-essential git ca-certificates linux-libc-dev && \
+    apt-get clean && rm -frv /var/lib/apt/lists/*
+WORKDIR /root
+RUN git init tundra-nat64 && \
+    cd tundra-nat64 && \
+    git fetch --depth 1 https://github.com/vitlabuda/tundra-nat64.git ${TUNDRA_COMMIT} && \
+    git checkout FETCH_HEAD
+WORKDIR /root/tundra-nat64
+RUN cmake -B build -DCMAKE_BUILD_TYPE=Release && \
+    cmake --build build -j"$(nproc)" && \
+    ./build/tundra-nat64 --version
+
 # Small shared build target for dependent services; no exit-node packages.
 FROM scratch AS service-runtime
 COPY --from=builder-routes /app/routes /usr/bin/routes
@@ -43,6 +61,7 @@ RUN <<-"EOT" bash -ex
     curl -fsSLo /tmp/warp.deb "https://pkg.cloudflareclient.com/pool/noble/main/c/cloudflare-warp/cloudflare-warp_${WARP_VERSION}_$(dpkg --print-architecture).deb"
     apt-get install -qqy --no-install-suggests --no-install-recommends \
         bsdmainutils \
+        gettext-base \
         iperf3 \
         dnsutils \
         gawk \
@@ -93,8 +112,10 @@ WORKDIR /root
 COPY --from=builder-api /app/app /opt/api/app
 COPY --from=builder-compose2swarm /app/compose2swarm /usr/bin/compose2swarm
 COPY --from=builder-routes /app/routes /usr/bin/routes
+COPY --from=builder-tundra /root/tundra-nat64/build/tundra-nat64 /usr/bin/tundra-nat64
 COPY --from=vernette/ss-zapret2:v1.0.7 /opt/zapret2/ /opt/zapret2/
 COPY --from=runtime-files /runtime/ /
+COPY ./tundra-nat64.conf.template /etc/tundra-nat64/tundra-nat64.conf.template
 COPY zapret/googlevideo.lua /opt/zapret2/
 COPY zapret/googlevideo-nft.sh /opt/zapret2/init.d/sysv/custom.d/
 
@@ -104,6 +125,19 @@ RUN <<-"EOF" bash -ex
 
     ln -sf /root/antizapret/doall.sh /usr/bin/doall
     ln -sf /root/antizapret/dnsmap.py /usr/bin/dnsmap
+
+    # Verify the Tundra-NAT64 binary runs in the glibc runtime image.
+    /usr/bin/tundra-nat64 --version
+
+    # Generate Tundra-NAT64 config from the template and validate it at build time.
+    # This catches missing keys early, before deployment. The config is written
+    # to /tmp only (not /etc) so it doesn't linger in the image for modes
+    # where Tundra is not used.
+    TUNDRA_INTERFACE=tundra \
+    TUNDRA_ROUTER_IPV4=14.16.0.254 \
+    TUNDRA_SOCKET=/run/tundra/tundra.sock \
+    envsubst < /etc/tundra-nat64/tundra-nat64.conf.template > /tmp/tundra-nat64.conf
+    /usr/bin/tundra-nat64 --config-file=/tmp/tundra-nat64.conf validate-config
 
     rm -frv /tmp/*
 EOF

@@ -107,9 +107,33 @@ services:
   az-local:
     environment:
       - WARP_ENABLED=1
+      # ---------------------------------------------------------------------------
+      # IPv6 egress via Tundra-NAT64 (optional, disabled by default)
+      # ---------------------------------------------------------------------------
+      # To enable IPv6 egress for az-local (Singlebox mode), uncomment the lines
+      # below and point TUNDRA_SOCKET at the Tundra-NAT64 external mapping
+      # protocol Unix socket.
+      #
+      # - TUNDRA_SOCKET=/run/tundra/tundra.sock   # Tundra-NAT64 mapping protocol socket
+      # - TUNDRA_INTERFACE=tundra                 # Tundra TUN interface
+      # ---------------------------------------------------------------------------
       - WARP_PROTOCOL=WireGuard
       - WARP_PORT=500
 
   # az-world:
   #   environment:
   #     - WARP_ENABLED=1
+  #     # ---------------------------------------------------------------------------
+  #     # IPv6 egress via Tundra-NAT64 for az-world (Docker Swarm world node only)
+  #     # ---------------------------------------------------------------------------
+  #     # To enable IPv6 egress for az-world in Swarm mode, uncomment the az-world
+  #     # service above and the lines below.
+  #     #
+  #     # - TUNDRA_SOCKET=/run/tundra/tundra.sock   # Tundra-NAT64 mapping protocol socket
+  #     # - TUNDRA_INTERFACE=tundra                 # Tundra TUN interface
+  #     # SWARM REQUIREMENT: compose.swarm.yml cannot automatically create a
+  #     # dual-stack docker_gwbridge. The administrator must pre-create
+  #     # docker_gwbridge with IPv6 enabled on every Swarm node and ensure
+  #     # /dev/net/tun is accessible inside the container.
+  #     # Run ./scripts/setup-swarm-ipv6-egress.sh --check / --apply on each node.
+  #     # ---------------------------------------------------------------------------
