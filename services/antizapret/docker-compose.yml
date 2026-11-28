@@ -69,6 +69,11 @@ services:
       - WARP_PORT=${WARP_PORT:-500}
       - ZAPRET_ENABLED=0
       - ZAPRET_CONFIG
+      # IPv6 egress via Tundra-NAT64 (per exit node)
+      - TUNDRA_SOCKET=${TUNDRA_SOCKET:-}
+      - TUNDRA_INTERFACE=${TUNDRA_INTERFACE:-tundra}
+      - AAAA_PRIORITY=${AAAA_PRIORITY:-0}
+      - IPV6_EGRESS_MAP=${IPV6_EGRESS_MAP:-}
       - |
         IPS_URL=
         https://xtrime-ru.github.io/antizapret-vpn-docker/lists/ips.txt;

@@ -2,6 +2,8 @@
 **/*.env
 !.gitkeep
 !.dockerignore
+__pycache__/
+*.pyc
 /docker-compose.override.yml
 /config/
 

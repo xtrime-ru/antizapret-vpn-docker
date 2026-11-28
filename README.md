@@ -115,6 +115,8 @@ This repo is based on idea from original [AntiZapret LXD image](https://bitbucke
     - [Amnezia Wireguard Block Size](#amnezia-wireguard-block-size)
   - [Extra information](#extra-information)
   - [Test speed with iperf3](#test-speed-with-iperf3)
+  - [IPv6 Egress / Tundra-NAT64](#ipv6-egress--tundra-nat64)
+- [Version v7 / Migration from v6](#version-v7--migration-from-v6)
 - [Credits](#credits)
 
 # Support and discussions group:
@@ -153,6 +155,8 @@ Recommended to use server located in western countries. Some sites will block us
 The default Compose configuration runs one `az-local` exit container. It handles
 both the local and world domain lists using the `14.16.0.0/15` range.
 
+> Minimum versions: Docker Engine 20.10+ and Compose v2 (Compose CLI v2.24.4+). The `!reset` tag used in `compose.swarm.yml` requires Compose v2.24.4+.
+
 0. Install [Docker Engine](https://docs.docker.com/engine/install/):
    ```bash
    curl -fsSL https://get.docker.com -o get-docker.sh
@@ -162,7 +166,7 @@ both the local and world domain lists using the `14.16.0.0/15` range.
    ```bash
    git clone https://github.com/xtrime-ru/antizapret-vpn-docker.git antizapret
    cd antizapret
-   git checkout v6
+   git checkout v7
    ```
 2. Create docker-compose.override.yml with services you need. Minimal example with only wireguard:
 ```yml
@@ -200,7 +204,7 @@ Some of the sites, which use geoip to block users, will be proxied through **for
 
 0. Repeat steps 0 and 1 from single server installation on **both servers**:
    - Install docker 
-   - Checkout project in same location on both servers.
+   - Checkout project in same location on both servers (`git checkout v7`).
 1. [Primary] Create docker-compose.override.yml on primary node and define which services you need. See step 2 from single server installation.
 1. [Primary] Change hostnames of servers to az-local and az-world for ease of use: `hostnamectl set-hostname az-local`
 1. [Secondary] Change hostnames of servers to az-local and az-world for ease of use: `hostnamectl set-hostname az-world`
@@ -217,7 +221,7 @@ Some of the sites, which use geoip to block users, will be proxied through **for
 1. [Primary] Add labels for nodes `docker node update --label-add location=local az-local && docker node update --label-add location=world az-world`
 1. [Primary]: start swarm. The last Compose file adds `az-world` and splits the address range between both exit nodes:
    ```shell
-   docker compose --env-file compose.swarm.env config | docker run --pull always --rm -i xtrime/antizapret-vpn:6 compose2swarm | docker stack deploy --prune -c - antizapret
+   docker compose --env-file compose.swarm.env config | docker run --pull always --rm -i xtrime/antizapret-vpn:7 compose2swarm | docker stack deploy --prune -c - antizapret
    ```
 1. [Primary]: Docker Swarm does not support passing host devices to services in the same way as Docker Compose, so VPN containers require DKMS kernel modules:
     - [Enable OpenVPN Data Channel Offload (DCO)](#enable-openvpn-data-channel-offload-dco)
@@ -1308,6 +1312,11 @@ You can define these variables in docker-compose.override.yml file for your need
 - `ASN_URL=` - semicolon-separated URLs with ASN numbers or organization names for the local node. The merged result is written to `result/asn.txt`.
 - `ASN_WORLD_URL=` - semicolon-separated URLs with ASN numbers or organization names for the world node. The merged result is written to `result/asn-world.txt`.
 - `ASN_FILES=` - semicolon-separated runtime ASN files read by `dnsmap`. Compose sets both `asn.txt` and `asn-world.txt` for `az-local`; Swarm sets only the corresponding file for each exit service.
+- `TUNDRA_SOCKET` - Unix socket path for the Tundra-NAT64 external address translation protocol. dnsmap acts as the server; Tundra connects to this socket to resolve SIIT address pairs per translated packet. Set to empty string (default) to disable IPv6 egress via Tundra.
+- `TUNDRA_INTERFACE=tundra` - Tundra TUN interface name for VIP `/32` routes. Must match the interface configured in `tundra-nat64.conf`.
+- `TUNDRA_ROUTER_IPV4` - Tundra service address (must differ from the first subnet address (DNS, e.g. `14.16.0.1`) and must never be assigned as a SIIT VIP by dnsmap). Computed dynamically from `AZ_SUBNET` (`.254` of the subnet), e.g. `14.16.0.254` for `az-local`, `14.18.0.254` for `az-world`.
+- `AAAA_PRIORITY=0` - when set to `1`, dual-stack domains (A+AAAA) are routed via Tundra-NAT64 using the AAAA address without requiring AdGuard `az-ipv6-*` authorization. This gives different ingress/egress addresses to help avoid IP-based bans. Default: `0` (AdGuard authorization decides).
+- `IPV6_EGRESS_MAP=` - comma-separated `domain:group` pairs for per-domain IPv6 egress selection. `group` values: `local` (use `az-ipv6-local` AdGuard client for authorization), `world` (use `az-ipv6-world` AdGuard client), `direct` (IPv4-only, no IPv6 egress). Domains not in the map use the default `ipv6_client_id`. Note: `local`/`world` select the AdGuard authorization client; actual IPv6 traffic still uses the current node's Tundra interface. True per-domain routing through different physical exit nodes requires separate Tundra instances per exit and is not implemented in this release.
 - `ZAPRET_ENABLED=0` - set to `1` to enable zapret2 traffic modification for HTTP, HTTPS, and QUIC traffic passing through the container. 
 - `ZAPRET_CONFIG=/opt/zapret2/config/zapret.conf` - path inside the container to the zapret2 configuration file. The default config is created automatically on first start and is persisted at `./config/antizapret/zapret2/zapret.conf`.
 
@@ -1688,6 +1697,201 @@ iperf3 server is included in antizapret-vpn container.
     iperf3 -c az-world.antizapret -i1 -t10 -P10
     iperf3 -c az-world.antizapret -i1 -t10 -P10 -R
     ```
+
+## IPv6 Egress / Tundra-NAT64
+
+IPv6 egress via Tundra-NAT64 replaces the legacy TCP/UDP relay (`ipv6_translator.py`) with packet-level SIIT translation. dnsmap now acts as the external address translation server; Tundra connects to dnsmap's Unix socket to resolve SIIT address pairs per translated packet.
+
+**Opt-in by default**: IPv6 egress via Tundra-NAT64 is disabled unless `TUNDRA_SOCKET` is set to a non-empty value (e.g. `TUNDRA_SOCKET=/run/tundra/tundra.sock`). When `TUNDRA_SOCKET` is empty, dnsmap falls back to IPv4-only behavior.
+
+Key features:
+
+- **Selective IPv6 Egress**: Per-exit-node configuration. `az-local` uses `14.16.0.0/15` and `az-world` uses `14.18.0.0/15`. Virtual addresses are mapped through Tundra to real IPv6 destinations.
+- **Strict IPv4/IPv6 selection matrix**:
+  - Only `AAAA` → IPv6 via Tundra (no AdGuard check)
+  - `A` and `AAAA` + AdGuard `az-ipv6-*` check authorized → IPv6 via Tundra
+  - `A` and `AAAA` + AdGuard check returns `REFUSED` → existing IPv4 scheme
+  - Only `A` → existing IPv4 scheme (no check)
+- **Shared IPv4 pool with SIIT bindings**: Virtual IPv4 addresses (`14.16.x.x` / `14.18.x.x`) are allocated from a shared pool with SIIT bindings stored as `iptables` comments (`dnsmap:siit:v1:<ipv6>`). `/32` routes are installed to the Tundra TUN interface.
+- **Correct 4TO6/6TO4 MAIN and ICMP_ERROR translation**: Inner packet direction is reversed for ICMP error messages. Fallback to `14.16.0.254` (TUNDRA_ROUTER_IPV4) with `cache_lifetime = 0` for unknown IPv6 sources (PMTUD support).
+- **HTTPS/SVCB (QTYPE 64) filtering**: Removes `ipv4hint` (key 4) and `ipv6hint` (key 6) SvcParamKeys so clients never receive real IPv4/IPv6 addresses. Records with mandatory (key 0) requiring address hints or with invalid mandatory length are dropped entirely.
+- **AAAA-only domain handling**: If AdGuard returns `REFUSED` and `az-resolver` returns `NOERROR` without `A` records but with `AAAA` records, the domain is routed through Tundra when authorized via `az-ipv6-*`. If Tundra is unavailable or not authorized, `REFUSED` is returned so CoreDNS can retry the next upstream.
+- **Docktinel integration**: Tundra-NAT64 starts after init.sh creates the config, TUN interface, routes, and the `/run/tundra/ready` marker. `docktinel.sh` registers `tundra-nat64` only when `TUNDRA_SOCKET` is non-empty and parks it when `/run/tundra/disabled` appears.
+- **Docker Compose / Swarm**: `docker-compose.yml` / `compose.swarm.yml` with IPv6 network setup, NAT66 MASQUERADE, and `!reset` / `!override` tags (requires Compose v2.24.4+).
+  - **Swarm limitations**: Compose mode works out of the box (the `ipv6-egress` network is created automatically). In Swarm mode, `docker stack deploy` cannot automatically create a dual-stack `docker_gwbridge` — the administrator must pre-create `docker_gwbridge` with IPv6 enabled on every Swarm node running `az-local`/`az-world`, and ensure `/dev/net/tun` is accessible inside the container (sufficient host privileges). Without this, `init.sh` will not find an IPv6 default route and will safely disable Tundra (falling back to IPv4-only). `docker stack deploy` also does not support `devices:` for `/dev/net/tun` **and does not support `extends:`** — use `compose2swarm` to convert `compose.swarm.yml` before deploying:
+  ```bash
+  docker compose --env-file compose.swarm.env config | docker run --pull always --rm -i xtrime/antizapret-vpn:7 compose2swarm | docker stack deploy --prune -c - antizapret
+  ```
+  Ensure `/dev/net/tun` access for Swarm tasks via a host bind-mount or device cgroup rule, since `compose2swarm` strips `devices:`.
+  - **Swarm node preparation**: On each Swarm node running `az-local`/`az-world`, run:
+    1. `./scripts/setup-swarm-ipv6-egress.sh [--stack <name>] --check` — verify node readiness (IPv6 forwarding, `/dev/net/tun`, dual-stack `docker_gwbridge`).
+    2. `./scripts/setup-swarm-ipv6-egress.sh [--stack <name>] --apply` — enable IPv6 forwarding, ensure `/dev/net/tun`, create/reconcile dual-stack `docker_gwbridge`.
+    3. `./scripts/diagnose-ipv6-egress.sh --swarm [--stack <name>] --check-external` — diagnose Tundra-NAT64 health inside Swarm task containers.
+    Set `SWARM_STACK_NAME` env var (or pass `--stack <name>`) to match services in a named stack (e.g. `antizapret_az-local`).
+- **Diagnostics**: `scripts/diagnose-ipv6-egress.sh` checks Tundra-NAT64 health (env vars, process, socket, TUN, SIIT bindings, routes, MASQUERADE, TCPMSS). Use `--swarm` for Swarm deployments.
+- **Configuration**: `tundra-nat64.conf.template` with 22 required keys; pinned commit `ARG TUNDRA_COMMIT` for reproducible builds.
+
+### aaaa_disabled note
+
+In `AdGuardHome.yaml`, `aaaa_disabled: false` is required globally for internal `az-resolver` AAAA queries. However, `dnsmap` still returns empty `NOERROR` responses to clients on `AAAA` queries — real IPv6 addresses are never leaked to customers.
+
+# Version v7 / Migration from v6
+
+## What's new in v7
+
+- **Tundra-NAT64 replaces `ipv6_translator.py`**: The legacy TCP/UDP relay is removed. IPv6 egress now uses packet-level SIIT translation via Tundra-NAT64, preserving TCP options, working UDP, fragmentation and PMTU correctly.
+- **Opt-in IPv6 egress**: IPv6 egress via Tundra-NAT64 is disabled by default (`TUNDRA_SOCKET` empty). Set `TUNDRA_SOCKET=/run/tundra/tundra.sock` to enable.
+- **Shared IPv4 pool**: IPv4 and SIIT bindings share the same `dnsmap` iptables chain. SIIT bindings are stored as comments (`dnsmap:siit:v1:<ipv6>`) and `/32` routes are installed to the Tundra TUN interface.
+- **Strict IPv4/IPv6 selection matrix**: AAAA-only → Tundra without AdGuard check; dual-stack authorized → Tundra; dual-stack REFUSED/error → IPv4 scheme; A-only → IPv4 scheme.
+- **Conntrack-based VIP eviction protection**: VIPs with active conntrack entries are not evicted. Fail-closed when conntrack is unavailable.
+- **Quarantine/cooldown pool**: Evicted VIPs are held in quarantine for `vip_cooldown_ttl` seconds before reuse.
+- **Per-domain IPv6 egress map**: `IPV6_EGRESS_MAP` selects AdGuard client ID (`az-ipv6-local`, `az-ipv6-world`) or `direct` (IPv4-only) per domain.
+- **AAAA priority**: `AAAA_PRIORITY=1` routes dual-stack domains via Tundra using AAAA without AdGuard authorization.
+- **New scripts**: `scripts/setup-swarm-ipv6-egress.sh` and `scripts/diagnose-ipv6-egress.sh` for Swarm node preparation and diagnostics.
+- **New compose overlay**: `services/antizapret/docker-compose.tundra.yml` adds `/dev/net/tun` device and IPv6 sysctl only when Tundra is enabled.
+
+## Breaking changes from v6
+
+| Area | v6 | v7 |
+|------|----|----|
+| IPv6 translator | `ipv6_translator.py` TCP/UDP relay | Removed; replaced by Tundra-NAT64 SIIT |
+| IPv6 egress | Enabled via `ipv6-egress` network in base compose | Opt-in via `TUNDRA_SOCKET` + `docker-compose.tundra.yml` overlay |
+| `compose.swarm.yml` | `devices: /dev/net/tun` + `cap_add: NET_ADMIN` | `devices:` removed (stripped by compose2swarm); `cap_add: [NET_ADMIN, MKNOD]` |
+| `docker-compose.yml` | `ipv6-egress` network attached to `az-local` | Removed from base; use `docker-compose.tundra.yml` overlay |
+| Environment | No `AAAA_PRIORITY` / `IPV6_EGRESS_MAP` | New variables `AAAA_PRIORITY` and `IPV6_EGRESS_MAP` |
+
+## Migration from v6 to v7
+
+### 1. Checkout v7
+
+```bash
+git fetch
+git checkout v7
+git pull --rebase
+```
+
+### 2. Update `docker-compose.override.yml`
+
+If you previously enabled IPv6 egress via the base `docker-compose.yml` (the `ipv6-egress` network was attached automatically), you now need to explicitly include the Tundra overlay:
+
+```yaml
+# docker-compose.override.yml (add or update)
+services:
+  az-local:
+    environment:
+      - TUNDRA_SOCKET=/run/tundra/tundra.sock
+      - TUNDRA_INTERFACE=tundra
+```
+
+And deploy with the Tundra overlay:
+
+```bash
+docker compose -f docker-compose.yml -f services/antizapret/docker-compose.tundra.yml up -d
+```
+
+Or set `COMPOSE_FILES=docker-compose.yml:services/antizapret/docker-compose.tundra.yml`.
+
+### 3. Swarm nodes
+
+On each Swarm node running `az-local`/`az-world`, run:
+
+```bash
+./scripts/setup-swarm-ipv6-egress.sh --check
+./scripts/setup-swarm-ipv6-egress.sh --apply
+```
+
+This enables IPv6 forwarding, ensures `/dev/net/tun`, and creates/reconciles a dual-stack `docker_gwbridge`.
+
+### 4. Verify
+
+```bash
+./scripts/diagnose-ipv6-egress.sh --swarm --check-external
+```
+
+All checks should pass. If `/run/tundra/disabled` appears, IPv6 egress is disabled and the container falls back to IPv4-only.
+
+## Deploying IPv6 Egress from Scratch
+
+### Docker Compose (single server)
+
+1. Clone and checkout v7:
+   ```bash
+   git clone https://github.com/xtrime-ru/antizapret-vpn-docker.git antizapret
+   cd antizapret
+   git checkout v7
+   ```
+
+2. Create `docker-compose.override.yml` with your services and Tundra settings:
+   ```yaml
+   services:
+     adguard:
+       environment:
+         - ADGUARDHOME_PASSWORD=somestrongpassword
+     wireguard:
+       environment:
+         - WIREGUARD_PASSWORD=somestrongpassword
+       extends:
+         file: services/wireguard/docker-compose.yml
+         service: wireguard
+     az-local:
+       environment:
+         - TUNDRA_SOCKET=/run/tundra/tundra.sock
+         - TUNDRA_INTERFACE=tundra
+         - AAAA_PRIORITY=0
+         - IPV6_EGRESS_MAP=
+   ```
+
+3. Deploy with the Tundra overlay:
+   ```bash
+   docker compose -f docker-compose.yml -f services/antizapret/docker-compose.tundra.yml up -d
+   ```
+
+4. Verify:
+   ```bash
+   ./scripts/diagnose-ipv6-egress.sh --check-external
+   ```
+
+### Docker Swarm (multiple exit nodes)
+
+1. Clone and checkout v7 on **both servers**:
+   ```bash
+   git clone https://github.com/xtrime-ru/antizapret-vpn-docker.git antizapret
+   cd antizapret
+   git checkout v7
+   ```
+
+2. Prepare each Swarm node (run on every node that will run `az-local`/`az-world`):
+   ```bash
+   ./scripts/setup-swarm-ipv6-egress.sh --apply
+   ```
+
+3. Initialize Swarm on primary node:
+   ```bash
+   docker swarm init --advertise-addr <PRIMARY_IP>
+   ```
+
+4. Join secondary node:
+   ```bash
+   docker swarm join --token <TOKEN> <MANAGER_IP>:<PORT>
+   ```
+
+5. Add node labels:
+   ```bash
+   docker node update --label-add location=local az-local
+   docker node update --label-add location=world az-world
+   ```
+
+6. Deploy the stack:
+   ```bash
+   docker compose --env-file compose.swarm.env config | docker run --pull always --rm -i xtrime/antizapret-vpn:7 compose2swarm | docker stack deploy --prune -c - antizapret
+   ```
+   ```
+
+7. Verify on each node:
+   ```bash
+   ./scripts/setup-swarm-ipv6-egress.sh --check
+   ./scripts/diagnose-ipv6-egress.sh --swarm --check-external
+   ```
 
 # Credits
 

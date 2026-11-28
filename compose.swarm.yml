@@ -7,6 +7,18 @@ networks:
   host:
     name: host
     external: true
+  # ipv6-egress is defined in docker-compose.yml for Compose mode but must not
+  # be converted to an IPv6 overlay network in Swarm mode. Reset it here so
+  # compose2swarm does not propagate it.
+  #
+  # SWARM REQUIREMENT: compose.swarm.yml cannot automatically create a
+  # dual-stack docker_gwbridge. The administrator must pre-create
+  # docker_gwbridge with IPv6 enabled on every Swarm node running az-local/
+  # az-world, and ensure /dev/net/tun is accessible inside the container.
+  # Without this, init.sh will not find an IPv6 default route and will safely
+  # disable Tundra (falling back to IPv4-only).
+  # Run ./scripts/setup-swarm-ipv6-egress.sh --check / --apply on each Swarm node.
+  ipv6-egress: !reset null
 
 services:
   az-local:
@@ -15,10 +27,18 @@ services:
         aliases: !override
           - az-local
           - az-local.antizapret
+      # ipv6-egress is reset above; do not attach az-local to it in Swarm.
+      ipv6-egress: !reset null
     environment:
       - AZ_SUBNET=14.16.0.0/15
       - ASN_FILES=/root/antizapret/result/asn.txt
+      # IPv6 egress via Tundra-NAT64 (disabled when TUNDRA_SOCKET is empty)
+      - TUNDRA_SOCKET=${TUNDRA_SOCKET:-}
+      - TUNDRA_INTERFACE=tundra
       - ZAPRET_ENABLED=1
+    cap_add:
+      - NET_ADMIN
+      - MKNOD
 
   az-world:
     hostname: az-world.antizapret
@@ -40,6 +60,12 @@ services:
       - CLIENT=az-world
       - AZ_SUBNET=14.18.0.0/15
       - ASN_FILES=/root/antizapret/result/asn-world.txt
+      # IPv6 egress via Tundra-NAT64 (disabled when TUNDRA_SOCKET is empty)
+      - TUNDRA_SOCKET=${TUNDRA_SOCKET:-}
+      - TUNDRA_INTERFACE=tundra
+    cap_add:
+      - NET_ADMIN
+      - MKNOD
 
   adguard:
     environment:

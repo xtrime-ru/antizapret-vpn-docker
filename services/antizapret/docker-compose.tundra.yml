@@ -1,0 +1,27 @@
+# Tundra-NAT64 IPv6 egress overlay for Compose mode.
+# Only use this file when TUNDRA_SOCKET is set to a non-empty value.
+# It adds the /dev/net/tun device, IPv6 forwarding sysctl, and the
+# ipv6-egress network that are only needed for IPv6 egress via Tundra-NAT64.
+#
+# Usage:
+#   docker-compose -f docker-compose.yml -f services/antizapret/docker-compose.tundra.yml up -d
+#
+# Or set COMPOSE_FILES=docker-compose.yml:services/antizapret/docker-compose.tundra.yml when
+# running diagnose-ipv6-egress.sh.
+
+services:
+  az-local:
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    sysctls:
+      - net.ipv6.conf.all.forwarding=1
+    networks:
+      - ipv6-egress
+
+networks:
+  ipv6-egress:
+    driver: bridge
+    enable_ipv6: true
+    ipam:
+      config:
+        - subnet: fd64:ff9a::/112
